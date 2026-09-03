@@ -14,41 +14,32 @@ function NavLinks() {
   const isAllActive = pathname === '/gallery' && !currentType
   const isOilActive = pathname === '/gallery' && currentType === 'oil'
   const isAcrylicActive = pathname === '/gallery' && currentType === 'acrylic'
-  const isMixedActive = pathname === '/gallery' && currentType === 'mixed'
 
   return (
-    <div className="hidden md:flex items-center gap-x-8">
+    <div className="hidden md:flex items-center gap-x-6 lg:gap-x-8">
       <Link
         href="/gallery"
-        className={`text-sm font-medium transition-colors hover:text-black ${
-          isAllActive ? 'text-black font-semibold border-b-2 border-black pb-1' : 'text-gray-600'
+        className={`text-xs lg:text-sm font-medium transition-colors hover:text-black whitespace-nowrap ${
+          isAllActive ? 'text-black font-semibold border-b-2 border-black pb-0.5' : 'text-gray-600'
         }`}
       >
         All Artworks
       </Link>
       <Link
         href="/gallery?type=oil"
-        className={`text-sm font-medium transition-colors hover:text-black ${
-          isOilActive ? 'text-black font-semibold border-b-2 border-black pb-1' : 'text-gray-600'
+        className={`text-xs lg:text-sm font-medium transition-colors hover:text-black whitespace-nowrap ${
+          isOilActive ? 'text-black font-semibold border-b-2 border-black pb-0.5' : 'text-gray-600'
         }`}
       >
         Oil Paintings
       </Link>
       <Link
         href="/gallery?type=acrylic"
-        className={`text-sm font-medium transition-colors hover:text-black ${
-          isAcrylicActive ? 'text-black font-semibold border-b-2 border-black pb-1' : 'text-gray-600'
+        className={`text-xs lg:text-sm font-medium transition-colors hover:text-black whitespace-nowrap ${
+          isAcrylicActive ? 'text-black font-semibold border-b-2 border-black pb-0.5' : 'text-gray-600'
         }`}
       >
         Acrylics
-      </Link>
-      <Link
-        href="/gallery?type=mixed"
-        className={`text-sm font-medium transition-colors hover:text-black ${
-          isMixedActive ? 'text-black font-semibold border-b-2 border-black pb-1' : 'text-gray-600'
-        }`}
-      >
-        Mixed Media
       </Link>
     </div>
   )
@@ -74,20 +65,20 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
     window.dispatchEvent(new Event('preferredCurrencyChanged'))
   }
 
-  // Do not render customer Navbar on admin pages to avoid double navbars
+  // Do not render customer Navbar on admin pages
   if (pathname?.startsWith('/admin')) {
     return null
   }
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 transition-all duration-300">
-      <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 h-20" aria-label="Global">
+      <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-3 sm:px-6 lg:px-8 h-16 sm:h-20" aria-label="Global">
         
         {/* Left: Brand Title */}
-        <div className="flex items-center">
+        <div className="flex items-center flex-shrink-0">
           <Link href="/" className="group flex items-center">
             <span
-              className="text-xl sm:text-2xl font-bold tracking-tight text-gray-950 group-hover:text-gray-600 transition-colors"
+              className="text-base sm:text-xl lg:text-2xl font-bold tracking-tight text-gray-950 group-hover:text-gray-600 transition-colors whitespace-nowrap"
               style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
             >
               Kazi Canvas Gallery
@@ -101,7 +92,7 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
         </Suspense>
 
         {/* Right: Functional Currency Dropdown, WhatsApp CTA, Hamburger */}
-        <div className="flex items-center gap-3 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 lg:gap-4 flex-shrink-0">
           
           {/* Functional Currency Dropdown */}
           <div className="relative inline-block">
@@ -109,7 +100,7 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
               value={currency}
               onChange={handleCurrencyChange}
               aria-label="Select currency"
-              className="h-10 pl-3.5 pr-8 rounded-lg border border-gray-200 bg-white text-xs sm:text-sm font-semibold text-gray-800 hover:border-gray-400 focus:border-black outline-none appearance-none cursor-pointer shadow-2xs transition-all"
+              className="h-9 sm:h-10 pl-2.5 sm:pl-3.5 pr-7 sm:pr-8 rounded-lg border border-gray-200 bg-white text-xs sm:text-sm font-semibold text-gray-800 hover:border-gray-400 focus:border-black outline-none appearance-none cursor-pointer shadow-2xs transition-all"
             >
               {SUPPORTED_CURRENCIES.map((curr) => (
                 <option key={curr} value={curr}>
@@ -117,7 +108,7 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
                 </option>
               ))}
             </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
+            <ChevronDown className="absolute right-2 sm:right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
           </div>
 
           {/* WhatsApp Button */}
@@ -125,16 +116,16 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
             href={`https://wa.me/${cleanNumber}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="h-10 px-4 sm:px-5 rounded-lg bg-black text-white text-xs sm:text-sm font-semibold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
+            className="h-9 sm:h-10 px-3 sm:px-5 rounded-lg bg-black text-white text-xs sm:text-sm font-semibold flex items-center gap-1.5 sm:gap-2 hover:bg-gray-800 transition-all shadow-sm hover:shadow-md transform hover:-translate-y-0.5 whitespace-nowrap"
           >
-            <MessageCircle className="h-4 w-4 fill-white stroke-none" />
+            <MessageCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-white stroke-none" />
             <span className="hidden sm:inline">WhatsApp</span>
           </a>
 
           {/* Mobile menu icon button */}
           <button
             type="button"
-            className="h-10 w-10 md:hidden inline-flex items-center justify-center rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+            className="h-9 w-9 sm:h-10 sm:w-10 md:hidden inline-flex items-center justify-center rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             <span className="sr-only">Toggle menu</span>
@@ -151,43 +142,36 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
       {/* Mobile Menu Dropdown Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white absolute w-full shadow-xl transition-all duration-300 ease-in-out">
-          <div className="space-y-1.5 px-4 pb-6 pt-4">
+          <div className="space-y-1 px-4 pb-6 pt-3">
             <Link 
               href="/" 
               onClick={() => setMobileMenuOpen(false)}
-              className="block rounded-lg px-3.5 py-2.5 text-base font-medium text-gray-900 hover:bg-gray-50 transition-colors"
+              className="block rounded-lg px-3 py-2 text-base font-medium text-gray-900 hover:bg-gray-50 transition-colors"
             >
               Home
             </Link>
             <Link 
               href="/gallery" 
               onClick={() => setMobileMenuOpen(false)}
-              className="block rounded-lg px-3.5 py-2.5 text-base font-medium text-gray-900 hover:bg-gray-50 transition-colors"
+              className="block rounded-lg px-3 py-2 text-base font-medium text-gray-900 hover:bg-gray-50 transition-colors"
             >
               All Artworks
             </Link>
             <Link 
               href="/gallery?type=oil" 
               onClick={() => setMobileMenuOpen(false)}
-              className="block rounded-lg px-3.5 py-2.5 text-base font-medium text-gray-900 hover:bg-gray-50 transition-colors"
+              className="block rounded-lg px-3 py-2 text-base font-medium text-gray-900 hover:bg-gray-50 transition-colors"
             >
               Oil Paintings
             </Link>
             <Link 
               href="/gallery?type=acrylic" 
               onClick={() => setMobileMenuOpen(false)}
-              className="block rounded-lg px-3.5 py-2.5 text-base font-medium text-gray-900 hover:bg-gray-50 transition-colors"
+              className="block rounded-lg px-3 py-2 text-base font-medium text-gray-900 hover:bg-gray-50 transition-colors"
             >
               Acrylic Paintings
             </Link>
-            <Link 
-              href="/gallery?type=mixed" 
-              onClick={() => setMobileMenuOpen(false)}
-              className="block rounded-lg px-3.5 py-2.5 text-base font-medium text-gray-900 hover:bg-gray-50 transition-colors"
-            >
-              Mixed Media
-            </Link>
-            <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between px-3">
+            <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between px-2">
               <span className="text-xs text-gray-500 font-light">WhatsApp: +{cleanNumber}</span>
               <a
                 href={`https://wa.me/${cleanNumber}`}

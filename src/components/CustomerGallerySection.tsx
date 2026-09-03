@@ -146,17 +146,6 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
             >
               Acrylic
             </button>
-            <button
-              type="button"
-              onClick={() => setActiveCategory('mixed')}
-              className={`h-11 px-6 rounded-lg text-sm font-semibold transition-all ${
-                activeCategory === 'mixed'
-                  ? 'bg-black text-white shadow-sm'
-                  : 'bg-white text-gray-800 border border-gray-200 hover:border-gray-400 hover:bg-gray-50'
-              }`}
-            >
-              Mixed media
-            </button>
           </div>
 
           {/* Count Badge */}
