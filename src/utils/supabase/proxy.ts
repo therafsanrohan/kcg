@@ -42,7 +42,10 @@ export async function updateSession(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
+    const isAdminSession = request.cookies.get('kcg_admin_session')?.value === 'authenticated'
+
     if (
+      !isAdminSession &&
       !user &&
       request.nextUrl.pathname.startsWith('/admin') &&
       request.nextUrl.pathname !== '/admin/login' &&
@@ -59,8 +62,10 @@ export async function updateSession(request: NextRequest) {
     // Log the error securely without exposing secrets
     console.error("Supabase Proxy Error:", error instanceof Error ? error.message : "Unknown error");
 
+    const isAdminSession = request.cookies.get('kcg_admin_session')?.value === 'authenticated'
+
     // If an error occurs (e.g. missing env variables), fail securely for protected paths.
-    if (request.nextUrl.pathname.startsWith('/admin') && request.nextUrl.pathname !== '/admin/login' && request.nextUrl.pathname !== '/admin/signup') {
+    if (!isAdminSession && request.nextUrl.pathname.startsWith('/admin') && request.nextUrl.pathname !== '/admin/login' && request.nextUrl.pathname !== '/admin/signup') {
       const url = request.nextUrl.clone()
       url.pathname = '/admin/login'
       return NextResponse.redirect(url)

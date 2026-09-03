@@ -6,13 +6,14 @@ import { revalidatePath } from 'next/cache'
 
 export async function updateSettings(prevState: any, formData: FormData) {
   const cookieStore = await cookies()
+  const isAdminSession = cookieStore.get('kcg_admin_session')?.value === 'authenticated'
   const supabase = createClient(cookieStore)
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
+  if (!isAdminSession && !user) {
     return { message: 'Unauthorized', type: 'error' }
   }
 
