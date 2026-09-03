@@ -1,32 +1,42 @@
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import SettingsForm from '@/components/admin/SettingsForm'
+import Link from 'next/link'
+
+export const revalidate = 0
 
 export default async function AdminSettingsPage() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
-  const { data: settings } = await supabase
-    .from('site_settings')
-    .select('*')
-    .single()
+  const { data: settings } = await supabase.from('site_settings').select('*').single()
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="md:flex md:items-center md:justify-between mb-8">
-        <div className="min-w-0 flex-1">
-          <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl sm:tracking-tight">
-            Site Settings
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Manage your gallery's global settings, contact information, and business details here.
-          </p>
-        </div>
+    <div>
+      {/* Page header */}
+      <div className="pb-8 mb-8 border-b border-gray-200/70">
+        <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
+          CONFIGURATION
+        </span>
+        <h2 className="font-serif text-4xl sm:text-5xl font-normal text-gray-950 mt-1 leading-tight">
+          Site settings
+        </h2>
+        <p className="mt-2 text-sm sm:text-base text-gray-500 font-light">
+          Manage your gallery&rsquo;s business name, WhatsApp number and contact info.
+        </p>
       </div>
-      
-      <div className="bg-white px-4 py-5 shadow sm:rounded-lg sm:p-6 border border-gray-100">
-        <SettingsForm settings={settings} />
+
+      {/* Navigation back to paintings */}
+      <div className="mb-8">
+        <Link
+          href="/admin"
+          className="text-sm text-gray-500 hover:text-black transition-colors font-medium flex items-center gap-1.5"
+        >
+          ← Back to Manage Artworks
+        </Link>
       </div>
+
+      <SettingsForm settings={settings} />
     </div>
   )
 }

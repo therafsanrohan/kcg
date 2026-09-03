@@ -3,7 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { logout } from '../login/actions'
 import Link from 'next/link'
-import { ArrowLeft, LogOut } from 'lucide-react'
+import { ArrowLeft, LogOut, Settings } from 'lucide-react'
 
 export default async function AdminLayout({
   children,
@@ -47,18 +47,25 @@ export default async function AdminLayout({
             </div>
           </div>
 
-          {/* Right: User Email & Sign Out */}
-          <div className="flex items-center gap-4 sm:gap-6">
-            <span className="hidden sm:inline text-xs sm:text-sm text-gray-600 font-light">
+          {/* Right: User Email, Settings & Sign Out */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <span className="hidden sm:inline text-xs sm:text-sm text-gray-500 font-light">
               {userEmail}
             </span>
+            <Link
+              href="/admin/settings"
+              className="h-10 w-10 rounded-lg border border-gray-200 flex items-center justify-center text-gray-600 hover:text-black hover:border-gray-400 hover:bg-gray-50 transition-all shadow-sm"
+              title="Settings"
+            >
+              <Settings className="h-4 w-4" />
+            </Link>
             <form action={logout}>
               <button
                 type="submit"
                 className="h-10 px-4 rounded-lg border border-gray-200 flex items-center gap-2 text-xs sm:text-sm font-medium text-gray-700 hover:text-black hover:border-gray-400 hover:bg-gray-50 transition-all shadow-sm"
               >
                 <LogOut className="h-4 w-4" />
-                <span>Sign out</span>
+                <span className="hidden sm:inline">Sign out</span>
               </button>
             </form>
           </div>

@@ -14,31 +14,38 @@ export async function updateSettings(prevState: any, formData: FormData) {
   } = await supabase.auth.getUser()
 
   if (!isAdminSession && !user) {
-    return { message: 'Unauthorized', type: 'error' }
+    return { message: 'Unauthorized. Please log in again.', type: 'error' }
   }
 
   const newSettings = {
-    business_name: formData.get('business_name') as string,
-    whatsapp_number: formData.get('whatsapp_number') as string,
-    contact_info: formData.get('contact_info') as string,
-    gallery_address: formData.get('gallery_address') as string,
+    business_name: (formData.get('business_name') as string)?.trim() || 'Kazi Canvas Gallery',
+    whatsapp_number: (formData.get('whatsapp_number') as string)?.trim().replace(/\D/g, '') || '',
+    contact_info: (formData.get('contact_info') as string)?.trim() || null,
+    gallery_address: (formData.get('gallery_address') as string)?.trim() || null,
+    updated_at: new Date().toISOString(),
   }
 
   try {
-    // Check if settings exist
     const { data: existing } = await supabase.from('site_settings').select('id').single()
 
     if (existing) {
-      const { error } = await supabase.from('site_settings').update(newSettings).eq('id', existing.id)
+      const { error } = await supabase
+        .from('site_settings')
+        .update(newSettings)
+        .eq('id', existing.id)
       if (error) throw error
     } else {
       const { error } = await supabase.from('site_settings').insert([newSettings])
       if (error) throw error
     }
 
-    revalidatePath('/', 'layout') // revalidate everywhere since settings are global
-    return { message: 'Settings updated successfully!', type: 'success' }
+    // Revalidate entire app since settings are global
+    revalidatePath('/', 'layout')
+    revalidatePath('/gallery')
+    revalidatePath('/admin/settings')
+
+    return { message: 'Settings saved successfully!', type: 'success' }
   } catch (error: any) {
-    return { message: error.message || 'An error occurred', type: 'error' }
+    return { message: error.message || 'An error occurred. Please try again.', type: 'error' }
   }
 }
