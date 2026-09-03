@@ -66,11 +66,12 @@ export default async function Home() {
               <div key={painting.id} className="group relative flex flex-col items-start justify-between cursor-pointer animate-fade-in-up" style={{ animationDelay: `${idx * 150}ms` }}>
                 <div className="relative w-full overflow-hidden rounded-2xl bg-gray-100 aspect-[3/4] shadow-md transition-all duration-500 group-hover:shadow-2xl group-hover:-translate-y-2">
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-500 z-10" />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={imageUrl}
                     alt={painting.title}
-                    className="h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-110"
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-cover object-center transition-transform duration-700 group-hover:scale-110"
                   />
                   <div className="absolute bottom-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <span className="bg-white/90 backdrop-blur-sm text-black text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">

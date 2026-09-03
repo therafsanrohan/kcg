@@ -4,6 +4,8 @@ import { cookies } from 'next/headers'
 import SearchBar from '@/components/SearchBar'
 import FilterSort from '@/components/FilterSort'
 
+import Image from 'next/image'
+
 export const revalidate = 0 // Dynamic page depending on search params
 
 export default async function GalleryPage({
@@ -63,23 +65,25 @@ export default async function GalleryPage({
         </div>
 
         <div className="grid grid-cols-1 gap-y-12 sm:grid-cols-2 sm:gap-x-6 lg:grid-cols-3 xl:grid-cols-4 xl:gap-x-8">
-          {paintings?.map((painting: any) => {
+          {paintings?.map((painting: any, idx: number) => {
             const mainImage = painting.painting_images?.find((img: any) => img.is_main) || painting.painting_images?.[0]
             const imageUrl = mainImage 
               ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/paintings/${mainImage.storage_key}`
               : '/placeholder.jpg'
 
             return (
-              <div key={painting.id} className="group relative">
-                <div className="relative h-80 w-full overflow-hidden rounded-lg bg-gray-100 group-hover:opacity-75 transition-opacity sm:h-64 border border-gray-200">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+              <div key={painting.id} className="group relative flex flex-col items-start justify-between cursor-pointer animate-fade-in-up" style={{ animationDelay: `${idx * 100}ms` }}>
+                <div className="relative w-full overflow-hidden rounded-2xl bg-gray-100 aspect-[3/4] shadow-md transition-all duration-500 group-hover:shadow-2xl group-hover:-translate-y-2">
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-500 z-10" />
+                  <Image
                     src={imageUrl}
                     alt={painting.title}
-                    className="h-full w-full object-cover object-center"
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-cover object-center transition-transform duration-700 group-hover:scale-110"
                   />
                   {painting.availability_status !== 'available' && (
-                    <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 text-xs font-bold uppercase rounded">
+                    <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 text-xs font-bold uppercase rounded z-20">
                       {painting.availability_status}
                     </div>
                   )}

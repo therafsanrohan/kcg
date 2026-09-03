@@ -41,6 +41,12 @@ export default async function PaintingDetailsPage({ params }: { params: { slug: 
   // Fetch exchange rates
   const rates = await getExchangeRates()
 
+  // Fetch site settings for WhatsApp number
+  const { data: settings } = await supabase
+    .from('site_settings')
+    .select('whatsapp_number, business_name')
+    .single()
+
   const mainImage = images?.find(img => img.is_main) || images?.[0]
   const imageUrl = mainImage 
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/paintings/${mainImage.storage_key}`
@@ -60,40 +66,14 @@ export default async function PaintingDetailsPage({ params }: { params: { slug: 
         </nav>
 
         <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-12 xl:gap-x-16">
-          {/* Image gallery */}
-          <div className="flex flex-col-reverse">
-            <div className="mx-auto mt-6 hidden w-full max-w-2xl sm:block lg:max-w-none">
-              <div className="grid grid-cols-4 gap-6" aria-orientation="horizontal" role="tablist">
-                {images?.map((img, idx) => (
-                  <button key={img.storage_key} className="relative flex h-24 cursor-pointer items-center justify-center rounded-md bg-gray-100 text-sm font-medium uppercase text-gray-900 hover:bg-gray-50 focus:outline-none focus:ring focus:ring-opacity-50 focus:ring-offset-4 overflow-hidden border border-gray-200">
-                    <span className="sr-only">View image {idx + 1}</span>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                      src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/paintings/${img.storage_key}`} 
-                      alt="" 
-                      className="absolute inset-0 h-full w-full object-cover object-center" 
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="aspect-h-1 aspect-w-1 w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={imageUrl}
-                alt={painting.title}
-                className="h-full w-full object-cover object-center sm:rounded-lg"
-              />
-            </div>
-          </div>
-
           {/* Painting info & interactivity */}
-          <div className="mt-10 px-4 sm:px-0 lg:mt-0">
+          <div className="mt-10 px-4 sm:px-0 lg:mt-0 lg:col-span-2">
             <ClientDetails 
               painting={painting} 
               frames={frames || []} 
               rates={rates} 
+              images={images || []}
+              whatsappNumber={settings?.whatsapp_number || '8801824951514'}
             />
           </div>
         </div>
