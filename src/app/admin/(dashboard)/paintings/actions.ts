@@ -1,7 +1,6 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
-import { cookies } from 'next/headers'
+import { createAdminClient } from '@/utils/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 // Helper to generate clean URL slugs from title
@@ -28,8 +27,7 @@ export async function savePainting(prevState: any, formData: FormData) {
 // TOGGLE PUBLISH STATUS
 // ─────────────────────────────────────────────
 export async function togglePublishPainting(id: string, currentValue: boolean) {
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
+  const supabase = createAdminClient()
 
   try {
     const { error } = await supabase
@@ -45,6 +43,7 @@ export async function togglePublishPainting(id: string, currentValue: boolean) {
     revalidatePath('/gallery')
     return { success: true }
   } catch (err: any) {
+    console.error('Toggle publish error:', err)
     return { success: false, error: err.message }
   }
 }
@@ -53,8 +52,7 @@ export async function togglePublishPainting(id: string, currentValue: boolean) {
 // DELETE PAINTING
 // ─────────────────────────────────────────────
 export async function deletePainting(id: string) {
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
+  const supabase = createAdminClient()
 
   try {
     const { error } = await supabase.from('paintings').delete().eq('id', id)
@@ -66,6 +64,7 @@ export async function deletePainting(id: string) {
     revalidatePath('/gallery')
     return { success: true }
   } catch (err: any) {
+    console.error('Delete painting error:', err)
     return { success: false, error: err.message }
   }
 }
@@ -74,8 +73,7 @@ export async function deletePainting(id: string) {
 // SAVE (CREATE or UPDATE) PAINTING
 // ─────────────────────────────────────────────
 export async function saveArtworkAction(prevState: any, formData: FormData) {
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
+  const supabase = createAdminClient()
 
   const id = formData.get('id') as string | null
   const title = (formData.get('title') as string)?.trim()
@@ -91,7 +89,8 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
   const base_price_bdt =
     parseFloat(formData.get('base_price_bdt') as string) || 0
   const description = (formData.get('description') as string)?.trim() || ''
-  // Booleans from checkboxes — checkbox only sends value when checked
+
+  // Booleans from checkboxes
   const is_published = formData.get('is_published') === 'true'
   const is_featured = formData.get('is_featured') === 'true'
 
@@ -107,8 +106,6 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
     width = parseFloat(sizeMatch[1])
     height = parseFloat(sizeMatch[2])
   }
-
-  const slug = id ? undefined : generateSlug(title) // only set slug on create
 
   try {
     let paintingId = id
@@ -138,6 +135,7 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
       if (updateErr) throw updateErr
     } else {
       // ── INSERT ──
+      const slug = generateSlug(title)
       const { data: newPainting, error: insertErr } = await supabase
         .from('paintings')
         .insert({
@@ -212,7 +210,6 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
 
         if (uploadErr) {
           console.error('Storage upload error:', uploadErr.message)
-          // Don't fail the whole save — painting is saved, just image failed
         } else {
           // If updating, mark old main images as non-main
           if (id) {
@@ -241,7 +238,6 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
     revalidatePath('/admin/paintings')
     revalidatePath('/')
     revalidatePath('/gallery')
-    revalidatePath('/gallery/[slug]', 'page')
 
     return { success: true }
   } catch (err: any) {

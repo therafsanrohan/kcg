@@ -1,21 +1,10 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
-import { cookies } from 'next/headers'
+import { createAdminClient } from '@/utils/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 export async function updateSettings(prevState: any, formData: FormData) {
-  const cookieStore = await cookies()
-  const isAdminSession = cookieStore.get('kcg_admin_session')?.value === 'authenticated'
-  const supabase = createClient(cookieStore)
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!isAdminSession && !user) {
-    return { message: 'Unauthorized. Please log in again.', type: 'error' }
-  }
+  const supabase = createAdminClient()
 
   const newSettings = {
     business_name: (formData.get('business_name') as string)?.trim() || 'Kazi Canvas Gallery',
@@ -46,6 +35,7 @@ export async function updateSettings(prevState: any, formData: FormData) {
 
     return { message: 'Settings saved successfully!', type: 'success' }
   } catch (error: any) {
+    console.error('Update settings error:', error)
     return { message: error.message || 'An error occurred. Please try again.', type: 'error' }
   }
 }
