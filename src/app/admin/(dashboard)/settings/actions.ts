@@ -1,10 +1,12 @@
 'use server'
 
-import { createAdminClient } from '@/utils/supabase/admin'
+import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 
 export async function updateSettings(prevState: any, formData: FormData) {
-  const supabase = createAdminClient()
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
 
   const newSettings = {
     business_name: (formData.get('business_name') as string)?.trim() || 'Kazi Canvas Gallery',

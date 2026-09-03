@@ -1,6 +1,7 @@
 'use server'
 
-import { createAdminClient } from '@/utils/supabase/admin'
+import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 
 // Helper to generate clean URL slugs from title
@@ -27,7 +28,8 @@ export async function savePainting(prevState: any, formData: FormData) {
 // TOGGLE PUBLISH STATUS
 // ─────────────────────────────────────────────
 export async function togglePublishPainting(id: string, currentValue: boolean) {
-  const supabase = createAdminClient()
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
 
   try {
     const { error } = await supabase
@@ -52,7 +54,8 @@ export async function togglePublishPainting(id: string, currentValue: boolean) {
 // DELETE PAINTING
 // ─────────────────────────────────────────────
 export async function deletePainting(id: string) {
-  const supabase = createAdminClient()
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
 
   try {
     const { error } = await supabase.from('paintings').delete().eq('id', id)
@@ -73,7 +76,8 @@ export async function deletePainting(id: string) {
 // SAVE (CREATE or UPDATE) PAINTING
 // ─────────────────────────────────────────────
 export async function saveArtworkAction(prevState: any, formData: FormData) {
-  const supabase = createAdminClient()
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
 
   const id = formData.get('id') as string | null
   const title = (formData.get('title') as string)?.trim()
