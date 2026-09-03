@@ -1,7 +1,7 @@
 'use client'
 
 import { useFormState, useFormStatus } from 'react-dom'
-import { updateSettings } from '@/app/admin/settings/actions'
+import { updateSettings } from '@/app/admin/(dashboard)/settings/actions'
 
 const initialState = {
   message: '',
