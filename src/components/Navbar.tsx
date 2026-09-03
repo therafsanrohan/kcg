@@ -1,10 +1,58 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
-import { usePathname } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { Menu, X, MessageCircle, ChevronDown } from 'lucide-react'
 import { SUPPORTED_CURRENCIES, Currency } from '@/utils/currency'
+
+function NavLinks() {
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const currentType = searchParams.get('type')
+
+  const isAllActive = pathname === '/gallery' && !currentType
+  const isOilActive = pathname === '/gallery' && currentType === 'oil'
+  const isAcrylicActive = pathname === '/gallery' && currentType === 'acrylic'
+  const isMixedActive = pathname === '/gallery' && currentType === 'mixed'
+
+  return (
+    <div className="hidden md:flex items-center gap-x-8">
+      <Link
+        href="/gallery"
+        className={`text-sm font-medium transition-colors hover:text-black ${
+          isAllActive ? 'text-black font-semibold border-b-2 border-black pb-1' : 'text-gray-600'
+        }`}
+      >
+        All Artworks
+      </Link>
+      <Link
+        href="/gallery?type=oil"
+        className={`text-sm font-medium transition-colors hover:text-black ${
+          isOilActive ? 'text-black font-semibold border-b-2 border-black pb-1' : 'text-gray-600'
+        }`}
+      >
+        Oil Paintings
+      </Link>
+      <Link
+        href="/gallery?type=acrylic"
+        className={`text-sm font-medium transition-colors hover:text-black ${
+          isAcrylicActive ? 'text-black font-semibold border-b-2 border-black pb-1' : 'text-gray-600'
+        }`}
+      >
+        Acrylics
+      </Link>
+      <Link
+        href="/gallery?type=mixed"
+        className={`text-sm font-medium transition-colors hover:text-black ${
+          isMixedActive ? 'text-black font-semibold border-b-2 border-black pb-1' : 'text-gray-600'
+        }`}
+      >
+        Mixed Media
+      </Link>
+    </div>
+  )
+}
 
 export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappNumber?: string }) {
   const pathname = usePathname()
@@ -35,7 +83,7 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 transition-all duration-300">
       <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 h-20" aria-label="Global">
         
-        {/* Left: Brand Title (Helvetica Neue) */}
+        {/* Left: Brand Title */}
         <div className="flex items-center">
           <Link href="/" className="group flex items-center">
             <span
@@ -46,6 +94,11 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
             </span>
           </Link>
         </div>
+
+        {/* Center: Desktop Navigation Category Links */}
+        <Suspense fallback={null}>
+          <NavLinks />
+        </Suspense>
 
         {/* Right: Functional Currency Dropdown, WhatsApp CTA, Hamburger */}
         <div className="flex items-center gap-3 sm:gap-4">
@@ -75,7 +128,7 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
             className="h-10 px-4 sm:px-5 rounded-lg bg-black text-white text-xs sm:text-sm font-semibold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
           >
             <MessageCircle className="h-4 w-4 fill-white stroke-none" />
-            <span>WhatsApp</span>
+            <span className="hidden sm:inline">WhatsApp</span>
           </a>
 
           {/* Mobile menu icon button */}
@@ -95,10 +148,17 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
         </div>
       </nav>
 
-      {/* Mobile Menu Dropdown */}
+      {/* Mobile Menu Dropdown Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-100 bg-white absolute w-full shadow-xl transition-all duration-300 ease-in-out">
           <div className="space-y-1.5 px-4 pb-6 pt-4">
+            <Link 
+              href="/" 
+              onClick={() => setMobileMenuOpen(false)}
+              className="block rounded-lg px-3.5 py-2.5 text-base font-medium text-gray-900 hover:bg-gray-50 transition-colors"
+            >
+              Home
+            </Link>
             <Link 
               href="/gallery" 
               onClick={() => setMobileMenuOpen(false)}
@@ -128,12 +188,12 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
               Mixed Media
             </Link>
             <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between px-3">
-              <span className="text-xs text-gray-500 font-light">Direct Contact: +{cleanNumber}</span>
+              <span className="text-xs text-gray-500 font-light">WhatsApp: +{cleanNumber}</span>
               <a
                 href={`https://wa.me/${cleanNumber}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-black hover:underline"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-black px-3.5 py-2 rounded-lg hover:bg-gray-800 transition-colors"
               >
                 Order via WhatsApp &rarr;
               </a>
