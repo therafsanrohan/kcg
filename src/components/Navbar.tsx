@@ -2,10 +2,12 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { Menu, X, MessageCircle, ChevronDown } from 'lucide-react'
 import { SUPPORTED_CURRENCIES, Currency } from '@/utils/currency'
 
 export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappNumber?: string }) {
+  const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [currency, setCurrency] = useState<Currency>('BDT')
   const cleanNumber = whatsappNumber.replace(/[^0-9]/g, '')
@@ -24,11 +26,16 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
     window.dispatchEvent(new Event('preferredCurrencyChanged'))
   }
 
+  // Do not render customer Navbar on admin pages to avoid double navbars
+  if (pathname?.startsWith('/admin')) {
+    return null
+  }
+
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 transition-all duration-300">
       <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 h-20" aria-label="Global">
         
-        {/* Left: Brand Title (Helvetica Neue, Logo removed per user request) */}
+        {/* Left: Brand Title (Helvetica Neue) */}
         <div className="flex items-center">
           <Link href="/" className="group flex items-center">
             <span

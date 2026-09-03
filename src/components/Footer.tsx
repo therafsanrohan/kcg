@@ -1,6 +1,16 @@
+'use client'
+
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 export default function Footer({ whatsappNumber }: { whatsappNumber?: string }) {
+  const pathname = usePathname()
+
+  // Do not render customer footer on admin pages
+  if (pathname?.startsWith('/admin')) {
+    return null
+  }
+
   return (
     <footer className="bg-white border-t border-gray-100 mt-24">
       <div className="mx-auto max-w-7xl px-6 py-12 md:flex md:items-center md:justify-between lg:px-8">
@@ -19,7 +29,7 @@ export default function Footer({ whatsappNumber }: { whatsappNumber?: string }) 
           <p className="text-center md:text-left text-xs leading-5 text-gray-400">
             Developed by <a href="https://www.creatiancy.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-gray-600 hover:text-black transition-colors">Creatiancy</a>
             <span className="mx-2">&bull;</span>
-            <Link href="/admin" className="text-gray-400 hover:text-gray-600 transition-colors">Admin Login</Link>
+            <Link href="/admin" className="text-gray-400 hover:text-gray-600 transition-colors">Admin Portal</Link>
           </p>
         </div>
       </div>
