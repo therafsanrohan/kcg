@@ -189,9 +189,14 @@ export default function ClientDetails({
             <select 
               value={currency} 
               onChange={(e) => handleCurrencyChange(e.target.value as Currency)}
-              className="text-sm border-gray-300 rounded-md shadow-sm focus:border-black focus:ring-black"
+              className="text-sm font-sans font-bold text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-black focus:ring-black"
+              style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
             >
-              {SUPPORTED_CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
+              {SUPPORTED_CURRENCIES.map(c => (
+                <option key={c} value={c} className="font-sans text-gray-900 bg-white" style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}>
+                  {c}
+                </option>
+              ))}
             </select>
           </div>
           <p className="mt-2 text-sm text-gray-500 capitalize">{painting.painting_type} &middot; {painting.exact_medium}</p>

@@ -100,10 +100,11 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
               value={currency}
               onChange={handleCurrencyChange}
               aria-label="Select currency"
-              className="h-9 sm:h-10 pl-2.5 sm:pl-3.5 pr-7 sm:pr-8 rounded-lg border border-gray-200 bg-white text-xs sm:text-sm font-semibold text-gray-800 hover:border-gray-400 focus:border-black outline-none appearance-none cursor-pointer shadow-2xs transition-all"
+              className="h-9 sm:h-10 pl-2.5 sm:pl-3.5 pr-7 sm:pr-8 rounded-lg border border-gray-200 bg-white text-xs sm:text-sm font-sans font-bold text-gray-800 hover:border-gray-400 focus:border-black outline-none appearance-none cursor-pointer shadow-2xs transition-all"
+              style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
             >
               {SUPPORTED_CURRENCIES.map((curr) => (
-                <option key={curr} value={curr}>
+                <option key={curr} value={curr} className="font-sans text-gray-900 bg-white" style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}>
                   {curr}
                 </option>
               ))}
