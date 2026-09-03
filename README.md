@@ -20,8 +20,11 @@ This is a premium, full-stack Next.js web application built for Kazi Canvas Gall
 2. Retrieve your Supabase URL and keys from `Project Settings > API` in the Supabase Dashboard.
 3. Fill in the keys in `.env.local`:
    - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY` (Required for the admin panel bypass logic, but keep this safe)
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+   - `SUPABASE_URL`
+   - `SUPABASE_PUBLISHABLE_KEY`
+   - `SUPABASE_SECRET_KEY` (Required for backend auth handlers)
+   - `SUPABASE_JWKS_URL`
 
 ### 3. Running the Development Server
 ```bash
