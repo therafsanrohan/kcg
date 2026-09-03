@@ -45,7 +45,8 @@ export async function updateSession(request: NextRequest) {
     if (
       !user &&
       request.nextUrl.pathname.startsWith('/admin') &&
-      request.nextUrl.pathname !== '/admin/login'
+      request.nextUrl.pathname !== '/admin/login' &&
+      request.nextUrl.pathname !== '/admin/signup'
     ) {
       // no user, potentially respond by redirecting the user to the login page
       const url = request.nextUrl.clone()
@@ -59,7 +60,7 @@ export async function updateSession(request: NextRequest) {
     console.error("Supabase Proxy Error:", error instanceof Error ? error.message : "Unknown error");
 
     // If an error occurs (e.g. missing env variables), fail securely for protected paths.
-    if (request.nextUrl.pathname.startsWith('/admin') && request.nextUrl.pathname !== '/admin/login') {
+    if (request.nextUrl.pathname.startsWith('/admin') && request.nextUrl.pathname !== '/admin/login' && request.nextUrl.pathname !== '/admin/signup') {
       const url = request.nextUrl.clone()
       url.pathname = '/admin/login'
       return NextResponse.redirect(url)
