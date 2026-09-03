@@ -62,6 +62,12 @@ export default function LoginForm() {
       <div>
         <SubmitButton />
       </div>
+
+      <div className="text-center mt-4">
+        <a href="/admin/signup" className="text-sm text-blue-600 hover:underline">
+          Don't have an account? Sign up here
+        </a>
+      </div>
     </form>
   )
 }
