@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
@@ -23,7 +24,8 @@ const paintingSchema = z.object({
 })
 
 export async function savePainting(prevState: any, formData: FormData) {
-  const supabase = createClient()
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
   
   const id = formData.get('id') as string
   

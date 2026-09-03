@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
 import { logout } from './login/actions'
 import Link from 'next/link'
 
@@ -8,7 +9,8 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = createClient()
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
 
   const {
     data: { user },

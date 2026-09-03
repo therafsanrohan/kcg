@@ -1,11 +1,13 @@
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
 import Image from 'next/image'
 
 export const revalidate = 3600 // revalidate at most every hour
 
 export default async function Home() {
-  const supabase = createClient()
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
   
   // Fetch featured paintings
   const { data: featured } = await supabase

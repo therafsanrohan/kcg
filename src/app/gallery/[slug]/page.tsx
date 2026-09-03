@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
 import { getExchangeRates } from '@/utils/currency'
 import ClientDetails from './ClientDetails'
 import Link from 'next/link'
@@ -7,7 +8,8 @@ import Link from 'next/link'
 export const revalidate = 3600 // 1 hour
 
 export default async function PaintingDetailsPage({ params }: { params: { slug: string } }) {
-  const supabase = createClient()
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
   
   // Fetch painting
   const { data: painting } = await supabase

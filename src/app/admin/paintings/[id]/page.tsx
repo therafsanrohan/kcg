@@ -1,11 +1,13 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
 import PaintingForm from '@/components/admin/PaintingForm'
 import ImageUpload from '@/components/admin/ImageUpload'
 import FrameManager from '@/components/admin/FrameManager'
 
 export default async function EditPaintingPage({ params }: { params: { id: string } }) {
-  const supabase = createClient()
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
   const { data: painting } = await supabase
     .from('paintings')
     .select('*')

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
 import SearchBar from '@/components/SearchBar'
 import FilterSort from '@/components/FilterSort'
 
@@ -10,7 +11,8 @@ export default async function GalleryPage({
 }: {
   searchParams: { q?: string; type?: string; sort?: string }
 }) {
-  const supabase = createClient()
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
   const q = searchParams.q || ''
   const type = searchParams.type || 'all'
   const sort = searchParams.sort || 'newest'

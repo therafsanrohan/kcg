@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
+import { cookies } from 'next/headers'
 
 export default async function AdminPaintingsPage() {
-  const supabase = createClient()
+  const cookieStore = await cookies()
+  const supabase = createClient(cookieStore)
   const { data: paintings, error } = await supabase
     .from('paintings')
     .select('*')
