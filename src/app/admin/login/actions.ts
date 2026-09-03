@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 
-export async function login(formData: FormData) {
+export async function login(prevState: any, formData: FormData) {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   const data = {
@@ -16,7 +16,7 @@ export async function login(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword(data)
 
   if (error) {
-    redirect(`/admin/login?error=${encodeURIComponent(error.message)}`)
+    return error.message
   }
 
   revalidatePath('/', 'layout')
