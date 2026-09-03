@@ -1,20 +1,9 @@
 import type { Metadata } from "next";
-import { Outfit, Montserrat } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
-
-const outfit = Outfit({
-  variable: "--font-outfit",
-  subsets: ["latin"],
-});
-
-const montserrat = Montserrat({
-  variable: "--font-heading",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -34,7 +23,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang="en"
-      className={`${outfit.variable} ${montserrat.variable} h-full antialiased`}
+      className={`h-full antialiased`}
     >
       <body className="min-h-screen flex flex-col">
         <Navbar whatsappNumber={whatsappNumber} />
