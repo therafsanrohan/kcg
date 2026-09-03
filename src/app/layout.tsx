@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
+import { Outfit, Hedvig_Letters_Serif } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 const outfit = Outfit({
   variable: "--font-outfit",
+  subsets: ["latin"],
+});
+
+const hedvigSerif = Hedvig_Letters_Serif({
+  variable: "--font-hedvig-serif",
   subsets: ["latin"],
 });
 
@@ -18,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
-      className={`${outfit.variable} h-full antialiased`}
+      className={`${outfit.variable} ${hedvigSerif.variable} h-full antialiased`}
     >
       <body className="min-h-screen flex flex-col">
         <Navbar />
