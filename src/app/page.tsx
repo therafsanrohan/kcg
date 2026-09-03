@@ -43,7 +43,7 @@ export default async function Home() {
             ORIGINAL PAINTINGS &bull; DHAKA
           </span>
           
-          <h1 className="font-serif text-5xl sm:text-7xl lg:text-8xl font-normal text-gray-950 tracking-tight leading-[1.05] mt-4 mb-6">
+          <h1 className="font-sans text-5xl sm:text-7xl lg:text-8xl font-extrabold text-gray-950 tracking-tight leading-[1.05] mt-4 mb-6">
             Made by hand.<br />
             Chosen by feeling.
           </h1>
@@ -83,7 +83,7 @@ export default async function Home() {
               <span className="text-[11px] font-bold uppercase tracking-widest text-white/80">
                 FEATURED WORK
               </span>
-              <h2 className="font-serif text-3xl sm:text-5xl font-normal text-white mt-1 leading-tight">
+              <h2 className="font-sans text-3xl sm:text-5xl font-bold text-white mt-1 leading-tight">
                 {featuredPainting.title}
               </h2>
               <p className="text-sm sm:text-base text-white/90 font-light mt-1">
@@ -109,7 +109,7 @@ export default async function Home() {
       {/* ── 4. Dark Info Banner: Ready for your wall ── */}
       <section className="bg-[#141414] text-white py-20 sm:py-28 px-6 sm:px-12 lg:px-16 my-12">
         <div className="max-w-4xl mx-auto">
-          <h2 className="font-serif text-4xl sm:text-6xl font-normal text-white tracking-tight mb-6">
+          <h2 className="font-sans text-4xl sm:text-6xl font-bold text-white tracking-tight mb-6">
             Ready for your wall.
           </h2>
           <p className="text-base sm:text-xl text-gray-300 font-light leading-relaxed">
@@ -124,7 +124,7 @@ export default async function Home() {
           <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400 block mb-4">
             KAZI CANVAS GALLERY
           </span>
-          <h2 className="font-serif text-4xl sm:text-6xl font-normal text-gray-950 tracking-tight mb-6 leading-tight">
+          <h2 className="font-sans text-4xl sm:text-6xl font-bold text-gray-950 tracking-tight mb-6 leading-tight">
             Handmade paintings, presented with the clarity collectors expect.
           </h2>
           <p className="text-base sm:text-xl text-gray-600 font-light leading-relaxed">

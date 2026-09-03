@@ -72,7 +72,7 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
           <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
             AVAILABLE WORKS
           </span>
-          <h2 className="font-serif text-5xl sm:text-7xl font-normal text-gray-950 tracking-tight mt-1">
+          <h2 className="font-sans text-5xl sm:text-7xl font-bold text-gray-950 tracking-tight mt-1">
             Find your piece.
           </h2>
         </div>
@@ -218,7 +218,7 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
 
                 {/* Artwork Details Below */}
                 <div className="mt-4 px-1">
-                  <h3 className="font-serif text-2xl font-normal text-gray-950 group-hover:text-gray-700 transition-colors line-clamp-1">
+                  <h3 className="font-sans text-xl font-bold text-gray-950 group-hover:text-gray-700 transition-colors line-clamp-1">
                     {painting.title}
                   </h3>
                   <p className="text-xs text-gray-500 font-light mt-1">
@@ -255,7 +255,7 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
         {/* Empty State */}
         {filteredPaintings.length === 0 && (
           <div className="py-24 text-center bg-[#F9F9F8] rounded-3xl border border-dashed border-gray-300">
-            <h3 className="font-serif text-2xl text-gray-900 mb-2">No paintings found</h3>
+            <h3 className="font-sans text-2xl font-bold text-gray-900 mb-2">No paintings found</h3>
             <p className="text-sm text-gray-500 font-light max-w-md mx-auto mb-6">
               Try adjusting your search terms or filter selection.
             </p>

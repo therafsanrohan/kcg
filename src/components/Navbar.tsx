@@ -171,13 +171,12 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
             >
               Acrylic Paintings
             </Link>
-            <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between px-2">
-              <span className="text-xs text-gray-500 font-light">WhatsApp: +{cleanNumber}</span>
+            <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-end px-2">
               <a
                 href={`https://wa.me/${cleanNumber}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-black px-3.5 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-black px-4 py-2.5 rounded-lg hover:bg-gray-800 transition-colors w-full justify-center"
               >
                 Order via WhatsApp &rarr;
               </a>

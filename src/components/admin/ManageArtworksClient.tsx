@@ -101,7 +101,7 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
           <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400 letter-spacing-widest">
             INVENTORY
           </span>
-          <h2 className="font-serif text-4xl sm:text-5xl font-normal text-gray-950 mt-1 leading-tight">
+          <h2 className="font-sans text-4xl sm:text-5xl font-bold text-gray-950 mt-1 leading-tight">
             Manage artworks
           </h2>
           <p className="mt-2 text-sm sm:text-base text-gray-500 font-light">
@@ -366,7 +366,7 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
                   <td colSpan={6} className="py-20 text-center">
                     {searchQuery ? (
                       <>
-                        <p className="text-lg font-serif text-gray-800 mb-1">
+                        <p className="text-lg font-sans font-bold text-gray-800 mb-1">
                           No results for &ldquo;{searchQuery}&rdquo;
                         </p>
                         <p className="text-sm text-gray-400 font-light">
@@ -381,7 +381,7 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
                       </>
                     ) : (
                       <>
-                        <p className="text-lg font-serif text-gray-900 mb-1">
+                        <p className="text-lg font-sans font-bold text-gray-900 mb-1">
                           No artworks added yet.
                         </p>
                         <p className="text-sm text-gray-400 mb-5 font-light">

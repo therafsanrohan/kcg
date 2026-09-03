@@ -90,7 +90,7 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
   return (
     <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-200">
       <div className="mb-6">
-        <h2 className="font-serif text-3xl font-normal text-gray-950">
+        <h2 className="font-sans text-3xl font-bold text-gray-950">
           {isEditMode ? 'Edit artwork' : 'Add new artwork'}
         </h2>
         <p className="mt-1 text-sm text-gray-500 font-light">

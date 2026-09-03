@@ -33,7 +33,7 @@ export default function SettingsForm({ settings }: { settings?: any }) {
           <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
             GALLERY SETTINGS
           </span>
-          <h3 className="font-serif text-2xl font-normal text-gray-950 mt-1">
+          <h3 className="font-sans text-2xl font-bold text-gray-950 mt-1">
             Business Details
           </h3>
           <p className="text-sm text-gray-500 font-light mt-1">
@@ -78,7 +78,7 @@ export default function SettingsForm({ settings }: { settings?: any }) {
           <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
             CONTACT
           </span>
-          <h3 className="font-serif text-2xl font-normal text-gray-950 mt-1">
+          <h3 className="font-sans text-2xl font-bold text-gray-950 mt-1">
             Contact & Ordering
           </h3>
           <p className="text-sm text-gray-500 font-light mt-1">

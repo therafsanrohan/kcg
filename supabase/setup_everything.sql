@@ -206,13 +206,13 @@ INSERT INTO public.paintings (
 
 INSERT INTO public.painting_images (painting_id, storage_key, alt_text, sort_order, is_main, width, height)
 VALUES ('11111111-1111-1111-1111-111111111111', 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1200&auto=format&fit=crop', 'Whispers of the Bengal Delta', 0, true, 1200, 1600)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.frame_options (painting_id, frame_name, outer_size, price_bdt, is_active, sort_order)
 VALUES 
   ('11111111-1111-1111-1111-111111111111', 'Raw Teakwood Minimalist Floating Frame', '96 x 126 cm', 12000, true, 1),
   ('11111111-1111-1111-1111-111111111111', 'Matte Black Contemporary Deep Shadowbox', '98 x 128 cm', 9500, true, 2)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 -- Painting 2
 INSERT INTO public.paintings (
@@ -231,13 +231,13 @@ INSERT INTO public.paintings (
 
 INSERT INTO public.painting_images (painting_id, storage_key, alt_text, sort_order, is_main, width, height)
 VALUES ('22222222-2222-2222-2222-222222222222', 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?q=80&w=1200&auto=format&fit=crop', 'Rhythm of the Monsoon', 0, true, 1200, 1600)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.frame_options (painting_id, frame_name, outer_size, price_bdt, is_active, sort_order)
 VALUES 
   ('22222222-2222-2222-2222-222222222222', 'Champagne Gold Floating Frame', '81 x 106 cm', 10500, true, 1),
   ('22222222-2222-2222-2222-222222222222', 'Nordic White Oak Slim Frame', '79 x 104 cm', 8000, true, 2)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 -- Painting 3
 INSERT INTO public.paintings (
@@ -256,12 +256,12 @@ INSERT INTO public.paintings (
 
 INSERT INTO public.painting_images (painting_id, storage_key, alt_text, sort_order, is_main, width, height)
 VALUES ('33333333-3333-3333-3333-333333333333', 'https://images.unsplash.com/photo-1578301978693-85fa9c0320b9?q=80&w=1200&auto=format&fit=crop', 'Old Dhaka Memories', 0, true, 1200, 1600)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.frame_options (painting_id, frame_name, outer_size, price_bdt, is_active, sort_order)
 VALUES 
   ('33333333-3333-3333-3333-333333333333', 'Distressed Antique Charcoal Wood Frame', '66 x 86 cm', 7500, true, 1)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 -- Painting 4
 INSERT INTO public.paintings (
@@ -280,7 +280,7 @@ INSERT INTO public.paintings (
 
 INSERT INTO public.painting_images (painting_id, storage_key, alt_text, sort_order, is_main, width, height)
 VALUES ('44444444-4444-4444-4444-444444444444', 'https://images.unsplash.com/photo-1577083552431-6e5fd01aa342?q=80&w=1200&auto=format&fit=crop', 'Crimson Horizon', 0, true, 1200, 1600)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
 -- Final cache reload
 NOTIFY pgrst, 'reload schema';

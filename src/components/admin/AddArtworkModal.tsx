@@ -118,7 +118,7 @@ export default function AddArtworkModal({
 
         {/* Header */}
         <div className="px-6 sm:px-8 pt-7 pb-5 border-b border-gray-100">
-          <h2 className="font-serif text-3xl font-normal text-gray-950 pr-8">
+          <h2 className="font-sans text-3xl font-bold text-gray-950 pr-8">
             {isEditMode ? 'Edit artwork' : 'Add new artwork'}
           </h2>
           <p className="mt-1 text-sm text-gray-500 font-light">

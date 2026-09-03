@@ -18,7 +18,7 @@ export default async function AdminSettingsPage() {
         <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
           CONFIGURATION
         </span>
-        <h2 className="font-serif text-4xl sm:text-5xl font-normal text-gray-950 mt-1 leading-tight">
+        <h2 className="font-sans text-4xl sm:text-5xl font-bold text-gray-950 mt-1 leading-tight">
           Site settings
         </h2>
         <p className="mt-2 text-sm sm:text-base text-gray-500 font-light">

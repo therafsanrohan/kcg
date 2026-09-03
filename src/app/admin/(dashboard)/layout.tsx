@@ -40,7 +40,7 @@ export default async function AdminLayout({
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <div>
-              <h1 className="font-serif text-xl sm:text-2xl font-normal text-gray-900 tracking-tight">
+              <h1 className="font-sans text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
                 Kazi Canvas Gallery
               </h1>
               <p className="text-xs text-gray-500 font-light">Artwork manager</p>
