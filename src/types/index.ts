@@ -13,6 +13,8 @@ export interface Painting {
   display_size: string | null;
   year: number | null;
   base_price_bdt: number;
+  discount_price_bdt?: number | null;
+  offer_badge?: string | null;
   description: string | null;
   search_tags: string | null;
   availability_status: AvailabilityStatus;

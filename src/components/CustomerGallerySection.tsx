@@ -163,10 +163,18 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
               painting.painting_images?.[0]
             const imageUrl = getPaintingImageUrl(mainImage?.storage_key)
 
-            const priceDisplay =
+            const hasDiscount = Boolean(painting.discount_price_bdt && Number(painting.discount_price_bdt) > 0)
+            const effectivePrice = hasDiscount ? Number(painting.discount_price_bdt) : Number(painting.base_price_bdt)
+
+            const originalPriceDisplay =
               currency === 'BDT'
                 ? `৳${Number(painting.base_price_bdt).toLocaleString('en-BD')}`
                 : `${convertCurrency(Number(painting.base_price_bdt), currency, FALLBACK_RATES)} ${currency}`
+
+            const effectivePriceDisplay =
+              currency === 'BDT'
+                ? `৳${effectivePrice.toLocaleString('en-BD')}`
+                : `${convertCurrency(effectivePrice, currency, FALLBACK_RATES)} ${currency}`
 
             return (
               <div
@@ -183,6 +191,15 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
                   />
+
+                  {/* Offer Badge (Top-Left) */}
+                  {hasDiscount && (
+                    <div className="absolute top-4 left-4 z-20">
+                      <span className="bg-red-600 text-white font-bold text-[11px] uppercase tracking-wider px-3 py-1 rounded-full shadow-md">
+                        {painting.offer_badge || 'OFFER'}
+                      </span>
+                    </div>
+                  )}
 
                   {/* Circular Arrow Button (Top-Right) */}
                   <div className="absolute top-4 right-4 z-20">
@@ -207,9 +224,23 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
                   <p className="text-xs text-gray-500 font-light mt-1">
                     {painting.exact_medium} &bull; {painting.display_size || `${painting.width} × ${painting.height} in`}
                   </p>
-                  <p className="text-base font-bold text-gray-950 font-mono mt-2">
-                    {priceDisplay}
-                  </p>
+
+                  <div className="mt-2 flex items-center gap-2 font-mono">
+                    {hasDiscount ? (
+                      <>
+                        <span className="text-xs text-gray-400 line-through">
+                          {originalPriceDisplay}
+                        </span>
+                        <span className="text-base font-bold text-red-600">
+                          {effectivePriceDisplay}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-base font-bold text-gray-950">
+                        {effectivePriceDisplay}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Clickable Overlay Link */}

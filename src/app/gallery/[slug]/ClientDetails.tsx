@@ -15,6 +15,8 @@ interface PaintingData {
   width: number
   height: number
   base_price_bdt: number
+  discount_price_bdt?: number | null
+  offer_badge?: string | null
   availability_status: string
   description: string
 }
@@ -64,9 +66,14 @@ export default function ClientDetails({
   }
 
   const selectedFrame = frames?.find(f => f.id === selectedFrameId)
+  
+  const hasDiscount = Boolean(painting.discount_price_bdt && Number(painting.discount_price_bdt) > 0)
   const basePrice = Number(painting.base_price_bdt) || 0
+  const discountPrice = hasDiscount ? Number(painting.discount_price_bdt) : basePrice
   const framePrice = selectedFrame ? Number(selectedFrame.price_bdt) || 0 : 0
-  const totalPriceBdt = basePrice + framePrice
+  
+  const totalPriceBdt = discountPrice + framePrice
+  const originalTotalPriceBdt = basePrice + framePrice
 
   const isAvailable = painting.availability_status === 'available'
   
@@ -80,7 +87,13 @@ export default function ClientDetails({
     message += `Painting: ${painting.title}\n`
     message += `Medium: ${painting.exact_medium}\n`
     message += `Size: ${painting.width} x ${painting.height} cm\n`
-    message += `Artwork Price: ${basePrice.toLocaleString('en-BD')} BDT\n`
+
+    if (hasDiscount) {
+      message += `Original Price: ${basePrice.toLocaleString('en-BD')} BDT\n`
+      message += `Offer Price: ${discountPrice.toLocaleString('en-BD')} BDT (${painting.offer_badge || 'Discount Offer'})\n`
+    } else {
+      message += `Artwork Price: ${basePrice.toLocaleString('en-BD')} BDT\n`
+    }
     
     if (selectedFrame) {
       message += `Framing: ${selectedFrame.frame_name} (${selectedFrame.outer_size || 'Custom Size'})\n`
@@ -108,15 +121,16 @@ export default function ClientDetails({
     <div className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16">
       
       {/* LEFT COL: Image gallery */}
-      <div className="flex flex-col-reverse">
+      <div>
+        {/* Thumbnails */}
         {images && images.length > 1 && (
-          <div className="mx-auto mt-6 w-full">
-            <div className="flex gap-4 overflow-x-auto pb-2" aria-orientation="horizontal" role="tablist">
+          <div className="mb-4 overflow-x-auto pb-2">
+            <div className="flex space-x-3">
               {images.map((img, idx) => {
                 const thumbUrl = getPaintingImageUrl(img.storage_key)
-                const isSelected = activeImageIndex === idx
+                const isSelected = idx === activeImageIndex
                 return (
-                  <button 
+                  <button
                     key={img.storage_key || idx} 
                     type="button"
                     onClick={() => setActiveImageIndex(idx)}
@@ -147,6 +161,17 @@ export default function ClientDetails({
             sizes="(max-width: 768px) 100vw, 50vw"
             className="object-cover object-center transition-all duration-500 group-hover:scale-105"
           />
+
+          {/* Offer Badge Top Left */}
+          {hasDiscount && (
+            <div className="absolute top-4 left-4 z-20">
+              <span className="bg-red-600 text-white font-bold text-xs uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-lg">
+                {painting.offer_badge || 'OFFER'}
+              </span>
+            </div>
+          )}
+
+          {/* Availability Badge Top Right */}
           {painting.availability_status && painting.availability_status !== 'available' && (
             <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-md text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg z-20">
               {painting.availability_status}
@@ -177,6 +202,7 @@ export default function ClientDetails({
           <p>{painting.description || 'No description provided.'}</p>
         </div>
 
+        {/* Framing Options */}
         <div className="border-t border-gray-200 pt-6">
           <h3 className="text-sm font-medium text-gray-900">Framing Options</h3>
           <div className="mt-4 space-y-4">
@@ -209,18 +235,27 @@ export default function ClientDetails({
           </div>
         </div>
 
+        {/* Total Price & Offer Details */}
         <div className="border-t border-gray-200 pt-6 flex items-end justify-between">
           <div>
             <p className="text-sm text-gray-500">Total Price</p>
-            <p className="text-3xl font-bold text-gray-900">
-              {convertCurrency(totalPriceBdt, currency, rates)} <span className="text-xl font-normal text-gray-500">{currency}</span>
-            </p>
+            <div className="flex items-baseline gap-3 mt-1">
+              {hasDiscount && (
+                <span className="text-xl font-normal text-gray-400 line-through">
+                  {convertCurrency(originalTotalPriceBdt, currency, rates)}
+                </span>
+              )}
+              <p className={`text-3xl font-bold ${hasDiscount ? 'text-red-600' : 'text-gray-900'}`}>
+                {convertCurrency(totalPriceBdt, currency, rates)} <span className="text-xl font-normal text-gray-500">{currency}</span>
+              </p>
+            </div>
             {currency !== 'BDT' && (
               <p className="text-xs text-gray-400 mt-1">Final payment will be confirmed in BDT ({totalPriceBdt.toLocaleString()} BDT).</p>
             )}
           </div>
         </div>
 
+        {/* CTA Button */}
         <div className="mt-6">
           {isAvailable ? (
             <a

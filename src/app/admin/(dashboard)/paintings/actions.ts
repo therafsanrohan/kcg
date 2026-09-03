@@ -92,6 +92,11 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
     (formData.get('availability_status') as string) || 'available'
   const base_price_bdt =
     parseFloat(formData.get('base_price_bdt') as string) || 0
+  const discountStr = formData.get('discount_price_bdt') as string
+  const discount_price_bdt = discountStr && !isNaN(parseFloat(discountStr)) && parseFloat(discountStr) > 0
+    ? parseFloat(discountStr)
+    : null
+  const offer_badge = (formData.get('offer_badge') as string)?.trim() || null
   const description = (formData.get('description') as string)?.trim() || ''
 
   // Booleans from checkboxes
@@ -129,6 +134,8 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
           year,
           availability_status,
           base_price_bdt,
+          discount_price_bdt,
+          offer_badge,
           description,
           is_published,
           is_featured,
@@ -154,6 +161,8 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
           year,
           availability_status,
           base_price_bdt,
+          discount_price_bdt,
+          offer_badge,
           description,
           is_published,
           is_featured,

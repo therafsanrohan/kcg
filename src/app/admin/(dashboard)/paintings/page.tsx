@@ -12,7 +12,7 @@ export default async function AdminPaintingsPage() {
     .from('paintings')
     .select(`
       id, title, slug, painting_type, exact_medium, display_size, width, height,
-      base_price_bdt, availability_status, is_published, is_featured, description, year, created_at,
+      base_price_bdt, discount_price_bdt, offer_badge, availability_status, is_published, is_featured, description, year, created_at,
       painting_images(storage_key, is_main),
       frame_options(id, frame_name, outer_size, price_bdt, is_active)
     `)

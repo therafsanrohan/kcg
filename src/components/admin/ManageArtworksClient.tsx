@@ -246,9 +246,27 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
 
                       {/* Price */}
                       <td className="py-4 px-4">
-                        <p className="text-sm font-bold text-gray-900 tabular-nums">
-                          &#2547;{Number(painting.base_price_bdt).toLocaleString('en-BD')}
-                        </p>
+                        {painting.discount_price_bdt && Number(painting.discount_price_bdt) > 0 ? (
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-gray-400 line-through tabular-nums">
+                                &#2547;{Number(painting.base_price_bdt).toLocaleString('en-BD')}
+                              </span>
+                              <span className="text-sm font-bold text-red-600 tabular-nums">
+                                &#2547;{Number(painting.discount_price_bdt).toLocaleString('en-BD')}
+                              </span>
+                            </div>
+                            {painting.offer_badge && (
+                              <span className="inline-block mt-0.5 px-2 py-0.5 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 rounded">
+                                {painting.offer_badge}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-sm font-bold text-gray-900 tabular-nums">
+                            &#2547;{Number(painting.base_price_bdt).toLocaleString('en-BD')}
+                          </p>
+                        )}
                         {minFrame !== null && minFrame > 0 ? (
                           <p className="text-[11px] text-gray-500 font-light mt-0.5 tabular-nums">
                             +&#2547;{minFrame.toLocaleString('en-BD')} frame

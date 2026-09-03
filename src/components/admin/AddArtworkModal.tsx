@@ -229,20 +229,47 @@ export default function AddArtworkModal({
               </div>
             </div>
 
-            {/* Price */}
-            <div>
-              <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
-                Artwork Price, BDT <span className="text-red-500">*</span>
-              </label>
-              <input
-                name="base_price_bdt"
-                type="number"
-                required
-                min="0"
-                defaultValue={initialData?.base_price_bdt ?? ''}
-                placeholder="85000"
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
-              />
+            {/* Price & Offer Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
+                  Regular Price, BDT <span className="text-red-500">*</span>
+                </label>
+                <input
+                  name="base_price_bdt"
+                  type="number"
+                  required
+                  min="0"
+                  defaultValue={initialData?.base_price_bdt ?? ''}
+                  placeholder="85000"
+                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
+                  Offer Price, BDT <span className="text-xs font-normal text-gray-400 normal-case">(Optional)</span>
+                </label>
+                <input
+                  name="discount_price_bdt"
+                  type="number"
+                  min="0"
+                  defaultValue={initialData?.discount_price_bdt ?? ''}
+                  placeholder="68000"
+                  className="w-full rounded-lg border border-red-200 bg-red-50/30 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
+                  Offer Badge <span className="text-xs font-normal text-gray-400 normal-case">(Optional)</span>
+                </label>
+                <input
+                  name="offer_badge"
+                  type="text"
+                  defaultValue={initialData?.offer_badge ?? ''}
+                  placeholder="20% OFF or EID SALE"
+                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
+                />
+              </div>
             </div>
 
             {/* Frame Options */}

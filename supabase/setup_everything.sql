@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS public.paintings (
   display_size text,
   year integer,
   base_price_bdt numeric NOT NULL,
+  discount_price_bdt numeric,
+  offer_badge text,
   description text,
   search_tags text,
   availability_status text NOT NULL CHECK (availability_status IN ('available', 'reserved', 'sold')),
@@ -30,6 +32,9 @@ CREATE TABLE IF NOT EXISTS public.paintings (
   updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
   archived_at timestamp with time zone
 );
+
+ALTER TABLE public.paintings ADD COLUMN IF NOT EXISTS discount_price_bdt numeric;
+ALTER TABLE public.paintings ADD COLUMN IF NOT EXISTS offer_badge text;
 
 CREATE TABLE IF NOT EXISTS public.painting_images (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
