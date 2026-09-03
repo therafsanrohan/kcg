@@ -18,6 +18,8 @@ export default function Footer({ whatsappNumber }: { whatsappNumber?: string }) 
           </p>
           <p className="text-center md:text-left text-xs leading-5 text-gray-400">
             Developed by <a href="https://www.creatiancy.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-gray-600 hover:text-black transition-colors">Creatiancy</a>
+            <span className="mx-2">&bull;</span>
+            <Link href="/admin" className="text-gray-400 hover:text-gray-600 transition-colors">Admin Login</Link>
           </p>
         </div>
       </div>
