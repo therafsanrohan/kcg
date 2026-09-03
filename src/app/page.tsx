@@ -37,18 +37,12 @@ export default async function Home() {
           <p className="mt-6 text-lg leading-relaxed text-gray-600 max-w-2xl mx-auto font-light">
             Discover original, breathtaking oil and acrylic paintings crafted by Kazi Canvas Gallery. Transform your space with authentic, timeless art directly from the artist.
           </p>
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="mt-10 flex items-center justify-center">
             <Link
               href="/gallery"
-              className="w-full sm:w-auto rounded-full bg-black px-8 py-4 text-base font-semibold text-white shadow-lg hover:bg-gray-800 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
+              className="rounded-full bg-black px-9 py-4 text-base font-semibold text-white shadow-lg hover:bg-gray-800 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
             >
               Explore Collection
-            </Link>
-            <Link
-              href="/gallery?type=oil"
-              className="w-full sm:w-auto rounded-full bg-white px-8 py-4 text-base font-semibold text-gray-900 border border-gray-200 hover:border-black hover:bg-gray-50 transition-all duration-300"
-            >
-              Oil Paintings
             </Link>
           </div>
         </div>
