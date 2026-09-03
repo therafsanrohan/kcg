@@ -85,7 +85,7 @@ export default function ClientDetails({
     <div className="flex flex-col gap-y-8">
       <div>
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold font-serif text-gray-900">{painting.title}</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{painting.title}</h1>
           
           <select 
             value={currency} 

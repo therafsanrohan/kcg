@@ -53,7 +53,7 @@ export default async function GalleryPage({
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between border-b border-gray-200 pb-6 mb-8">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 font-serif">The Collection</h1>
+            <h1 className="text-4xl font-bold tracking-tight text-gray-900">The Collection</h1>
             <p className="mt-4 text-base text-gray-500">Explore our original handmade paintings.</p>
           </div>
           <div className="mt-6 md:mt-0 w-full md:w-auto flex flex-col sm:flex-row gap-4">
@@ -85,7 +85,7 @@ export default async function GalleryPage({
                   )}
                 </div>
                 <h3 className="mt-4 text-sm text-gray-500 capitalize">{painting.painting_type} &middot; {painting.exact_medium}</h3>
-                <p className="mt-1 text-base font-semibold text-gray-900 font-serif">{painting.title}</p>
+                <p className="mt-1 text-base font-semibold text-gray-900">{painting.title}</p>
                 <p className="mt-1 text-sm font-medium text-gray-900">{painting.base_price_bdt} BDT</p>
                 <Link href={`/gallery/${painting.slug}`} className="absolute inset-0">
                   <span className="sr-only">View Details for {painting.title}</span>
