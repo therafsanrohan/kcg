@@ -1,227 +1,354 @@
 'use client'
 
-import { useFormState, useFormStatus } from 'react-dom'
+import { useState, useTransition } from 'react'
+import { Plus, X } from 'lucide-react'
 import { savePainting } from '@/app/admin/(dashboard)/paintings/actions'
 import { Painting } from '@/types'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
-const initialState: { message: string, errors?: any } = {
-  message: '',
-  errors: {},
+interface FrameRow {
+  id: string
+  frame_name: string
+  outer_size: string
+  price_bdt: number | string
 }
 
-function SubmitButton() {
-  const { pending } = useFormStatus()
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="inline-flex justify-center rounded-md bg-black px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-black disabled:opacity-50"
-    >
-      {pending ? 'Saving...' : 'Save Painting'}
-    </button>
+export default function PaintingForm({ painting }: { painting?: Painting & { frame_options?: any[] } }) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const [frames, setFrames] = useState<FrameRow[]>(
+    painting?.frame_options?.length
+      ? painting.frame_options.map((f: any) => ({
+          id: f.id || Math.random().toString(),
+          frame_name: f.frame_name,
+          outer_size: f.outer_size || '',
+          price_bdt: f.price_bdt || 0,
+        }))
+      : [
+          {
+            id: '1',
+            frame_name: 'Natural oak',
+            outer_size: '27 × 39 in',
+            price_bdt: 0,
+          },
+        ]
   )
-}
 
-export default function PaintingForm({ painting }: { painting?: Painting }) {
-  const [state, formAction] = useFormState(savePainting, initialState)
+  const [selectedFileName, setSelectedFileName] = useState<string>('no file selected')
+
+  const handleAddFrame = () => {
+    setFrames((prev) => [
+      ...prev,
+      {
+        id: Math.random().toString(),
+        frame_name: '',
+        outer_size: '',
+        price_bdt: 0,
+      },
+    ])
+  }
+
+  const handleRemoveFrame = (id: string) => {
+    setFrames((prev) => prev.filter((f) => f.id !== id))
+  }
+
+  const handleFrameChange = (id: string, field: keyof FrameRow, val: string) => {
+    setFrames((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, [field]: val } : f))
+    )
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFileName(e.target.files[0].name)
+    } else {
+      setSelectedFileName('no file selected')
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    setErrorMsg(null)
+    const formData = new FormData(e.currentTarget)
+    formData.set('frames_json', JSON.stringify(frames))
+
+    startTransition(async () => {
+      const res = await savePainting(null, formData)
+      if (res?.error) {
+        setErrorMsg(res.error)
+      } else {
+        router.push('/admin')
+      }
+    })
+  }
+
+  const isEditMode = Boolean(painting?.id)
 
   return (
-    <form action={formAction} className="space-y-6">
-      {painting && <input type="hidden" name="id" value={painting.id} />}
-      
-      <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6">
-        <div className="sm:col-span-4">
-          <label htmlFor="title" className="block text-sm font-medium leading-6 text-gray-900">
-            Title
-          </label>
-          <div className="mt-2">
+    <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-200">
+      <div className="mb-6">
+        <h2 className="font-serif text-3xl font-normal text-gray-950">
+          {isEditMode ? 'Edit artwork' : 'Add new artwork'}
+        </h2>
+        <p className="mt-1 text-sm text-gray-500 font-light">
+          Add the painting details and a clear, high-resolution image.
+        </p>
+      </div>
+
+      {errorMsg && (
+        <div className="mb-6 p-3 rounded-lg bg-red-50 text-red-600 text-sm border border-red-200">
+          {errorMsg}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {painting?.id && <input type="hidden" name="id" value={painting.id} />}
+
+        {/* Grid Inputs */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <label htmlFor="title" className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
+              ARTWORK TITLE
+            </label>
             <input
-              type="text"
-              name="title"
               id="title"
-              defaultValue={painting?.title}
-              className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-black sm:text-sm sm:leading-6 px-3"
-            />
-          </div>
-          {state?.errors?.title && (
-            <p className="mt-2 text-sm text-red-600">{state.errors.title}</p>
-          )}
-        </div>
-
-        <div className="sm:col-span-2">
-          <label htmlFor="slug" className="block text-sm font-medium leading-6 text-gray-900">
-            URL Slug
-          </label>
-          <div className="mt-2">
-            <input
+              name="title"
               type="text"
-              name="slug"
-              id="slug"
-              defaultValue={painting?.slug}
-              className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-black sm:text-sm sm:leading-6 px-3"
+              required
+              defaultValue={painting?.title || ''}
+              placeholder="River at Dusk"
+              className="w-full rounded-md border border-gray-300 px-3.5 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
             />
           </div>
-          {state?.errors?.slug && (
-            <p className="mt-2 text-sm text-red-600">{state.errors.slug}</p>
-          )}
-        </div>
 
-        <div className="sm:col-span-2">
-          <label htmlFor="painting_type" className="block text-sm font-medium leading-6 text-gray-900">
-            Painting Type
-          </label>
-          <div className="mt-2">
+          <div>
+            <label htmlFor="painting_type" className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
+              PAINTING TYPE
+            </label>
             <select
               id="painting_type"
               name="painting_type"
               defaultValue={painting?.painting_type || 'oil'}
-              className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-black sm:text-sm sm:leading-6 px-3"
+              className="w-full rounded-md border border-gray-300 px-3.5 py-2 text-sm text-gray-900 focus:border-black focus:ring-1 focus:ring-black outline-none bg-white transition-all"
             >
               <option value="oil">Oil</option>
               <option value="acrylic">Acrylic</option>
-              <option value="mixed">Mixed Media</option>
+              <option value="mixed">Mixed</option>
             </select>
           </div>
-        </div>
 
-        <div className="sm:col-span-4">
-          <label htmlFor="exact_medium" className="block text-sm font-medium leading-6 text-gray-900">
-            Exact Medium
-          </label>
-          <div className="mt-2">
+          <div>
+            <label htmlFor="exact_medium" className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
+              MEDIUM
+            </label>
             <input
-              type="text"
-              name="exact_medium"
               id="exact_medium"
-              defaultValue={painting?.exact_medium}
-              className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-black sm:text-sm sm:leading-6 px-3"
-              placeholder="e.g. Oil on Canvas"
+              name="exact_medium"
+              type="text"
+              defaultValue={painting?.exact_medium || 'Oil on canvas'}
+              placeholder="Oil on canvas"
+              className="w-full rounded-md border border-gray-300 px-3.5 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
             />
           </div>
-        </div>
 
-        <div className="sm:col-span-2">
-          <label htmlFor="width" className="block text-sm font-medium leading-6 text-gray-900">
-            Width (cm)
-          </label>
-          <div className="mt-2">
+          <div>
+            <label htmlFor="display_size" className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
+              ARTWORK SIZE
+            </label>
             <input
-              type="number"
-              step="any"
-              name="width"
-              id="width"
-              defaultValue={painting?.width}
-              className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-black sm:text-sm sm:leading-6 px-3"
+              id="display_size"
+              name="display_size"
+              type="text"
+              defaultValue={painting?.display_size || '24 × 36 in'}
+              placeholder="24 × 36 in"
+              className="w-full rounded-md border border-gray-300 px-3.5 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
             />
           </div>
-        </div>
 
-        <div className="sm:col-span-2">
-          <label htmlFor="height" className="block text-sm font-medium leading-6 text-gray-900">
-            Height (cm)
-          </label>
-          <div className="mt-2">
+          <div>
+            <label htmlFor="year" className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
+              YEAR
+            </label>
             <input
+              id="year"
+              name="year"
               type="number"
-              step="any"
-              name="height"
-              id="height"
-              defaultValue={painting?.height}
-              className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-black sm:text-sm sm:leading-6 px-3"
+              defaultValue={painting?.year || 2026}
+              placeholder="2026"
+              className="w-full rounded-md border border-gray-300 px-3.5 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
             />
           </div>
-        </div>
 
-        <div className="sm:col-span-2">
-          <label htmlFor="base_price_bdt" className="block text-sm font-medium leading-6 text-gray-900">
-            Base Price (BDT)
-          </label>
-          <div className="mt-2">
-            <input
-              type="number"
-              name="base_price_bdt"
-              id="base_price_bdt"
-              defaultValue={painting?.base_price_bdt}
-              className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-black sm:text-sm sm:leading-6 px-3"
-            />
-          </div>
-        </div>
-
-        <div className="col-span-full">
-          <label htmlFor="description" className="block text-sm font-medium leading-6 text-gray-900">
-            Description
-          </label>
-          <div className="mt-2">
-            <textarea
-              id="description"
-              name="description"
-              rows={4}
-              defaultValue={painting?.description || ''}
-              className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-black sm:text-sm sm:leading-6 px-3"
-            />
-          </div>
-        </div>
-
-        <div className="sm:col-span-2">
-          <label htmlFor="availability_status" className="block text-sm font-medium leading-6 text-gray-900">
-            Status
-          </label>
-          <div className="mt-2">
+          <div>
+            <label htmlFor="availability_status" className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
+              STOCK STATUS
+            </label>
             <select
               id="availability_status"
               name="availability_status"
               defaultValue={painting?.availability_status || 'available'}
-              className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-black sm:text-sm sm:leading-6 px-3"
+              className="w-full rounded-md border border-gray-300 px-3.5 py-2 text-sm text-gray-900 focus:border-black focus:ring-1 focus:ring-black outline-none bg-white transition-all capitalize"
             >
               <option value="available">Available</option>
               <option value="reserved">Reserved</option>
               <option value="sold">Sold</option>
             </select>
           </div>
+
+          <div>
+            <label htmlFor="base_price_bdt" className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
+              ARTWORK PRICE, BDT
+            </label>
+            <input
+              id="base_price_bdt"
+              name="base_price_bdt"
+              type="number"
+              required
+              defaultValue={painting?.base_price_bdt || 85000}
+              placeholder="85000"
+              className="w-full rounded-md border border-gray-300 px-3.5 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
+            />
+          </div>
         </div>
 
-        <div className="sm:col-span-2 flex items-center mt-8">
-          <input
-            id="is_published"
-            name="is_published"
-            type="checkbox"
-            value="true"
-            defaultChecked={painting?.is_published}
-            className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black"
-          />
-          <label htmlFor="is_published" className="ml-2 block text-sm font-medium leading-6 text-gray-900">
-            Publish on Website
+        {/* Frame Options */}
+        <div className="border border-gray-200/80 rounded-xl p-4 sm:p-5 bg-white">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px] font-bold tracking-wider uppercase text-gray-800">
+              FRAME OPTIONS
+            </span>
+            <button
+              type="button"
+              onClick={handleAddFrame}
+              className="h-8 px-3 rounded-md border border-gray-200 hover:border-gray-400 bg-white text-xs font-semibold text-gray-800 flex items-center gap-1.5 transition-all shadow-2xs"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add frame</span>
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 font-light mb-4">
+            Add each available frame finish, its final outer size and price.
+          </p>
+
+          <div className="space-y-3">
+            {frames.map((frame) => (
+              <div key={frame.id} className="bg-[#FAF9F6] border border-gray-200/70 p-3.5 rounded-lg flex flex-col sm:flex-row gap-3 items-end">
+                <div className="flex-1 w-full">
+                  <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-700 mb-1">
+                    FRAME FINISH
+                  </label>
+                  <input
+                    type="text"
+                    value={frame.frame_name}
+                    onChange={(e) => handleFrameChange(frame.id, 'frame_name', e.target.value)}
+                    placeholder="Natural oak"
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 placeholder:text-gray-400 bg-white focus:border-black outline-none"
+                  />
+                </div>
+
+                <div className="w-full sm:w-36">
+                  <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-700 mb-1">
+                    FRAME SIZE
+                  </label>
+                  <input
+                    type="text"
+                    value={frame.outer_size}
+                    onChange={(e) => handleFrameChange(frame.id, 'outer_size', e.target.value)}
+                    placeholder="27 × 39 in"
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 placeholder:text-gray-400 bg-white focus:border-black outline-none"
+                  />
+                </div>
+
+                <div className="w-full sm:w-28">
+                  <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-700 mb-1">
+                    PRICE, BDT
+                  </label>
+                  <input
+                    type="number"
+                    value={frame.price_bdt}
+                    onChange={(e) => handleFrameChange(frame.id, 'price_bdt', e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 placeholder:text-gray-400 bg-white focus:border-black outline-none"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleRemoveFrame(frame.id)}
+                  className="h-8 w-8 rounded-md border border-gray-200 flex items-center justify-center text-gray-400 hover:text-red-600 hover:border-red-200 bg-white transition-all flex-shrink-0"
+                  title="Remove frame"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Description */}
+        <div>
+          <label htmlFor="description" className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
+            DESCRIPTION
           </label>
-        </div>
-        
-        <div className="sm:col-span-2 flex items-center mt-8">
-          <input
-            id="is_featured"
-            name="is_featured"
-            type="checkbox"
-            value="true"
-            defaultChecked={painting?.is_featured}
-            className="h-4 w-4 rounded border-gray-300 text-black focus:ring-black"
+          <textarea
+            id="description"
+            name="description"
+            rows={3}
+            defaultValue={painting?.description || ''}
+            placeholder="Tell collectors about the story, texture and inspiration behind this work."
+            className="w-full rounded-md border border-gray-300 p-3.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
           />
-          <label htmlFor="is_featured" className="ml-2 block text-sm font-medium leading-6 text-gray-900">
-            Featured (Home Page)
+        </div>
+
+        {/* Artwork Image Upload */}
+        <div>
+          <label className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
+            ARTWORK IMAGE
           </label>
+          <div className="border border-gray-300 rounded-md p-2 flex items-center gap-3 bg-white">
+            <label
+              htmlFor="artwork_image_standalone"
+              className="cursor-pointer bg-black text-white text-xs font-semibold px-3.5 py-1.5 rounded-md hover:bg-gray-800 transition-colors shadow-2xs"
+            >
+              Choose File
+            </label>
+            <input
+              id="artwork_image_standalone"
+              name="artwork_image"
+              type="file"
+              accept="image/png, image/jpeg, image/webp"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <span className="text-xs text-gray-600 font-mono truncate">
+              {selectedFileName}
+            </span>
+          </div>
+          <p className="mt-1.5 text-[11px] text-gray-400 font-light">
+            JPG, PNG or WebP, up to 12 MB. Use a sharp, straight-on image.
+          </p>
         </div>
-      </div>
 
-      {state?.message && (
-        <div className="rounded-md bg-red-50 p-4">
-          <div className="text-sm text-red-700">{state.message}</div>
+        {/* Action Buttons */}
+        <div className="pt-4 flex items-center justify-end gap-3">
+          <Link
+            href="/admin"
+            className="px-6 py-2.5 rounded-md border border-gray-200 bg-white text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-all"
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={isPending}
+            className="px-6 py-2.5 rounded-md bg-black text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-50 transition-all shadow-sm"
+          >
+            {isPending ? 'Saving...' : isEditMode ? 'Update artwork' : 'Add artwork'}
+          </button>
         </div>
-      )}
-
-      <div className="mt-6 flex items-center justify-end gap-x-6">
-        <Link href="/admin/paintings" className="text-sm font-semibold leading-6 text-gray-900">
-          Cancel
-        </Link>
-        <SubmitButton />
-      </div>
-    </form>
+      </form>
+    </div>
   )
 }

@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { logout } from '../login/actions'
 import Link from 'next/link'
+import { ArrowLeft, LogOut } from 'lucide-react'
 
 export default async function AdminLayout({
   children,
@@ -21,53 +22,52 @@ export default async function AdminLayout({
     redirect('/admin/login')
   }
 
+  const userEmail = user?.email || 'knock.rafsan@gmail.com'
+
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <aside className="w-64 bg-white border-r border-gray-200">
-        <div className="h-full px-3 py-4 flex flex-col">
-          <div className="mb-6 px-3">
-            <h2 className="text-xl font-semibold text-gray-900">Gallery Admin</h2>
+    <div className="min-h-screen bg-[#F8F6F0] text-gray-900 flex flex-col font-sans">
+      {/* Top Header Bar */}
+      <header className="bg-white border-b border-gray-200/70 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+          
+          {/* Left: Back button & Title */}
+          <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              className="h-11 w-11 rounded-lg border border-gray-200 flex items-center justify-center text-gray-700 hover:text-black hover:border-gray-400 hover:bg-gray-50 transition-all shadow-sm"
+              title="Back to Gallery Home"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div>
+              <h1 className="font-serif text-xl sm:text-2xl font-normal text-gray-900 tracking-tight">
+                Kazi Canvas Gallery
+              </h1>
+              <p className="text-xs text-gray-500 font-light">Artwork manager</p>
+            </div>
           </div>
-          <ul className="space-y-2 font-medium flex-1">
-            <li>
-              <Link
-                href="/admin"
-                className="flex items-center p-2 text-gray-900 rounded-lg hover:bg-gray-100"
-              >
-                <span className="ml-3">Dashboard</span>
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/admin/paintings"
-                className="flex items-center p-2 text-gray-900 rounded-lg hover:bg-gray-100"
-              >
-                <span className="ml-3">Paintings</span>
-              </Link>
-            </li>
-            <li>
-              <Link
-                href="/admin/settings"
-                className="flex items-center p-2 text-gray-900 rounded-lg hover:bg-gray-100"
-              >
-                <span className="ml-3">Settings</span>
-              </Link>
-            </li>
-          </ul>
-          <div className="pt-4 mt-4 border-t border-gray-200">
+
+          {/* Right: User Email & Sign Out */}
+          <div className="flex items-center gap-4 sm:gap-6">
+            <span className="hidden sm:inline text-xs sm:text-sm text-gray-600 font-light">
+              {userEmail}
+            </span>
             <form action={logout}>
               <button
                 type="submit"
-                className="flex w-full items-center p-2 text-gray-900 rounded-lg hover:bg-gray-100"
+                className="h-10 px-4 rounded-lg border border-gray-200 flex items-center gap-2 text-xs sm:text-sm font-medium text-gray-700 hover:text-black hover:border-gray-400 hover:bg-gray-50 transition-all shadow-sm"
               >
-                <span className="ml-3">Log Out</span>
+                <LogOut className="h-4 w-4" />
+                <span>Sign out</span>
               </button>
             </form>
           </div>
-        </div>
-      </aside>
 
-      <main className="flex-1 p-8">
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
         {children}
       </main>
     </div>
