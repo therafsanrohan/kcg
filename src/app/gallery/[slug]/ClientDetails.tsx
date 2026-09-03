@@ -46,15 +46,21 @@ export default function ClientDetails({
 
   // Persist currency preference
   useEffect(() => {
-    const saved = localStorage.getItem('preferredCurrency') as Currency
-    if (saved && SUPPORTED_CURRENCIES.includes(saved)) {
-      setCurrency(saved)
+    const updateCurr = () => {
+      const saved = localStorage.getItem('preferredCurrency') as Currency
+      if (saved && SUPPORTED_CURRENCIES.includes(saved)) {
+        setCurrency(saved)
+      }
     }
+    updateCurr()
+    window.addEventListener('preferredCurrencyChanged', updateCurr)
+    return () => window.removeEventListener('preferredCurrencyChanged', updateCurr)
   }, [])
 
   const handleCurrencyChange = (c: Currency) => {
     setCurrency(c)
     localStorage.setItem('preferredCurrency', c)
+    window.dispatchEvent(new Event('preferredCurrencyChanged'))
   }
 
   const selectedFrame = frames?.find(f => f.id === selectedFrameId)

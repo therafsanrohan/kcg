@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Search, ArrowUpRight, ChevronDown } from 'lucide-react'
 import { getPaintingImageUrl } from '@/utils/image'
+import { Currency, convertCurrency, FALLBACK_RATES } from '@/utils/currency'
 
 interface CustomerGallerySectionProps {
   paintings: any[]
@@ -14,6 +15,17 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [sortBy, setSortBy] = useState<string>('newest')
+  const [currency, setCurrency] = useState<Currency>('BDT')
+
+  useEffect(() => {
+    const updateCurr = () => {
+      const saved = (localStorage.getItem('preferredCurrency') as Currency) || 'BDT'
+      setCurrency(saved)
+    }
+    updateCurr()
+    window.addEventListener('preferredCurrencyChanged', updateCurr)
+    return () => window.removeEventListener('preferredCurrencyChanged', updateCurr)
+  }, [])
 
   // Filter & Sort Logic
   const filteredPaintings = useMemo(() => {
@@ -162,6 +174,11 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
               painting.painting_images?.[0]
             const imageUrl = getPaintingImageUrl(mainImage?.storage_key)
 
+            const priceDisplay =
+              currency === 'BDT'
+                ? `৳${Number(painting.base_price_bdt).toLocaleString('en-BD')}`
+                : `${convertCurrency(Number(painting.base_price_bdt), currency, FALLBACK_RATES)} ${currency}`
+
             return (
               <div
                 key={painting.id}
@@ -202,7 +219,7 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
                     {painting.exact_medium} &bull; {painting.display_size || `${painting.width} × ${painting.height} in`}
                   </p>
                   <p className="text-base font-bold text-gray-950 font-mono mt-2">
-                    &#2547;{Number(painting.base_price_bdt).toLocaleString('en-BD')}
+                    {priceDisplay}
                   </p>
                 </div>
 

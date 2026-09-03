@@ -1,39 +1,63 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Menu, X, MessageCircle, ChevronDown } from 'lucide-react'
+import { SUPPORTED_CURRENCIES, Currency } from '@/utils/currency'
 
 export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappNumber?: string }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [currency, setCurrency] = useState('BDT')
+  const [currency, setCurrency] = useState<Currency>('BDT')
   const cleanNumber = whatsappNumber.replace(/[^0-9]/g, '')
+
+  useEffect(() => {
+    const saved = localStorage.getItem('preferredCurrency') as Currency
+    if (saved && SUPPORTED_CURRENCIES.includes(saved)) {
+      setCurrency(saved)
+    }
+  }, [])
+
+  const handleCurrencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newCurrency = e.target.value as Currency
+    setCurrency(newCurrency)
+    localStorage.setItem('preferredCurrency', newCurrency)
+    window.dispatchEvent(new Event('preferredCurrencyChanged'))
+  }
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 transition-all duration-300">
       <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 h-20" aria-label="Global">
         
-        {/* Left: Brand Logo & Title */}
-        <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="h-10 w-10 bg-black text-white font-mono font-bold text-xs sm:text-sm tracking-tighter flex items-center justify-center rounded-lg shadow-sm group-hover:bg-gray-800 transition-colors">
-              KCG
-            </div>
-            <span className="font-serif text-xl sm:text-2xl font-normal text-gray-950 tracking-tight group-hover:text-gray-700 transition-colors">
+        {/* Left: Brand Title (Helvetica Neue, Logo removed per user request) */}
+        <div className="flex items-center">
+          <Link href="/" className="group flex items-center">
+            <span
+              className="text-xl sm:text-2xl font-bold tracking-tight text-gray-950 group-hover:text-gray-600 transition-colors"
+              style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
+            >
               Kazi Canvas Gallery
             </span>
           </Link>
         </div>
 
-        {/* Right: Currency, WhatsApp CTA, Hamburger */}
+        {/* Right: Functional Currency Dropdown, WhatsApp CTA, Hamburger */}
         <div className="flex items-center gap-3 sm:gap-4">
           
-          {/* Currency Dropdown Box */}
-          <div className="relative inline-block text-left">
-            <div className="h-10 px-3.5 rounded-lg border border-gray-200 bg-white flex items-center gap-1.5 text-xs sm:text-sm font-medium text-gray-800 hover:border-gray-400 transition-all cursor-pointer shadow-2xs">
-              <span>{currency}</span>
-              <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
-            </div>
+          {/* Functional Currency Dropdown */}
+          <div className="relative inline-block">
+            <select
+              value={currency}
+              onChange={handleCurrencyChange}
+              aria-label="Select currency"
+              className="h-10 pl-3.5 pr-8 rounded-lg border border-gray-200 bg-white text-xs sm:text-sm font-semibold text-gray-800 hover:border-gray-400 focus:border-black outline-none appearance-none cursor-pointer shadow-2xs transition-all"
+            >
+              {SUPPORTED_CURRENCIES.map((curr) => (
+                <option key={curr} value={curr}>
+                  {curr}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
           </div>
 
           {/* WhatsApp Button */}
