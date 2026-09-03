@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000" fill="none">
+  <rect width="800" height="1000" fill="#F8F9FA"/>
+  <rect x="100" y="150" width="600" height="700" rx="8" stroke="#E5E7EB" stroke-width="4" stroke-dasharray="8 8" fill="#FFFFFF"/>
+  <path d="M250 650L350 500L450 600L550 450L650 650H250Z" fill="#F3F4F6"/>
+  <circle cx="340" cy="380" r="45" fill="#E5E7EB"/>
+  <text x="400" y="740" text-anchor="middle" fill="#9CA3AF" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="500" letter-spacing="1">KAZI CANVAS GALLERY</text>
+  <text x="400" y="775" text-anchor="middle" fill="#CBD5E1" font-family="system-ui, -apple-system, sans-serif" font-size="14">Original Artwork</text>
+</svg>

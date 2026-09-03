@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { FrameOption } from '@/types'
 import { SUPPORTED_CURRENCIES, Currency, convertCurrency } from '@/utils/currency'
 import Image from 'next/image'
+import { getPaintingImageUrl } from '@/utils/image'
 
 interface PaintingData {
   id: string
@@ -35,7 +36,7 @@ export default function ClientDetails({
   const [selectedFrameId, setSelectedFrameId] = useState<string>('none')
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   
-  const mainImageIdx = images.findIndex(img => img.is_main)
+  const mainImageIdx = images?.findIndex(img => img.is_main) ?? -1
   
   useEffect(() => {
     if (mainImageIdx !== -1) {
@@ -56,87 +57,95 @@ export default function ClientDetails({
     localStorage.setItem('preferredCurrency', c)
   }
 
-  const selectedFrame = frames.find(f => f.id === selectedFrameId)
-  const basePrice = painting.base_price_bdt
-  const framePrice = selectedFrame ? selectedFrame.price_bdt : 0
+  const selectedFrame = frames?.find(f => f.id === selectedFrameId)
+  const basePrice = Number(painting.base_price_bdt) || 0
+  const framePrice = selectedFrame ? Number(selectedFrame.price_bdt) || 0 : 0
   const totalPriceBdt = basePrice + framePrice
 
   const isAvailable = painting.availability_status === 'available'
   
   // WhatsApp Generation
   const generateWhatsAppLink = () => {
-    // Ensure the number is formatted properly (remove +, spaces, etc if needed)
     const cleanNumber = whatsappNumber.replace(/[^0-9]/g, '')
     const baseUrl = `https://wa.me/${cleanNumber}`
-    const productUrl = `${window.location.origin}/gallery/${painting.slug}`
+    const productUrl = typeof window !== 'undefined' ? `${window.location.origin}/gallery/${painting.slug}` : `https://kcg-gray.vercel.app/gallery/${painting.slug}`
     
-    let message = `Hello Kazi Canvas Gallery,\n\nI would like to purchase this painting.\n\n`
+    let message = `Hello Kazi Canvas Gallery,\n\nI would like to inquire about purchasing this artwork.\n\n`
     message += `Painting: ${painting.title}\n`
-    message += `Reference: ${painting.id.split('-')[0]}\n`
     message += `Medium: ${painting.exact_medium}\n`
-    message += `Painting size: ${painting.width}x${painting.height} cm\n`
-    message += `Painting price: ${basePrice} BDT\n`
+    message += `Size: ${painting.width} x ${painting.height} cm\n`
+    message += `Artwork Price: ${basePrice.toLocaleString('en-BD')} BDT\n`
     
     if (selectedFrame) {
-      message += `Frame: ${selectedFrame.frame_name}\n`
-      message += `Frame size: ${selectedFrame.outer_size || 'N/A'}\n`
-      message += `Frame price: ${framePrice} BDT\n`
+      message += `Framing: ${selectedFrame.frame_name} (${selectedFrame.outer_size || 'Custom Size'})\n`
+      message += `Frame Price: +${framePrice.toLocaleString('en-BD')} BDT\n`
     } else {
-      message += `Frame: Painting only (Unframed)\n`
+      message += `Framing: Unframed (Canvas Only)\n`
     }
     
-    message += `Total: ${totalPriceBdt} BDT`
+    message += `Total Amount: ${totalPriceBdt.toLocaleString('en-BD')} BDT`
     if (currency !== 'BDT') {
-      message += ` (Approx. ${convertCurrency(totalPriceBdt, currency, rates)} ${currency})\n`
+      message += ` (~ ${convertCurrency(totalPriceBdt, currency, rates)} ${currency})\n`
     } else {
       message += `\n`
     }
     
-    message += `Product link: ${productUrl}\n\nPlease confirm availability and delivery details.`
+    message += `\nLink: ${productUrl}\n\nPlease confirm availability and delivery timeframe. Thank you!`
     
     return `${baseUrl}?text=${encodeURIComponent(message)}`
   }
 
-  const activeImageUrl = images[activeImageIndex]
-    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/paintings/${images[activeImageIndex].storage_key}`
-    : '/placeholder.jpg'
+  const activeImage = images?.[activeImageIndex] || images?.[0]
+  const activeImageUrl = getPaintingImageUrl(activeImage?.storage_key)
 
   return (
     <div className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16">
       
       {/* LEFT COL: Image gallery */}
       <div className="flex flex-col-reverse">
-        <div className="mx-auto mt-6 hidden w-full max-w-2xl sm:block lg:max-w-none">
-          <div className="grid grid-cols-4 gap-6" aria-orientation="horizontal" role="tablist">
-            {images?.map((img, idx) => (
-              <button 
-                key={img.storage_key} 
-                onClick={() => setActiveImageIndex(idx)}
-                className={`relative flex h-24 cursor-pointer items-center justify-center rounded-md bg-gray-100 text-sm font-medium uppercase text-gray-900 hover:bg-gray-50 focus:outline-none focus:ring focus:ring-opacity-50 focus:ring-offset-4 overflow-hidden border transition-all ${activeImageIndex === idx ? 'border-black ring-2 ring-black' : 'border-gray-200'}`}
-              >
-                <span className="sr-only">View image {idx + 1}</span>
-                <Image 
-                  src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/paintings/${img.storage_key}`} 
-                  alt=""
-                  fill
-                  sizes="(max-width: 768px) 25vw, 15vw"
-                  className="object-cover object-center" 
-                />
-              </button>
-            ))}
+        {images && images.length > 1 && (
+          <div className="mx-auto mt-6 w-full">
+            <div className="flex gap-4 overflow-x-auto pb-2" aria-orientation="horizontal" role="tablist">
+              {images.map((img, idx) => {
+                const thumbUrl = getPaintingImageUrl(img.storage_key)
+                const isSelected = activeImageIndex === idx
+                return (
+                  <button 
+                    key={img.storage_key || idx} 
+                    type="button"
+                    onClick={() => setActiveImageIndex(idx)}
+                    className={`relative flex-shrink-0 h-20 w-20 sm:h-24 sm:w-24 cursor-pointer items-center justify-center rounded-xl bg-gray-100 overflow-hidden border-2 transition-all ${isSelected ? 'border-black ring-2 ring-black/20 scale-95 shadow-sm' : 'border-gray-200 hover:border-gray-400 opacity-70 hover:opacity-100'}`}
+                  >
+                    <span className="sr-only">View image {idx + 1}</span>
+                    <Image 
+                      src={thumbUrl} 
+                      alt=""
+                      fill
+                      sizes="96px"
+                      className="object-cover object-center" 
+                    />
+                  </button>
+                )
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="aspect-h-1 aspect-w-1 w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-sm relative group animate-fade-in">
+        <div className="w-full aspect-[3/4] sm:aspect-[4/5] bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 shadow-lg relative group">
           <Image
-            key={activeImageUrl} // Force re-mount on change for transition effect
+            key={activeImageUrl}
             src={activeImageUrl}
             alt={painting.title}
             fill
             priority
             sizes="(max-width: 768px) 100vw, 50vw"
-            className="object-cover object-center sm:rounded-lg animate-fade-in"
+            className="object-cover object-center transition-all duration-500 group-hover:scale-105"
           />
+          {painting.availability_status && painting.availability_status !== 'available' && (
+            <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-md text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg z-20">
+              {painting.availability_status}
+            </div>
+          )}
         </div>
       </div>
 

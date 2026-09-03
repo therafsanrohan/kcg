@@ -5,9 +5,10 @@ import { getExchangeRates } from '@/utils/currency'
 import ClientDetails from './ClientDetails'
 import Link from 'next/link'
 
-export const revalidate = 3600 // 1 hour
+export const revalidate = 60 // 1 minute for fresh updates
 
-export default async function PaintingDetailsPage({ params }: { params: { slug: string } }) {
+export default async function PaintingDetailsPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
   
@@ -15,7 +16,7 @@ export default async function PaintingDetailsPage({ params }: { params: { slug: 
   const { data: painting } = await supabase
     .from('paintings')
     .select('*')
-    .eq('slug', params.slug)
+    .eq('slug', slug)
     .eq('is_published', true)
     .single()
 
