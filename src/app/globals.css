@@ -9,7 +9,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-outfit);
-  --font-serif: var(--font-hedvig-serif);
+  --font-serif: var(--font-playfair);
   --font-mono: var(--font-outfit);
   --animate-fade-in: fade-in 1s ease-out forwards;
   --animate-fade-in-up: fade-in-up 0.8s ease-out forwards;

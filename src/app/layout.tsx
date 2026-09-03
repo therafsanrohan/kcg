@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Outfit, Hedvig_Letters_Serif } from "next/font/google";
+import { Outfit, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -11,8 +11,8 @@ const outfit = Outfit({
   subsets: ["latin"],
 });
 
-const hedvigSerif = Hedvig_Letters_Serif({
-  variable: "--font-hedvig-serif",
+const playfairDisplay = Playfair_Display({
+  variable: "--font-playfair",
   subsets: ["latin"],
 });
 
@@ -34,7 +34,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang="en"
-      className={`${outfit.variable} ${hedvigSerif.variable} h-full antialiased`}
+      className={`${outfit.variable} ${playfairDisplay.variable} h-full antialiased`}
     >
       <body className="min-h-screen flex flex-col">
         <Navbar whatsappNumber={whatsappNumber} />
