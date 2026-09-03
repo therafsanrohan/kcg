@@ -3,117 +3,136 @@ import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import Image from 'next/image'
 import { getPaintingImageUrl } from '@/utils/image'
+import { ArrowUpRight, ChevronDown } from 'lucide-react'
+import CustomerGallerySection from '@/components/CustomerGallerySection'
 
-export const revalidate = 60 // revalidate every minute for fresh updates
+export const revalidate = 0 // Instant updates from database
 
 export default async function Home() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
-  
-  // Fetch featured paintings
-  const { data: featured } = await supabase
+
+  // Fetch all published paintings with images and frame options
+  const { data: paintings } = await supabase
     .from('paintings')
     .select(`
-      id, title, slug, base_price_bdt, exact_medium, availability_status,
-      painting_images(storage_key, is_main)
+      id, title, slug, base_price_bdt, exact_medium, painting_type,
+      display_size, width, height, availability_status, is_featured, created_at,
+      painting_images(storage_key, is_main),
+      frame_options(id, frame_name, outer_size, price_bdt, is_active)
     `)
-    .eq('is_featured', true)
     .eq('is_published', true)
     .order('created_at', { ascending: false })
-    .limit(4)
+
+  // Find featured painting for Hero Banner
+  const featuredPainting =
+    paintings?.find((p: any) => p.is_featured) || paintings?.[0]
+
+  const featuredImage =
+    featuredPainting?.painting_images?.find((img: any) => img.is_main) ||
+    featuredPainting?.painting_images?.[0]
+  const featuredImageUrl = getPaintingImageUrl(featuredImage?.storage_key)
 
   return (
-    <div className="bg-white selection:bg-black selection:text-white">
-      {/* Hero Section */}
-      <div className="relative isolate px-6 pt-14 lg:px-8 bg-gradient-to-b from-gray-50 via-gray-50/50 to-white overflow-hidden">
-        <div className="absolute inset-y-0 right-0 -z-10 w-[200%] origin-bottom-left skew-x-[-30deg] bg-white shadow-xl shadow-gray-200/50 ring-1 ring-gray-100 sm:w-[150%] xl:w-[100%] animate-fade-in"></div>
-        <div className="mx-auto max-w-3xl py-24 sm:py-36 lg:py-44 text-center">
-          <span className="inline-block rounded-full bg-gray-100 px-4 py-1.5 text-xs font-semibold tracking-wider uppercase text-gray-700 mb-6">
-            Fine Art Studio &bull; Dhaka
+    <div className="bg-white text-gray-950 font-sans">
+      
+      {/* ── 1. Hero Section ── */}
+      <section className="pt-12 sm:pt-20 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div>
+          <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
+            ORIGINAL PAINTINGS &bull; DHAKA
           </span>
-          <h1 className="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-6xl lg:text-7xl leading-tight">
-            Original Handmade <span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-900 via-gray-700 to-gray-500">Canvas Art</span>
+          
+          <h1 className="font-serif text-5xl sm:text-7xl lg:text-8xl font-normal text-gray-950 tracking-tight leading-[1.05] mt-4 mb-6">
+            Made by hand.<br />
+            Chosen by feeling.
           </h1>
-          <p className="mt-6 text-lg leading-relaxed text-gray-600 max-w-2xl mx-auto font-light">
-            Discover original, breathtaking oil and acrylic paintings crafted by Kazi Canvas Gallery. Transform your space with authentic, timeless art directly from the artist.
+
+          <p className="text-base sm:text-xl text-gray-600 font-light max-w-xl mb-8 leading-relaxed">
+            One-of-one oil and acrylic paintings, ready for homes, workspaces and thoughtful gifts.
           </p>
-          <div className="mt-10 flex items-center justify-center">
+
+          <a
+            href="#available-works"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-gray-950 border-b border-gray-950 pb-0.5 hover:text-gray-600 hover:border-gray-600 transition-colors group"
+          >
+            <span>Browse available paintings</span>
+            <ChevronDown className="h-4 w-4 transition-transform group-hover:translate-y-0.5" />
+          </a>
+        </div>
+      </section>
+
+      {/* ── 2. Featured Artwork Showcase Banner ── */}
+      {featuredPainting && (
+        <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto my-8 sm:my-12">
+          <div className="relative w-full h-[450px] sm:h-[580px] lg:h-[650px] rounded-3xl overflow-hidden shadow-lg border border-gray-200/80 group">
+            <Image
+              src={featuredImageUrl}
+              alt={featuredPainting.title}
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover object-center transition-transform duration-1000 group-hover:scale-105"
+            />
+            
+            {/* Gradient Overlay for Text Readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+            {/* Bottom-Left Overlay Text */}
+            <div className="absolute bottom-8 left-6 sm:bottom-12 sm:left-10 z-20 max-w-xl text-white">
+              <span className="text-[11px] font-bold uppercase tracking-widest text-white/80">
+                FEATURED WORK
+              </span>
+              <h2 className="font-serif text-3xl sm:text-5xl font-normal text-white mt-1 leading-tight">
+                {featuredPainting.title}
+              </h2>
+              <p className="text-sm sm:text-base text-white/90 font-light mt-1">
+                {featuredPainting.exact_medium} &bull; {featuredPainting.display_size || `${featuredPainting.width} × ${featuredPainting.height} in`}
+              </p>
+            </div>
+
+            {/* Bottom-Right Circular Arrow Button */}
             <Link
-              href="/gallery"
-              className="rounded-full bg-black px-9 py-4 text-base font-semibold text-white shadow-lg hover:bg-gray-800 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
+              href={`/gallery/${featuredPainting.slug}`}
+              className="absolute bottom-8 right-6 sm:bottom-12 sm:right-10 z-20 h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-white text-black flex items-center justify-center shadow-2xl hover:scale-110 transition-transform duration-300"
+              title={`View ${featuredPainting.title}`}
             >
-              Explore Collection
+              <ArrowUpRight className="h-6 w-6 stroke-[2.5]" />
             </Link>
           </div>
-        </div>
-      </div>
+        </section>
+      )}
 
-      {/* Featured Section */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
-        <div className="sm:flex sm:items-end sm:justify-between mb-12">
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-gray-400">Curated Works</span>
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl mt-1">Featured Artwork</h2>
-            <p className="mt-2 text-gray-500 font-light">Handpicked contemporary and impressionist pieces</p>
-          </div>
-          <Link href="/gallery" className="hidden text-sm font-semibold text-black sm:block hover:text-gray-600 transition-colors group">
-            Browse all art <span className="inline-block transition-transform group-hover:translate-x-1" aria-hidden="true">&rarr;</span>
-          </Link>
-        </div>
+      {/* ── 3. Interactive Gallery Section (Find your piece) ── */}
+      <CustomerGallerySection paintings={paintings || []} />
 
-        <div className="mt-8 grid grid-cols-1 gap-y-12 sm:grid-cols-2 sm:gap-x-8 lg:grid-cols-4 xl:gap-x-10">
-          {featured?.map((painting: any, idx: number) => {
-            const mainImage = painting.painting_images?.find((img: any) => img.is_main) || painting.painting_images?.[0]
-            const imageUrl = getPaintingImageUrl(mainImage?.storage_key)
+      {/* ── 4. Dark Info Banner: Ready for your wall ── */}
+      <section className="bg-[#141414] text-white py-20 sm:py-28 px-6 sm:px-12 lg:px-16 my-12">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="font-serif text-4xl sm:text-6xl font-normal text-white tracking-tight mb-6">
+            Ready for your wall.
+          </h2>
+          <p className="text-base sm:text-xl text-gray-300 font-light leading-relaxed">
+            Choose from the frame sizes and finishes available for each painting. The painting price, frame price and total are shown separately before you contact us.
+          </p>
+        </div>
+      </section>
 
-            return (
-              <div key={painting.id} className="group relative flex flex-col items-start justify-between cursor-pointer animate-fade-in-up" style={{ animationDelay: `${idx * 150}ms` }}>
-                <div className="relative w-full overflow-hidden rounded-2xl bg-gray-100 aspect-[3/4] shadow-md transition-all duration-500 group-hover:shadow-2xl group-hover:-translate-y-2">
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-500 z-10" />
-                  <Image
-                    src={imageUrl}
-                    alt={painting.title}
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                    className="object-cover object-center transition-transform duration-700 group-hover:scale-105"
-                  />
-                  {painting.availability_status && painting.availability_status !== 'available' && (
-                    <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-sm text-white px-2.5 py-1 text-xs font-semibold uppercase tracking-wider rounded-md z-20">
-                      {painting.availability_status}
-                    </div>
-                  )}
-                  <div className="absolute bottom-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <span className="bg-white/95 backdrop-blur-sm text-black text-xs font-bold px-3 py-1.5 rounded-full shadow-md">
-                      View Details
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-5 w-full">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">{painting.exact_medium}</h3>
-                  <p className="text-lg font-bold text-gray-900 line-clamp-1 group-hover:text-gray-700 transition-colors">{painting.title}</p>
-                  <p className="mt-1 text-base font-semibold text-gray-900">{Number(painting.base_price_bdt).toLocaleString('en-BD')} BDT</p>
-                </div>
-                <Link href={`/gallery/${painting.slug}`} className="absolute inset-0 z-30">
-                  <span className="sr-only">View Details for {painting.title}</span>
-                </Link>
-              </div>
-            )
-          })}
-          
-          {(!featured || featured.length === 0) && (
-            <div className="col-span-full py-24 text-center text-gray-500 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-              <p className="text-lg font-medium">No featured paintings available at the moment.</p>
-              <p className="text-sm mt-2 text-gray-400">Check back soon for new arrivals.</p>
-            </div>
-          )}
+      {/* ── 5. Light Info Banner: Handmade paintings ── */}
+      <section className="bg-[#FAF9F6] text-gray-950 py-20 sm:py-28 px-6 sm:px-12 lg:px-16 border-t border-gray-200/60">
+        <div className="max-w-4xl mx-auto">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400 block mb-4">
+            KAZI CANVAS GALLERY
+          </span>
+          <h2 className="font-serif text-4xl sm:text-6xl font-normal text-gray-950 tracking-tight mb-6 leading-tight">
+            Handmade paintings, presented with the clarity collectors expect.
+          </h2>
+          <p className="text-base sm:text-xl text-gray-600 font-light leading-relaxed">
+            Every artwork is individually painted. Visible brushwork, texture and small surface variations are part of the original piece.
+          </p>
         </div>
-        
-        <div className="mt-12 text-center sm:hidden">
-          <Link href="/gallery" className="inline-flex text-sm font-semibold text-black hover:text-gray-600 transition-colors group">
-            Browse all art <span className="ml-2 inline-block transition-transform group-hover:translate-x-1" aria-hidden="true">&rarr;</span>
-          </Link>
-        </div>
-      </div>
+      </section>
+
     </div>
   )
 }
