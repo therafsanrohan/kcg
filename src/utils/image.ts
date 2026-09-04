@@ -5,7 +5,7 @@
  * - Supabase Storage keys (prepends the public storage URL)
  * - Safe fallback to a local vector placeholder
  */
-export function getPaintingImageUrl(storageKey?: string | null): string {
+export function getPaintingImageUrl(storageKey?: string | null, bucket: 'paintings' | 'paintings_optimized' | 'paintings_master' = 'paintings'): string {
   if (!storageKey || storageKey.trim() === '') {
     return '/placeholder.svg'
   }
@@ -16,5 +16,22 @@ export function getPaintingImageUrl(storageKey?: string | null): string {
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jndcunflcastmtqmqyvx.supabase.co'
-  return `${supabaseUrl}/storage/v1/object/public/paintings/${storageKey.replace(/^\/+/, '')}`
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${storageKey.replace(/^\/+/, '')}`
+}
+
+export function getResponsiveSrcSet(urls: any, bucket: 'paintings' | 'paintings_optimized' = 'paintings_optimized'): string | undefined {
+  if (!urls) return undefined
+  try {
+    const parsedUrls = typeof urls === 'string' ? JSON.parse(urls) : urls
+    const parts = []
+    for (const [width, key] of Object.entries(parsedUrls)) {
+      if (key && typeof key === 'string') {
+        const url = getPaintingImageUrl(key, bucket)
+        parts.push(`${url} ${width}w`)
+      }
+    }
+    return parts.length > 0 ? parts.join(', ') : undefined
+  } catch (e) {
+    return undefined
+  }
 }
