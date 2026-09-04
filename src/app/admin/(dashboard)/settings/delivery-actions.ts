@@ -3,44 +3,34 @@
 import { requireAdmin } from '@/utils/supabase/admin-auth'
 import { revalidatePath } from 'next/cache'
 
+function getZoneData(formData: FormData, code: string, defaultLabel: string, defaultSort: number) {
+  const startsAt = formData.get(`${code}_offer_starts_at`) as string
+  const endsAt = formData.get(`${code}_offer_ends_at`) as string
+
+  return {
+    code,
+    label: defaultLabel,
+    pricing_mode: (formData.get(`${code}_pricing_mode`) as string) || 'fixed',
+    charge_bdt: parseFloat(formData.get(`${code}_charge_bdt`) as string) || 0,
+    free_delivery: formData.get(`${code}_free_delivery`) === 'true',
+    free_delivery_label: (formData.get(`${code}_free_delivery_label`) as string)?.trim() || null,
+    offer_starts_at: startsAt ? new Date(startsAt).toISOString() : null,
+    offer_ends_at: endsAt ? new Date(endsAt).toISOString() : null,
+    estimated_delivery_time: (formData.get(`${code}_estimated_time`) as string)?.trim() || '',
+    courier_note: (formData.get(`${code}_courier_note`) as string)?.trim() || '',
+    is_active: formData.get(`${code}_active`) !== 'false',
+    sort_order: defaultSort,
+  }
+}
+
 export async function saveDeliveryZonesAction(prevState: any, formData: FormData) {
   try {
     const { supabase } = await requireAdmin()
 
     const zonesData = [
-      {
-        code: 'inside_dhaka',
-        label: 'Inside Dhaka City Corporation',
-        pricing_mode: (formData.get('inside_dhaka_pricing_mode') as string) || 'free',
-        charge_bdt: parseFloat(formData.get('inside_dhaka_charge_bdt') as string) || 0,
-        free_delivery: formData.get('inside_dhaka_free_delivery') === 'true',
-        estimated_delivery_time: (formData.get('inside_dhaka_estimated_time') as string)?.trim() || '24–48 Hours',
-        courier_note: (formData.get('inside_dhaka_courier_note') as string)?.trim() || '',
-        is_active: formData.get('inside_dhaka_active') !== 'false',
-        sort_order: 1,
-      },
-      {
-        code: 'outside_dhaka',
-        label: 'Outside Dhaka City Corporation',
-        pricing_mode: (formData.get('outside_dhaka_pricing_mode') as string) || 'fixed',
-        charge_bdt: parseFloat(formData.get('outside_dhaka_charge_bdt') as string) || 0,
-        free_delivery: formData.get('outside_dhaka_free_delivery') === 'true',
-        estimated_delivery_time: (formData.get('outside_dhaka_estimated_time') as string)?.trim() || '2–4 Business Days',
-        courier_note: (formData.get('outside_dhaka_courier_note') as string)?.trim() || '',
-        is_active: formData.get('outside_dhaka_active') !== 'false',
-        sort_order: 2,
-      },
-      {
-        code: 'international',
-        label: 'Outside Bangladesh (Worldwide)',
-        pricing_mode: (formData.get('international_pricing_mode') as string) || 'destination_quotation',
-        charge_bdt: parseFloat(formData.get('international_charge_bdt') as string) || 0,
-        free_delivery: formData.get('international_free_delivery') === 'true',
-        estimated_delivery_time: (formData.get('international_estimated_time') as string)?.trim() || '5–10 Business Days',
-        courier_note: (formData.get('international_courier_note') as string)?.trim() || '',
-        is_active: formData.get('international_active') !== 'false',
-        sort_order: 3,
-      },
+      getZoneData(formData, 'inside_dhaka', 'Inside Dhaka City Corporation', 1),
+      getZoneData(formData, 'outside_dhaka', 'Outside Dhaka City Corporation', 2),
+      getZoneData(formData, 'international', 'Outside Bangladesh (Worldwide)', 3),
     ]
 
     for (const zone of zonesData) {
@@ -53,6 +43,9 @@ export async function saveDeliveryZonesAction(prevState: any, formData: FormData
             pricing_mode: zone.pricing_mode,
             charge_bdt: zone.charge_bdt,
             free_delivery: zone.free_delivery,
+            free_delivery_label: zone.free_delivery_label,
+            offer_starts_at: zone.offer_starts_at,
+            offer_ends_at: zone.offer_ends_at,
             estimated_delivery_time: zone.estimated_delivery_time,
             courier_note: zone.courier_note,
             is_active: zone.is_active,

@@ -31,6 +31,14 @@ interface PaintingData {
   description: string
 }
 
+const isOfferActive = (startsAt?: string | null, endsAt?: string | null) => {
+  if (!startsAt && !endsAt) return true
+  const now = new Date()
+  if (startsAt && new Date(startsAt) > now) return false
+  if (endsAt && new Date(endsAt) < now) return false
+  return true
+}
+
 export default function ClientDetails({ 
   painting, 
   frames, 
@@ -88,7 +96,17 @@ export default function ClientDetails({
   const framePrice = selectedFrame ? Number(selectedFrame.price_bdt) || 0 : 0
   
   const isQuotationDelivery = selectedZone?.pricing_mode === 'courier_quotation' || selectedZone?.pricing_mode === 'destination_quotation'
-  const deliveryCharge = isQuotationDelivery ? 0 : (Number(selectedZone?.charge_bdt) || 0)
+  const isFreeDeliveryOfferActive = selectedZone?.free_delivery && isOfferActive(selectedZone?.offer_starts_at, selectedZone?.offer_ends_at)
+  
+  // Calculate delivery charge based on active offer or standard mode
+  let deliveryCharge = 0
+  if (!isQuotationDelivery) {
+    if (selectedZone?.pricing_mode === 'free' || isFreeDeliveryOfferActive) {
+      deliveryCharge = 0
+    } else {
+      deliveryCharge = Number(selectedZone?.charge_bdt) || 0
+    }
+  }
 
   const totalPriceBdt = discountPrice + framePrice + deliveryCharge
   const originalTotalPriceBdt = basePrice + framePrice + deliveryCharge
@@ -136,8 +154,9 @@ export default function ClientDetails({
       message += `🚚 Delivery Zone: ${selectedZone.label}\n`
       if (isQuotationDelivery) {
         message += `   Delivery Fee: Quotation Required based on location\n`
-      } else if (deliveryCharge === 0) {
-        message += `   Delivery Fee: FREE Delivery\n`
+      } else if (isFreeDeliveryOfferActive || selectedZone.pricing_mode === 'free' || deliveryCharge === 0) {
+        const promoLabel = isFreeDeliveryOfferActive && selectedZone.free_delivery_label ? ` (${selectedZone.free_delivery_label})` : ''
+        message += `   Delivery Fee: FREE Delivery${promoLabel}\n`
       } else {
         message += `   Delivery Fee: +${deliveryCharge.toLocaleString('en-BD')} BDT\n`
       }
@@ -337,7 +356,8 @@ export default function ClientDetails({
               {deliveryZones.map((zone) => {
                 const isSelected = selectedZoneCode === zone.code
                 const isQuotation = zone.pricing_mode === 'courier_quotation' || zone.pricing_mode === 'destination_quotation'
-                const isFree = zone.pricing_mode === 'free' || (zone.charge_bdt === 0 && !isQuotation)
+                const isFreePromoActive = zone.free_delivery && isOfferActive(zone.offer_starts_at, zone.offer_ends_at)
+                const isFree = zone.pricing_mode === 'free' || isFreePromoActive || (zone.charge_bdt === 0 && !isQuotation)
 
                 return (
                   <label
@@ -357,7 +377,14 @@ export default function ClientDetails({
                           className="h-4 w-4 text-black focus:ring-black border-gray-300"
                         />
                         <div className="ml-3">
-                          <span className="block font-semibold text-gray-900 text-sm">{zone.label}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="block font-semibold text-gray-900 text-sm">{zone.label}</span>
+                            {isFreePromoActive && zone.free_delivery_label && (
+                              <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                {zone.free_delivery_label}
+                              </span>
+                            )}
+                          </div>
                           <span className="block text-xs text-gray-500">{zone.estimated_delivery_time || 'Standard Delivery'}</span>
                         </div>
                       </div>
@@ -369,7 +396,7 @@ export default function ClientDetails({
                           </span>
                         ) : isFree ? (
                           <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200">
-                            FREE Delivery
+                            FREE
                           </span>
                         ) : (
                           <span className="text-sm font-bold text-gray-900 font-mono">
@@ -423,7 +450,7 @@ export default function ClientDetails({
               Order Now via WhatsApp
             </a>
           ) : (
-            <button
+             <button
               disabled
               className="flex w-full items-center justify-center rounded-xl border border-transparent bg-gray-300 px-8 py-4 text-base font-bold text-gray-500 cursor-not-allowed uppercase tracking-wider"
             >

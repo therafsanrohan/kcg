@@ -38,6 +38,9 @@ export interface PaintingImage {
   alt_text: string | null;
   sort_order: number;
   is_main: boolean;
+  primary_image?: boolean;
+  file_format?: string | null;
+  responsive_urls?: any;
   width: number | null;
   height: number | null;
   file_size?: number | null;
@@ -48,6 +51,7 @@ export interface PaintingImage {
   crop_rotation?: number | null;
   processing_status?: string | null;
   created_at: string;
+  archived_at?: string | null;
 }
 
 export interface FrameOption {
@@ -86,6 +90,9 @@ export interface DeliveryZone {
   pricing_mode: PricingMode;
   charge_bdt: number;
   free_delivery: boolean;
+  free_delivery_label?: string | null;
+  offer_starts_at?: string | null;
+  offer_ends_at?: string | null;
   offer_text?: string | null;
   customer_message?: string | null;
   courier_note?: string | null;

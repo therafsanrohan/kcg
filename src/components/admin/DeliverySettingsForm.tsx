@@ -23,9 +23,146 @@ export default function DeliverySettingsForm({ zones }: DeliverySettingsFormProp
     })
   }
 
-  const insideDhaka = getZone('inside_dhaka')
-  const outsideDhaka = getZone('outside_dhaka')
-  const international = getZone('international')
+  const renderZoneFields = (
+    title: string,
+    prefix: string,
+    zone?: DeliveryZone,
+    defaultCharge = 0,
+    defaultMode = 'fixed',
+    defaultTime = '2-4 Business Days'
+  ) => {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-5">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="flex items-center gap-2">
+            <Truck className="h-5 w-5 text-gray-700" />
+            <h3 className="font-sans font-bold text-lg text-gray-900">{title}</h3>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
+            <input
+              type="checkbox"
+              name={`${prefix}_active`}
+              value="true"
+              defaultChecked={zone?.is_active ?? true}
+              className="h-4 w-4 text-black rounded border-gray-300 focus:ring-black"
+            />
+            Zone Active
+          </label>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Basic Pricing */}
+          <div className="space-y-4 md:col-span-1">
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
+                Pricing Mode
+              </label>
+              <select
+                name={`${prefix}_pricing_mode`}
+                defaultValue={zone?.pricing_mode ?? defaultMode}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none bg-white"
+              >
+                <option value="free">Free Delivery</option>
+                <option value="fixed">Fixed Charge (BDT)</option>
+                <option value="courier_quotation">Courier Quotation</option>
+                <option value="destination_quotation">Destination Quotation</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
+                Standard Charge (BDT)
+              </label>
+              <input
+                type="number"
+                name={`${prefix}_charge_bdt`}
+                min="0"
+                defaultValue={zone?.charge_bdt ?? defaultCharge}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none"
+                placeholder={defaultCharge.toString()}
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
+                Estimated Time
+              </label>
+              <input
+                type="text"
+                name={`${prefix}_estimated_time`}
+                defaultValue={zone?.estimated_delivery_time ?? defaultTime}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none"
+                placeholder={defaultTime}
+              />
+            </div>
+          </div>
+
+          {/* Promotional / Advanced Fields */}
+          <div className="md:col-span-2 space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+            <h4 className="text-xs font-bold text-gray-900 uppercase tracking-widest mb-2 border-b border-gray-200 pb-2">
+              Free Delivery Campaign (Optional)
+            </h4>
+            
+            <div className="flex items-center gap-2 mb-3">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-gray-800">
+                <input
+                  type="checkbox"
+                  name={`${prefix}_free_delivery`}
+                  value="true"
+                  defaultChecked={zone?.free_delivery ?? false}
+                  className="h-4 w-4 text-black rounded border-gray-300 focus:ring-black"
+                />
+                Enable Free Delivery Override
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
+                  Campaign Label (e.g. "Eid Special")
+                </label>
+                <input
+                  type="text"
+                  name={`${prefix}_free_delivery_label`}
+                  defaultValue={zone?.free_delivery_label ?? ''}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none bg-white"
+                  placeholder="Free Delivery"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
+                  Start Date (Optional)
+                </label>
+                <input
+                  type="datetime-local"
+                  name={`${prefix}_offer_starts_at`}
+                  defaultValue={zone?.offer_starts_at ? new Date(zone.offer_starts_at).toISOString().slice(0, 16) : ''}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
+                  End Date (Optional)
+                </label>
+                <input
+                  type="datetime-local"
+                  name={`${prefix}_offer_ends_at`}
+                  defaultValue={zone?.offer_ends_at ? new Date(zone.offer_ends_at).toISOString().slice(0, 16) : ''}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none bg-white"
+                />
+              </div>
+            </div>
+            
+            <p className="text-xs text-gray-500 mt-2">
+              If enabled, this will override the standard charge. If dates are provided, the free delivery will automatically expire after the end date.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -40,197 +177,9 @@ export default function DeliverySettingsForm({ zones }: DeliverySettingsFormProp
         </div>
       )}
 
-      {/* ── 1. Inside Dhaka ── */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-          <div className="flex items-center gap-2">
-            <Truck className="h-5 w-5 text-gray-700" />
-            <h3 className="font-sans font-bold text-lg text-gray-900">Inside Dhaka City Corporation</h3>
-          </div>
-          <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
-            <input
-              type="checkbox"
-              name="inside_dhaka_active"
-              value="true"
-              defaultChecked={insideDhaka?.is_active ?? true}
-              className="h-4 w-4 text-black rounded border-gray-300 focus:ring-black"
-            />
-            Zone Active
-          </label>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
-              Pricing Mode
-            </label>
-            <select
-              name="inside_dhaka_pricing_mode"
-              defaultValue={insideDhaka?.pricing_mode ?? 'free'}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none bg-white"
-            >
-              <option value="free">Free Delivery</option>
-              <option value="fixed">Fixed Charge (BDT)</option>
-              <option value="courier_quotation">Courier Quotation</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
-              Delivery Charge (BDT)
-            </label>
-            <input
-              type="number"
-              name="inside_dhaka_charge_bdt"
-              min="0"
-              defaultValue={insideDhaka?.charge_bdt ?? 0}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none"
-              placeholder="0"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
-              Estimated Time
-            </label>
-            <input
-              type="text"
-              name="inside_dhaka_estimated_time"
-              defaultValue={insideDhaka?.estimated_delivery_time ?? '24–48 Hours'}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none"
-              placeholder="24–48 Hours"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ── 2. Outside Dhaka ── */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-          <div className="flex items-center gap-2">
-            <Truck className="h-5 w-5 text-gray-700" />
-            <h3 className="font-sans font-bold text-lg text-gray-900">Outside Dhaka City Corporation</h3>
-          </div>
-          <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
-            <input
-              type="checkbox"
-              name="outside_dhaka_active"
-              value="true"
-              defaultChecked={outsideDhaka?.is_active ?? true}
-              className="h-4 w-4 text-black rounded border-gray-300 focus:ring-black"
-            />
-            Zone Active
-          </label>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
-              Pricing Mode
-            </label>
-            <select
-              name="outside_dhaka_pricing_mode"
-              defaultValue={outsideDhaka?.pricing_mode ?? 'fixed'}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none bg-white"
-            >
-              <option value="free">Free Delivery</option>
-              <option value="fixed">Fixed Charge (BDT)</option>
-              <option value="courier_quotation">Courier Quotation</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
-              Delivery Charge (BDT)
-            </label>
-            <input
-              type="number"
-              name="outside_dhaka_charge_bdt"
-              min="0"
-              defaultValue={outsideDhaka?.charge_bdt ?? 150}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none"
-              placeholder="150"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
-              Estimated Time
-            </label>
-            <input
-              type="text"
-              name="outside_dhaka_estimated_time"
-              defaultValue={outsideDhaka?.estimated_delivery_time ?? '2–4 Business Days'}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none"
-              placeholder="2–4 Business Days"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ── 3. Outside Bangladesh ── */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-          <div className="flex items-center gap-2">
-            <Truck className="h-5 w-5 text-gray-700" />
-            <h3 className="font-sans font-bold text-lg text-gray-900">Outside Bangladesh (Worldwide)</h3>
-          </div>
-          <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-700">
-            <input
-              type="checkbox"
-              name="international_active"
-              value="true"
-              defaultChecked={international?.is_active ?? true}
-              className="h-4 w-4 text-black rounded border-gray-300 focus:ring-black"
-            />
-            Zone Active
-          </label>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
-              Pricing Mode
-            </label>
-            <select
-              name="international_pricing_mode"
-              defaultValue={international?.pricing_mode ?? 'destination_quotation'}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none bg-white"
-            >
-              <option value="free">Free Delivery</option>
-              <option value="fixed">Fixed Charge (BDT)</option>
-              <option value="destination_quotation">Destination Quotation</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
-              Delivery Charge (BDT)
-            </label>
-            <input
-              type="number"
-              name="international_charge_bdt"
-              min="0"
-              defaultValue={international?.charge_bdt ?? 0}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none"
-              placeholder="0"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
-              Estimated Time
-            </label>
-            <input
-              type="text"
-              name="international_estimated_time"
-              defaultValue={international?.estimated_delivery_time ?? '5–10 Business Days'}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none"
-              placeholder="5–10 Business Days"
-            />
-          </div>
-        </div>
-      </div>
+      {renderZoneFields('Inside Dhaka City Corporation', 'inside_dhaka', getZone('inside_dhaka'), 0, 'free', '24–48 Hours')}
+      {renderZoneFields('Outside Dhaka City Corporation', 'outside_dhaka', getZone('outside_dhaka'), 150, 'fixed', '2–4 Business Days')}
+      {renderZoneFields('Outside Bangladesh (Worldwide)', 'international', getZone('international'), 0, 'destination_quotation', '5–10 Business Days')}
 
       <div className="flex items-center justify-end">
         <button
