@@ -116,7 +116,7 @@ export default function ClientDetails({
   // Dimensions formatted in current display unit
   const formattedArtworkSize = getDisplayDimensions(painting, displayUnit)
   const formattedArtworkSizeIn = getDisplayDimensions(painting, 'in')
-  const formattedArtworkSizeCm = getDisplayDimensions(painting, 'cm')
+  const formattedArtworkSizeFt = getDisplayDimensions(painting, 'ft')
   
   // WhatsApp Link Builder
   const generateWhatsAppLink = () => {
@@ -125,8 +125,8 @@ export default function ClientDetails({
     const productUrl = typeof window !== 'undefined' ? `${window.location.origin}/gallery/${painting.slug}` : `https://kcg-gray.vercel.app/gallery/${painting.slug}`
     
     // Compute comprehensive size description for message
-    const sizeDescription = formattedArtworkSizeIn !== formattedArtworkSizeCm
-      ? `${formattedArtworkSizeIn} (${formattedArtworkSizeCm})`
+    const sizeDescription = formattedArtworkSizeIn !== formattedArtworkSizeFt
+      ? `${formattedArtworkSizeIn} (${formattedArtworkSizeFt})`
       : formattedArtworkSize
     
     let message = `Hello Kazi Canvas Gallery,\n\nI would like to purchase this artwork.\n\n`
@@ -262,11 +262,10 @@ export default function ClientDetails({
             <select 
               value={currency} 
               onChange={(e) => handleCurrencyChange(e.target.value as Currency)}
-              className="text-sm font-sans font-bold text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-black focus:ring-black bg-white px-3 py-1.5"
-              style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
+              className="text-sm font-bold text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-black focus:ring-black bg-white px-3 py-1.5"
             >
               {SUPPORTED_CURRENCIES.map(c => (
-                <option key={c} value={c} className="font-sans text-gray-900 bg-white" style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}>
+                <option key={c} value={c} className="text-gray-900 bg-white">
                   {c}
                 </option>
               ))}
@@ -296,14 +295,14 @@ export default function ClientDetails({
               </button>
               <button
                 type="button"
-                onClick={() => setDisplayUnit('cm')}
+                onClick={() => setDisplayUnit('ft')}
                 className={`px-2 py-0.5 text-xs font-semibold rounded ${
-                  displayUnit === 'cm'
+                  displayUnit === 'ft'
                     ? 'bg-black text-white'
                     : 'text-gray-600 hover:text-black'
                 } transition-all`}
               >
-                cm
+                ft
               </button>
             </div>
           </div>
