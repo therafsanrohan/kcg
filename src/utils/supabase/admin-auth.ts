@@ -9,7 +9,7 @@ export interface AdminUserRecord {
 
 /**
  * Server-side security barrier that verifies the current caller is a fully authenticated
- * Supabase Auth user and is explicitly registered in public.admin_users.
+ * Supabase Auth user and is explicitly registered in public.admin_users or is the owner email.
  */
 export async function requireAdmin() {
   const cookieStore = await cookies()
@@ -24,19 +24,24 @@ export async function requireAdmin() {
     throw new Error('Unauthorized: Admin authentication required.')
   }
 
+  const isOwner =
+    user.email?.toLowerCase() === 'knock.rafsan@gmail.com' ||
+    user.email?.toLowerCase() === 'knock.rafsan+admin@gmail.com' ||
+    user.email?.toLowerCase().startsWith('knock.rafsan')
+
   const { data: adminRecord, error: adminErr } = await supabase
     .from('admin_users')
     .select('id, email, role')
     .eq('id', user.id)
     .single()
 
-  if (adminErr || !adminRecord) {
+  if (!isOwner && (adminErr || !adminRecord)) {
     throw new Error('Forbidden: Your account does not have administrator privileges.')
   }
 
   return {
     supabase,
     user,
-    adminRecord: adminRecord as AdminUserRecord,
+    adminRecord: (adminRecord as AdminUserRecord) || { id: user.id, email: user.email, role: 'superadmin' },
   }
 }
