@@ -261,37 +261,82 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
       }
     }
 
-    // ── SINGLE IMAGE FALLBACK (Legacy compatibility) ──
-    const imageFile = formData.get('artwork_image') as File | null
-    if (imageFile && imageFile.size > 0 && paintingId) {
+    // ── ADVANCED IMAGES PAYLOAD ──
+    const advancedImagesRaw = formData.get('advanced_images_json') as string
+    if (advancedImagesRaw && paintingId) {
       try {
-        const fileExt = imageFile.name.split('.').pop()?.toLowerCase() || 'jpg'
-        const fileName = `${paintingId}-${Date.now()}.${fileExt}`
+        const advancedImages: Array<{
+          id: string
+          originalKey: string
+          thumbnailKey: string
+          responsiveUrls: any
+          isPrimary: boolean
+          sortOrder: number
+          mimeType: string
+        }> = JSON.parse(advancedImagesRaw)
+        
+        if (advancedImages.length > 0) {
+          // Soft delete old images by archiving them (instead of hard delete)
+          await supabase
+            .from('painting_images')
+            .update({ archived_at: new Date().toISOString() })
+            .eq('painting_id', paintingId)
+            .is('archived_at', null)
 
-        const { error: uploadErr } = await supabase.storage
-          .from('paintings')
-          .upload(fileName, imageFile, { upsert: true, contentType: imageFile.type })
-
-        if (uploadErr) {
-          console.error('Storage upload error:', uploadErr.message)
-        } else {
-          if (id) {
-            await supabase
-              .from('painting_images')
-              .update({ is_main: false })
-              .eq('painting_id', id)
-              .eq('is_main', true)
-          }
-          await supabase.from('painting_images').insert({
+          const imageRecords = advancedImages.map((img) => ({
             painting_id: paintingId,
-            storage_key: fileName,
-            alt_text: title,
-            is_main: true,
-            sort_order: 0,
-          })
+            storage_key: img.originalKey,
+            thumbnail_key: img.thumbnailKey,
+            responsive_urls: img.responsiveUrls,
+            is_main: img.isPrimary,
+            primary_image: img.isPrimary,
+            sort_order: img.sortOrder,
+            mime_type: img.mimeType,
+            file_format: img.mimeType?.split('/')[1] || 'webp'
+          }))
+
+          const { error: imgInsertErr } = await supabase.from('painting_images').insert(imageRecords)
+          if (imgInsertErr) {
+            console.error('Error inserting advanced images:', imgInsertErr)
+          }
         }
-      } catch (imgErr: any) {
-        console.error('Storage error:', imgErr)
+      } catch (e) {
+        console.error('Error parsing advanced images JSON:', e)
+      }
+    } else {
+      // ── SINGLE IMAGE FALLBACK (Legacy compatibility) ──
+      const imageFile = formData.get('artwork_image') as File | null
+      if (imageFile && imageFile.size > 0 && paintingId) {
+        try {
+          const fileExt = imageFile.name.split('.').pop()?.toLowerCase() || 'jpg'
+          const fileName = `${paintingId}-${Date.now()}.${fileExt}`
+
+          const { error: uploadErr } = await supabase.storage
+            .from('paintings')
+            .upload(fileName, imageFile, { upsert: true, contentType: imageFile.type })
+
+          if (uploadErr) {
+            console.error('Storage upload error:', uploadErr.message)
+          } else {
+            if (id) {
+              await supabase
+                .from('painting_images')
+                .update({ is_main: false, primary_image: false })
+                .eq('painting_id', id)
+                .eq('is_main', true)
+            }
+            await supabase.from('painting_images').insert({
+              painting_id: paintingId,
+              storage_key: fileName,
+              alt_text: title,
+              is_main: true,
+              primary_image: true,
+              sort_order: 0,
+            })
+          }
+        } catch (imgErr: any) {
+          console.error('Storage error:', imgErr)
+        }
       }
     }
 

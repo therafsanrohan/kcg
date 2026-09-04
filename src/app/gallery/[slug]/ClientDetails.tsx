@@ -9,7 +9,7 @@ import {
   getFrameDisplayDimensions,
 } from '@/utils/measurements'
 import Image from 'next/image'
-import { getPaintingImageUrl } from '@/utils/image'
+import { getPaintingImageUrl, getResponsiveSrcSet } from '@/utils/image'
 import { Truck, ShieldCheck, ShoppingBag, Ruler } from 'lucide-react'
 
 interface PaintingData {
@@ -175,7 +175,11 @@ export default function ClientDetails({
   }
 
   const activeImage = images?.[activeImageIndex] || images?.[0]
-  const activeImageUrl = getPaintingImageUrl(activeImage?.storage_key || activeImage?.processed_key)
+  
+  // Try optimized bucket first, fallback to standard if missing
+  const bucket = activeImage?.responsive_urls || activeImage?.thumbnail_key ? 'paintings_optimized' : 'paintings'
+  const activeImageUrl = getPaintingImageUrl(activeImage?.storage_key || activeImage?.processed_key, bucket)
+  const srcSet = getResponsiveSrcSet(activeImage?.responsive_urls, bucket)
 
   return (
     <div className="lg:grid lg:grid-cols-2 lg:gap-x-12 xl:gap-x-16">
@@ -187,7 +191,8 @@ export default function ClientDetails({
           <div className="mb-4 overflow-x-auto pb-2">
             <div className="flex space-x-3">
               {images.map((img, idx) => {
-                const thumbUrl = getPaintingImageUrl(img.thumbnail_key || img.storage_key)
+                const thumbBucket = img.thumbnail_key ? 'paintings_optimized' : 'paintings'
+                const thumbUrl = getPaintingImageUrl(img.thumbnail_key || img.storage_key, thumbBucket)
                 const isSelected = idx === activeImageIndex
                 return (
                   <button
@@ -216,14 +221,13 @@ export default function ClientDetails({
           className="w-full aspect-[3/4] sm:aspect-[4/5] bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 shadow-lg relative group select-none"
           onContextMenu={(e) => e.preventDefault()}
         >
-          <Image
+          <img
             key={activeImageUrl}
             src={activeImageUrl}
-            alt={painting.title}
-            fill
-            priority
+            srcSet={srcSet}
             sizes="(max-width: 768px) 100vw, 50vw"
-            className="object-cover object-center transition-all duration-500 group-hover:scale-105 pointer-events-none"
+            alt={painting.title}
+            className="w-full h-full object-cover object-center transition-all duration-500 group-hover:scale-105 pointer-events-none"
           />
 
           {/* Offer Badge Top Left */}
