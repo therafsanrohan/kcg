@@ -1,7 +1,6 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
-import { cookies } from 'next/headers'
+import { requireAdmin } from '@/utils/supabase/admin-auth'
 import { revalidatePath } from 'next/cache'
 
 // Helper to generate clean URL slugs from title
@@ -17,9 +16,6 @@ function generateSlug(title: string) {
   )
 }
 
-// ─────────────────────────────────────────────
-// COMPAT ALIAS – used by legacy PaintingForm
-// ─────────────────────────────────────────────
 export async function savePainting(prevState: any, formData: FormData) {
   return await saveArtworkAction(prevState, formData)
 }
@@ -28,10 +24,21 @@ export async function savePainting(prevState: any, formData: FormData) {
 // TOGGLE PUBLISH STATUS
 // ─────────────────────────────────────────────
 export async function togglePublishPainting(id: string, currentValue: boolean) {
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
-
   try {
+    const { supabase } = await requireAdmin()
+
+    // Block publishing if painting has 0 images
+    if (!currentValue === true) {
+      const { count } = await supabase
+        .from('painting_images')
+        .select('id', { count: 'exact', head: true })
+        .eq('painting_id', id)
+
+      if (!count || count === 0) {
+        return { success: false, error: 'Cannot publish artwork without at least 1 image.' }
+      }
+    }
+
     const { error } = await supabase
       .from('paintings')
       .update({ is_published: !currentValue, updated_at: new Date().toISOString() })
@@ -46,7 +53,7 @@ export async function togglePublishPainting(id: string, currentValue: boolean) {
     return { success: true }
   } catch (err: any) {
     console.error('Toggle publish error:', err)
-    return { success: false, error: err.message }
+    return { success: false, error: err.message || 'Unauthorized action.' }
   }
 }
 
@@ -54,10 +61,9 @@ export async function togglePublishPainting(id: string, currentValue: boolean) {
 // DELETE PAINTING
 // ─────────────────────────────────────────────
 export async function deletePainting(id: string) {
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
-
   try {
+    const { supabase } = await requireAdmin()
+
     const { error } = await supabase.from('paintings').delete().eq('id', id)
     if (error) throw error
 
@@ -68,7 +74,7 @@ export async function deletePainting(id: string) {
     return { success: true }
   } catch (err: any) {
     console.error('Delete painting error:', err)
-    return { success: false, error: err.message }
+    return { success: false, error: err.message || 'Unauthorized action.' }
   }
 }
 
@@ -76,47 +82,43 @@ export async function deletePainting(id: string) {
 // SAVE (CREATE or UPDATE) PAINTING
 // ─────────────────────────────────────────────
 export async function saveArtworkAction(prevState: any, formData: FormData) {
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
-
-  const id = formData.get('id') as string | null
-  const title = (formData.get('title') as string)?.trim()
-  const painting_type = (formData.get('painting_type') as string) || 'oil'
-  const exact_medium =
-    (formData.get('exact_medium') as string)?.trim() || 'Oil on canvas'
-  const display_size =
-    (formData.get('display_size') as string)?.trim() || '24 × 36 in'
-  const yearStr = formData.get('year') as string
-  const year = yearStr ? parseInt(yearStr, 10) : new Date().getFullYear()
-  const availability_status =
-    (formData.get('availability_status') as string) || 'available'
-  const base_price_bdt =
-    parseFloat(formData.get('base_price_bdt') as string) || 0
-  const discountStr = formData.get('discount_price_bdt') as string
-  const discount_price_bdt = discountStr && !isNaN(parseFloat(discountStr)) && parseFloat(discountStr) > 0
-    ? parseFloat(discountStr)
-    : null
-  const offer_badge = (formData.get('offer_badge') as string)?.trim() || null
-  const description = (formData.get('description') as string)?.trim() || ''
-
-  // Booleans from checkboxes
-  const is_published = formData.get('is_published') === 'true'
-  const is_featured = formData.get('is_featured') === 'true'
-
-  if (!title) {
-    return { error: 'Artwork title is required.' }
-  }
-
-  // Parse width/height from display_size ("24 × 36 in" or "60 x 90 cm")
-  let width = 60
-  let height = 90
-  const sizeMatch = display_size.match(/(\d+(?:\.\d+)?)\s*[x×X]\s*(\d+(?:\.\d+)?)/)
-  if (sizeMatch) {
-    width = parseFloat(sizeMatch[1])
-    height = parseFloat(sizeMatch[2])
-  }
-
   try {
+    const { supabase } = await requireAdmin()
+
+    const id = formData.get('id') as string | null
+    const title = (formData.get('title') as string)?.trim()
+    const painting_type = (formData.get('painting_type') as string) || 'oil'
+    const exact_medium = (formData.get('exact_medium') as string)?.trim() || 'Oil on canvas'
+    const display_size = (formData.get('display_size') as string)?.trim() || '24 × 36 in'
+    const yearStr = formData.get('year') as string
+    const year = yearStr ? parseInt(yearStr, 10) : new Date().getFullYear()
+    const availability_status = (formData.get('availability_status') as string) || 'available'
+    const base_price_bdt = parseFloat(formData.get('base_price_bdt') as string) || 0
+    const discountStr = formData.get('discount_price_bdt') as string
+    const discount_price_bdt =
+      discountStr && !isNaN(parseFloat(discountStr)) && parseFloat(discountStr) > 0
+        ? parseFloat(discountStr)
+        : null
+    const offer_badge = (formData.get('offer_badge') as string)?.trim() || null
+    const description = (formData.get('description') as string)?.trim() || ''
+
+    // Booleans from checkboxes
+    const is_published = formData.get('is_published') === 'true'
+    const is_featured = formData.get('is_featured') === 'true'
+
+    if (!title) {
+      return { error: 'Artwork title is required.' }
+    }
+
+    // Parse width/height from display_size ("24 × 36 in" or "60 x 90 cm")
+    let width = 60
+    let height = 90
+    const sizeMatch = display_size.match(/(\d+(?:\.\d+)?)\s*[x×X]\s*(\d+(?:\.\d+)?)/)
+    if (sizeMatch) {
+      width = parseFloat(sizeMatch[1])
+      height = parseFloat(sizeMatch[2])
+    }
+
     let paintingId = id
 
     if (id) {
@@ -184,11 +186,7 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
           price_bdt: number
         }> = JSON.parse(framesRaw)
 
-        // Delete existing frames before re-inserting
-        await supabase
-          .from('frame_options')
-          .delete()
-          .eq('painting_id', paintingId)
+        await supabase.from('frame_options').delete().eq('painting_id', paintingId)
 
         if (frames.length > 0) {
           const frameRecords = frames
@@ -210,7 +208,7 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
       }
     }
 
-    // ── IMAGE UPLOAD ──
+    // ── SINGLE IMAGE FALLBACK (Legacy compatibility) ──
     const imageFile = formData.get('artwork_image') as File | null
     if (imageFile && imageFile.size > 0 && paintingId) {
       try {
@@ -224,7 +222,6 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
         if (uploadErr) {
           console.error('Storage upload error:', uploadErr.message)
         } else {
-          // If updating, mark old main images as non-main
           if (id) {
             await supabase
               .from('painting_images')
@@ -232,7 +229,6 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
               .eq('painting_id', id)
               .eq('is_main', true)
           }
-          // Insert the new image record
           await supabase.from('painting_images').insert({
             painting_id: paintingId,
             storage_key: fileName,
@@ -246,7 +242,6 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
       }
     }
 
-    // Revalidate all affected pages
     revalidatePath('/admin')
     revalidatePath('/admin/paintings')
     revalidatePath('/')
@@ -259,9 +254,6 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
   }
 }
 
-// ─────────────────────────────────────────────
-// COMPAT ALIAS – used by AddArtworkModal
-// ─────────────────────────────────────────────
 export async function saveArtworkModalAction(prevState: any, formData: FormData) {
   return await saveArtworkAction(prevState, formData)
 }

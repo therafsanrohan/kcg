@@ -23,17 +23,28 @@ export interface Painting {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  painting_images?: PaintingImage[];
+  frame_options?: FrameOption[];
 }
 
 export interface PaintingImage {
   id: string;
   painting_id: string;
   storage_key: string;
+  processed_key?: string | null;
+  thumbnail_key?: string | null;
   alt_text: string | null;
   sort_order: number;
   is_main: boolean;
   width: number | null;
   height: number | null;
+  file_size?: number | null;
+  mime_type?: string | null;
+  crop_x?: number | null;
+  crop_y?: number | null;
+  crop_zoom?: number | null;
+  crop_rotation?: number | null;
+  processing_status?: string | null;
   created_at: string;
 }
 
@@ -59,4 +70,29 @@ export interface SiteSettings {
   social_links: any;
   currency_config: any;
   updated_at: string;
+}
+
+export type PricingMode = 'free' | 'fixed' | 'courier_quotation' | 'destination_quotation';
+
+export interface DeliveryZone {
+  id: string;
+  code: 'inside_dhaka' | 'outside_dhaka' | 'international';
+  label: string;
+  is_active: boolean;
+  pricing_mode: PricingMode;
+  charge_bdt: number;
+  free_delivery: boolean;
+  offer_text?: string | null;
+  customer_message?: string | null;
+  courier_note?: string | null;
+  estimated_delivery_time?: string | null;
+  sort_order: number;
+  updated_at: string;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  role: 'superadmin' | 'admin';
+  created_at: string;
 }

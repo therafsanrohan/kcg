@@ -1,22 +1,20 @@
 'use server'
 
-import { createClient } from '@/utils/supabase/server'
-import { cookies } from 'next/headers'
+import { requireAdmin } from '@/utils/supabase/admin-auth'
 import { revalidatePath } from 'next/cache'
 
 export async function updateSettings(prevState: any, formData: FormData) {
-  const cookieStore = await cookies()
-  const supabase = createClient(cookieStore)
-
-  const newSettings = {
-    business_name: (formData.get('business_name') as string)?.trim() || 'Kazi Canvas Gallery',
-    whatsapp_number: (formData.get('whatsapp_number') as string)?.trim().replace(/\D/g, '') || '',
-    contact_info: (formData.get('contact_info') as string)?.trim() || null,
-    gallery_address: (formData.get('gallery_address') as string)?.trim() || null,
-    updated_at: new Date().toISOString(),
-  }
-
   try {
+    const { supabase } = await requireAdmin()
+
+    const newSettings = {
+      business_name: (formData.get('business_name') as string)?.trim() || 'Kazi Canvas Gallery',
+      whatsapp_number: (formData.get('whatsapp_number') as string)?.trim().replace(/\D/g, '') || '',
+      contact_info: (formData.get('contact_info') as string)?.trim() || null,
+      gallery_address: (formData.get('gallery_address') as string)?.trim() || null,
+      updated_at: new Date().toISOString(),
+    }
+
     const { data: existing } = await supabase.from('site_settings').select('id').single()
 
     if (existing) {
@@ -30,7 +28,6 @@ export async function updateSettings(prevState: any, formData: FormData) {
       if (error) throw error
     }
 
-    // Revalidate entire app since settings are global
     revalidatePath('/', 'layout')
     revalidatePath('/gallery')
     revalidatePath('/admin/settings')

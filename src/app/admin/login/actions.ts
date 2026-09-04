@@ -5,58 +5,58 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 
-const MASTER_PASSCODE = process.env.ADMIN_PASSCODE || 'admin123'
-
 export async function login(prevState: any, formData: FormData) {
   const cookieStore = await cookies()
   const email = (formData.get('email') as string)?.trim()
   const password = (formData.get('password') as string)?.trim()
-  const passcode = (formData.get('passcode') as string)?.trim()
 
-  // 1. Check quick master passcode
-  if (password === MASTER_PASSCODE || passcode === MASTER_PASSCODE || email === MASTER_PASSCODE) {
-    cookieStore.set('kcg_admin_session', 'authenticated', {
-      path: '/',
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    })
-    revalidatePath('/', 'layout')
-    redirect('/admin')
+  if (!email || !password) {
+    return { error: 'Please enter both your admin email and password.' }
   }
 
-  // 2. Otherwise try Supabase Auth
-  if (email && password) {
+  try {
     const supabase = createClient(cookieStore)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (!error) {
-      cookieStore.set('kcg_admin_session', 'authenticated', {
-        path: '/',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7,
-      })
-      revalidatePath('/', 'layout')
-      redirect('/admin')
+    // 1. Authenticate user against Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (authError || !authData.user) {
+      return { error: 'Invalid email or password. Please check your credentials.' }
     }
+
+    // 2. Check if user is registered in admin_users
+    const { data: adminRecord, error: adminError } = await supabase
+      .from('admin_users')
+      .select('id, role')
+      .eq('id', authData.user.id)
+      .single()
+
+    if (adminError || !adminRecord) {
+      // User signed in but is not an authorized administrator
+      await supabase.auth.signOut()
+      return { error: 'Access denied: Your account does not have administrator privileges.' }
+    }
+
+    revalidatePath('/', 'layout')
+  } catch (err: any) {
+    console.error('Admin login error:', err)
+    return { error: 'An unexpected error occurred during login. Please try again.' }
   }
 
-  return 'Invalid passcode or credentials. Try entering passcode: admin123'
+  redirect('/admin')
 }
 
 export async function logout() {
   const cookieStore = await cookies()
-  cookieStore.delete('kcg_admin_session')
-  
   try {
     const supabase = createClient(cookieStore)
     await supabase.auth.signOut()
-  } catch {
-    // Ignore signout error if session was purely cookie-based
+  } catch (err) {
+    console.error('Logout error:', err)
   }
-  
+
   redirect('/admin/login')
 }

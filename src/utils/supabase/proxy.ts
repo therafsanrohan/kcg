@@ -5,7 +5,6 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export async function updateSession(request: NextRequest) {
-  // Create an unmodified response
   let supabaseResponse = NextResponse.next({
     request: {
       headers: request.headers,
@@ -26,7 +25,7 @@ export async function updateSession(request: NextRequest) {
             return request.cookies.getAll()
           },
           setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+            cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
             supabaseResponse = NextResponse.next({
               request,
             })
@@ -42,36 +41,27 @@ export async function updateSession(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser()
 
-    const isAdminSession = request.cookies.get('kcg_admin_session')?.value === 'authenticated'
+    const isAdminPath = request.nextUrl.pathname.startsWith('/admin')
+    const isLoginPath = request.nextUrl.pathname === '/admin/login'
 
-    if (
-      !isAdminSession &&
-      !user &&
-      request.nextUrl.pathname.startsWith('/admin') &&
-      request.nextUrl.pathname !== '/admin/login' &&
-      request.nextUrl.pathname !== '/admin/signup'
-    ) {
-      // no user, potentially respond by redirecting the user to the login page
-      const url = request.nextUrl.clone()
-      url.pathname = '/admin/login'
-      return NextResponse.redirect(url)
+    if (isAdminPath && !isLoginPath) {
+      if (!user) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/admin/login'
+        return NextResponse.redirect(url)
+      }
     }
 
     return supabaseResponse
   } catch (error) {
-    // Log the error securely without exposing secrets
-    console.error("Supabase Proxy Error:", error instanceof Error ? error.message : "Unknown error");
+    console.error("Supabase Proxy Auth Check Error:", error instanceof Error ? error.message : "Unknown error");
 
-    const isAdminSession = request.cookies.get('kcg_admin_session')?.value === 'authenticated'
-
-    // If an error occurs (e.g. missing env variables), fail securely for protected paths.
-    if (!isAdminSession && request.nextUrl.pathname.startsWith('/admin') && request.nextUrl.pathname !== '/admin/login' && request.nextUrl.pathname !== '/admin/signup') {
+    if (request.nextUrl.pathname.startsWith('/admin') && request.nextUrl.pathname !== '/admin/login') {
       const url = request.nextUrl.clone()
       url.pathname = '/admin/login'
       return NextResponse.redirect(url)
     }
 
-    // For public routes, just return the default response so the gallery stays accessible.
     return supabaseResponse;
   }
 }
