@@ -5,7 +5,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Search, ArrowUpRight, ChevronDown } from 'lucide-react'
 import { getPaintingImageUrl } from '@/utils/image'
-import { Currency, convertCurrency, FALLBACK_RATES } from '@/utils/currency'
+import { Currency, convertCurrency, FALLBACK_RATES } from '@/utils/currency-shared'
+import { getDisplayDimensions } from '@/utils/measurements'
 
 interface CustomerGallerySectionProps {
   paintings: any[]
@@ -16,6 +17,19 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [sortBy, setSortBy] = useState<string>('newest')
   const [currency, setCurrency] = useState<Currency>('BDT')
+  const [rates, setRates] = useState<Record<string, number>>(FALLBACK_RATES)
+
+  // Fetch live rates on mount
+  useEffect(() => {
+    fetch('/api/exchange-rates')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.rates) setRates(data.rates)
+      })
+      .catch(() => {
+        // Keep fallback rates on error
+      })
+  }, [])
 
   useEffect(() => {
     const updateCurr = () => {
@@ -169,12 +183,12 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
             const originalPriceDisplay =
               currency === 'BDT'
                 ? `৳${Number(painting.base_price_bdt).toLocaleString('en-BD')}`
-                : `${convertCurrency(Number(painting.base_price_bdt), currency, FALLBACK_RATES)} ${currency}`
+                : `${convertCurrency(Number(painting.base_price_bdt), currency, rates)} ${currency}`
 
             const effectivePriceDisplay =
               currency === 'BDT'
                 ? `৳${effectivePrice.toLocaleString('en-BD')}`
-                : `${convertCurrency(effectivePrice, currency, FALLBACK_RATES)} ${currency}`
+                : `${convertCurrency(effectivePrice, currency, rates)} ${currency}`
 
             return (
               <div
@@ -222,7 +236,7 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
                     {painting.title}
                   </h3>
                   <p className="text-xs text-gray-500 font-light mt-1">
-                    {painting.exact_medium} &bull; {painting.display_size || `${painting.width} × ${painting.height} in`}
+                    {painting.exact_medium} &bull; {getDisplayDimensions(painting)}
                   </p>
 
                   <div className="mt-2 flex items-center gap-2 font-mono">

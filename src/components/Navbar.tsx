@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useState, useEffect, Suspense } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Menu, X, MessageCircle, ChevronDown } from 'lucide-react'
-import { SUPPORTED_CURRENCIES, Currency } from '@/utils/currency'
+import { SUPPORTED_CURRENCIES, Currency } from '@/utils/currency-shared'
 
 function NavLinks() {
   const pathname = usePathname()

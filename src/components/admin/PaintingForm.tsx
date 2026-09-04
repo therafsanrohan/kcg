@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Plus, X } from 'lucide-react'
 import { savePainting } from '@/app/admin/(dashboard)/paintings/actions'
 import { Painting } from '@/types'
+import { MeasurementUnit, parseLegacyDisplaySize, fromMm } from '@/utils/measurements'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -18,6 +19,49 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  // Size state
+  const initialParsed = parseLegacyDisplaySize(painting?.display_size)
+  const initialUnit = (painting?.measurement_unit as MeasurementUnit) || initialParsed?.unit || 'in'
+  const [unit, setUnit] = useState<MeasurementUnit>(initialUnit)
+  const [width, setWidth] = useState<string>(() => {
+    if (painting?.width_mm) {
+      const val = fromMm(painting.width_mm, initialUnit)
+      return val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)
+    }
+    return initialParsed?.width ? String(initialParsed.width) : painting?.width ? String(painting.width) : '24'
+  })
+  const [height, setHeight] = useState<string>(() => {
+    if (painting?.height_mm) {
+      const val = fromMm(painting.height_mm, initialUnit)
+      return val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)
+    }
+    return initialParsed?.height ? String(initialParsed.height) : painting?.height ? String(painting.height) : '36'
+  })
+  const [displaySize, setDisplaySize] = useState<string>(
+    painting?.display_size || `${width} × ${height} ${unit}`
+  )
+
+  const handleWidthChange = (newW: string) => {
+    setWidth(newW)
+    if (newW && height) {
+      setDisplaySize(`${newW} × ${height} ${unit}`)
+    }
+  }
+
+  const handleHeightChange = (newH: string) => {
+    setHeight(newH)
+    if (width && newH) {
+      setDisplaySize(`${width} × ${newH} ${unit}`)
+    }
+  }
+
+  const handleUnitChange = (newUnit: MeasurementUnit) => {
+    setUnit(newUnit)
+    if (width && height) {
+      setDisplaySize(`${width} × ${height} ${newUnit}`)
+    }
+  }
 
   const [frames, setFrames] = useState<FrameRow[]>(
     painting?.frame_options?.length
@@ -74,6 +118,10 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     setErrorMsg(null)
     const formData = new FormData(e.currentTarget)
     formData.set('frames_json', JSON.stringify(frames))
+    formData.set('width_input', width)
+    formData.set('height_input', height)
+    formData.set('measurement_unit_input', unit)
+    formData.set('display_size', displaySize)
 
     startTransition(async () => {
       const res = await savePainting(null, formData)
@@ -155,20 +203,6 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
           </div>
 
           <div>
-            <label htmlFor="display_size" className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
-              ARTWORK SIZE
-            </label>
-            <input
-              id="display_size"
-              name="display_size"
-              type="text"
-              defaultValue={painting?.display_size || '24 × 36 in'}
-              placeholder="24 × 36 in"
-              className="w-full rounded-md border border-gray-300 px-3.5 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
-            />
-          </div>
-
-          <div>
             <label htmlFor="year" className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
               YEAR
             </label>
@@ -180,6 +214,73 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
               placeholder="2026"
               className="w-full rounded-md border border-gray-300 px-3.5 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
             />
+          </div>
+
+          {/* Structured Artwork Dimensions */}
+          <div className="sm:col-span-2 bg-[#FAF9F6] border border-gray-200/80 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-[11px] font-bold tracking-wider uppercase text-gray-800">
+                ARTWORK DIMENSIONS & DISPLAY SIZE
+              </label>
+              <span className="text-[10px] text-gray-500 font-medium">Automatic conversion enabled</span>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
+                  WIDTH
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={width}
+                  onChange={(e) => handleWidthChange(e.target.value)}
+                  placeholder="24"
+                  className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 bg-white focus:border-black outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
+                  HEIGHT
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={height}
+                  onChange={(e) => handleHeightChange(e.target.value)}
+                  placeholder="36"
+                  className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 bg-white focus:border-black outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
+                  UNIT
+                </label>
+                <select
+                  value={unit}
+                  onChange={(e) => handleUnitChange(e.target.value as MeasurementUnit)}
+                  className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 bg-white focus:border-black outline-none"
+                >
+                  <option value="in">Inches (in)</option>
+                  <option value="cm">Centimeters (cm)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
+                  DISPLAY TEXT
+                </label>
+                <input
+                  type="text"
+                  value={displaySize}
+                  onChange={(e) => setDisplaySize(e.target.value)}
+                  placeholder="24 × 36 in"
+                  className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 bg-white focus:border-black outline-none"
+                />
+              </div>
+            </div>
           </div>
 
           <div>

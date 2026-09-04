@@ -2,10 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { FrameOption, DeliveryZone } from '@/types'
-import { SUPPORTED_CURRENCIES, Currency, convertCurrency } from '@/utils/currency'
+import { SUPPORTED_CURRENCIES, Currency, convertCurrency } from '@/utils/currency-shared'
+import {
+  MeasurementUnit,
+  getDisplayDimensions,
+  getFrameDisplayDimensions,
+} from '@/utils/measurements'
 import Image from 'next/image'
 import { getPaintingImageUrl } from '@/utils/image'
-import { Truck, ShieldCheck, ShoppingBag } from 'lucide-react'
+import { Truck, ShieldCheck, ShoppingBag, Ruler } from 'lucide-react'
 
 interface PaintingData {
   id: string
@@ -13,8 +18,12 @@ interface PaintingData {
   slug: string
   painting_type: string
   exact_medium: string
-  width: number
-  height: number
+  width?: number
+  height?: number
+  measurement_unit?: string | null
+  display_size?: string | null
+  width_mm?: number | null
+  height_mm?: number | null
   base_price_bdt: number
   discount_price_bdt?: number | null
   offer_badge?: string | null
@@ -26,7 +35,7 @@ export default function ClientDetails({
   painting, 
   frames, 
   deliveryZones = [],
-  rates,
+  rates, 
   images,
   whatsappNumber
 }: { 
@@ -41,6 +50,7 @@ export default function ClientDetails({
   const [selectedFrameId, setSelectedFrameId] = useState<string>('none')
   const [selectedZoneCode, setSelectedZoneCode] = useState<string>('inside_dhaka')
   const [activeImageIndex, setActiveImageIndex] = useState(0)
+  const [displayUnit, setDisplayUnit] = useState<MeasurementUnit>('in')
 
   const mainImageIdx = images?.findIndex(img => img.is_main) ?? -1
   
@@ -84,6 +94,11 @@ export default function ClientDetails({
   const originalTotalPriceBdt = basePrice + framePrice + deliveryCharge
 
   const isAvailable = painting.availability_status === 'available'
+
+  // Dimensions formatted in current display unit
+  const formattedArtworkSize = getDisplayDimensions(painting, displayUnit)
+  const formattedArtworkSizeIn = getDisplayDimensions(painting, 'in')
+  const formattedArtworkSizeCm = getDisplayDimensions(painting, 'cm')
   
   // WhatsApp Link Builder
   const generateWhatsAppLink = () => {
@@ -91,11 +106,16 @@ export default function ClientDetails({
     const baseUrl = `https://wa.me/${cleanNumber}`
     const productUrl = typeof window !== 'undefined' ? `${window.location.origin}/gallery/${painting.slug}` : `https://kcg-gray.vercel.app/gallery/${painting.slug}`
     
+    // Compute comprehensive size description for message
+    const sizeDescription = formattedArtworkSizeIn !== formattedArtworkSizeCm
+      ? `${formattedArtworkSizeIn} (${formattedArtworkSizeCm})`
+      : formattedArtworkSize
+    
     let message = `Hello Kazi Canvas Gallery,\n\nI would like to purchase this artwork.\n\n`
     message += `🎨 Painting: ${painting.title}\n`
     message += `📍 Ref ID: ${painting.id}\n`
     message += `🖌️ Medium: ${painting.exact_medium}\n`
-    message += `📐 Size: ${painting.width} x ${painting.height} cm\n`
+    message += `📐 Size: ${sizeDescription}\n`
 
     if (hasDiscount) {
       message += `🏷️ Original Price: ${basePrice.toLocaleString('en-BD')} BDT\n`
@@ -105,7 +125,8 @@ export default function ClientDetails({
     }
     
     if (selectedFrame) {
-      message += `🖼️ Framing: ${selectedFrame.frame_name} (${selectedFrame.outer_size || 'Custom Size'})\n`
+      const frameSizeStr = getFrameDisplayDimensions(selectedFrame, displayUnit)
+      message += `🖼️ Framing: ${selectedFrame.frame_name} (${frameSizeStr})\n`
       message += `   Frame Cost: +${framePrice.toLocaleString('en-BD')} BDT\n`
     } else {
       message += `🖼️ Framing: Canvas Only (Unframed)\n`
@@ -212,13 +233,13 @@ export default function ClientDetails({
       {/* RIGHT COL: Painting info & interactivity */}
       <div className="flex flex-col gap-y-8 mt-10 lg:mt-0">
         <div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <h1 className="text-3xl font-bold text-gray-950">{painting.title}</h1>
             
             <select 
               value={currency} 
               onChange={(e) => handleCurrencyChange(e.target.value as Currency)}
-              className="text-sm font-sans font-bold text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-black focus:ring-black"
+              className="text-sm font-sans font-bold text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-black focus:ring-black bg-white px-3 py-1.5"
               style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
             >
               {SUPPORTED_CURRENCIES.map(c => (
@@ -229,7 +250,40 @@ export default function ClientDetails({
             </select>
           </div>
           <p className="mt-2 text-sm text-gray-500 capitalize font-medium">{painting.painting_type} &middot; {painting.exact_medium}</p>
-          <p className="mt-1 text-sm text-gray-500 font-mono">Size: {painting.width} x {painting.height} cm</p>
+          
+          {/* Size with unit toggle */}
+          <div className="mt-2.5 flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-sm text-gray-700 font-mono bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-md">
+              <Ruler className="h-3.5 w-3.5 text-gray-500" />
+              <span>{formattedArtworkSize}</span>
+            </div>
+
+            {/* Unit Switcher */}
+            <div className="inline-flex rounded-md shadow-2xs border border-gray-200 bg-white p-0.5">
+              <button
+                type="button"
+                onClick={() => setDisplayUnit('in')}
+                className={`px-2 py-0.5 text-xs font-semibold rounded ${
+                  displayUnit === 'in'
+                    ? 'bg-black text-white'
+                    : 'text-gray-600 hover:text-black'
+                } transition-all`}
+              >
+                in
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayUnit('cm')}
+                className={`px-2 py-0.5 text-xs font-semibold rounded ${
+                  displayUnit === 'cm'
+                    ? 'bg-black text-white'
+                    : 'text-gray-600 hover:text-black'
+                } transition-all`}
+              >
+                cm
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="prose prose-sm text-gray-700">
@@ -250,22 +304,25 @@ export default function ClientDetails({
               </div>
             </label>
             
-            {frames.map((frame) => (
-              <label key={frame.id} className={`block border p-4 rounded-xl cursor-pointer transition-colors ${selectedFrameId === frame.id ? 'border-black bg-gray-50/80 ring-1 ring-black' : 'border-gray-200 hover:border-gray-300'}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <input type="radio" name="frame" value={frame.id} checked={selectedFrameId === frame.id} onChange={() => setSelectedFrameId(frame.id)} className="h-4 w-4 text-black focus:ring-black border-gray-300" />
-                    <div className="ml-3">
-                      <span className="block font-semibold text-gray-900 text-sm">{frame.frame_name}</span>
-                      <span className="block text-xs text-gray-500">Outer Size: {frame.outer_size || 'N/A'}</span>
+            {frames.map((frame) => {
+              const frameSizeStr = getFrameDisplayDimensions(frame, displayUnit)
+              return (
+                <label key={frame.id} className={`block border p-4 rounded-xl cursor-pointer transition-colors ${selectedFrameId === frame.id ? 'border-black bg-gray-50/80 ring-1 ring-black' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <input type="radio" name="frame" value={frame.id} checked={selectedFrameId === frame.id} onChange={() => setSelectedFrameId(frame.id)} className="h-4 w-4 text-black focus:ring-black border-gray-300" />
+                      <div className="ml-3">
+                        <span className="block font-semibold text-gray-900 text-sm">{frame.frame_name}</span>
+                        <span className="block text-xs text-gray-500">Outer Size: {frameSizeStr}</span>
+                      </div>
                     </div>
+                    <span className="text-sm font-bold text-gray-900 font-mono">
+                      + {convertCurrency(frame.price_bdt, currency, rates)} {currency}
+                    </span>
                   </div>
-                  <span className="text-sm font-bold text-gray-900 font-mono">
-                    + {convertCurrency(frame.price_bdt, currency, rates)} {currency}
-                  </span>
-                </div>
-              </label>
-            ))}
+                </label>
+              )
+            })}
           </div>
         </div>
 

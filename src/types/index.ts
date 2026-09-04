@@ -11,6 +11,8 @@ export interface Painting {
   height: number;
   measurement_unit: string;
   display_size: string | null;
+  width_mm?: number | null;
+  height_mm?: number | null;
   year: number | null;
   base_price_bdt: number;
   discount_price_bdt?: number | null;
@@ -53,6 +55,8 @@ export interface FrameOption {
   painting_id: string;
   frame_name: string;
   outer_size: string | null;
+  outer_width_mm?: number | null;
+  outer_height_mm?: number | null;
   price_bdt: number;
   is_active: boolean;
   sort_order: number;

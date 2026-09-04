@@ -5,6 +5,7 @@ import { X, Plus, ImageIcon } from 'lucide-react'
 import { saveArtworkAction } from '@/app/admin/(dashboard)/paintings/actions'
 import Image from 'next/image'
 import { getPaintingImageUrl } from '@/utils/image'
+import { MeasurementUnit, parseLegacyDisplaySize, fromMm } from '@/utils/measurements'
 
 export interface FrameRow {
   id: string
@@ -41,6 +42,12 @@ export default function AddArtworkModal({
   const [frames, setFrames] = useState<FrameRow[]>(() => makeDefaultFrames(initialData))
   const [selectedFileName, setSelectedFileName] = useState<string>('no file selected')
 
+  // Size state
+  const [unit, setUnit] = useState<MeasurementUnit>('in')
+  const [width, setWidth] = useState<string>('24')
+  const [height, setHeight] = useState<string>('36')
+  const [displaySize, setDisplaySize] = useState<string>('24 × 36 in')
+
   const isEditMode = Boolean(initialData?.id)
 
   // Reset form state whenever initialData changes (new edit target or cleared for new)
@@ -48,7 +55,56 @@ export default function AddArtworkModal({
     setFrames(makeDefaultFrames(initialData))
     setSelectedFileName('no file selected')
     setErrorMsg(null)
-  }, [initialData?.id])
+
+    const parsed = parseLegacyDisplaySize(initialData?.display_size)
+    const u = (initialData?.measurement_unit as MeasurementUnit) || parsed?.unit || 'in'
+    setUnit(u)
+
+    let w = '24'
+    let h = '36'
+    if (initialData?.width_mm) {
+      const val = fromMm(initialData.width_mm, u)
+      w = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)
+    } else if (parsed?.width) {
+      w = String(parsed.width)
+    } else if (initialData?.width) {
+      w = String(initialData.width)
+    }
+
+    if (initialData?.height_mm) {
+      const val = fromMm(initialData.height_mm, u)
+      h = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)
+    } else if (parsed?.height) {
+      h = String(parsed.height)
+    } else if (initialData?.height) {
+      h = String(initialData.height)
+    }
+
+    setWidth(w)
+    setHeight(h)
+    setDisplaySize(initialData?.display_size || `${w} × ${h} ${u}`)
+  }, [initialData?.id, initialData?.display_size, initialData?.width_mm, initialData?.height_mm])
+
+  const handleWidthChange = (newW: string) => {
+    setWidth(newW)
+    if (newW && height) {
+      setDisplaySize(`${newW} × ${height} ${unit}`)
+    }
+  }
+
+  const handleHeightChange = (newH: string) => {
+    setHeight(newH)
+    if (width && newH) {
+      setDisplaySize(`${width} × ${newH} ${unit}`)
+    }
+  }
+
+  const handleUnitChange = (newUnit: MeasurementUnit) => {
+    setUnit(newUnit)
+    if (width && height) {
+      setDisplaySize(`${width} × ${height} ${newUnit}`)
+    }
+  }
 
   const handleAddFrame = useCallback(() => {
     setFrames((prev) => [
@@ -77,6 +133,10 @@ export default function AddArtworkModal({
     setErrorMsg(null)
     const formData = new FormData(e.currentTarget)
     formData.set('frames_json', JSON.stringify(frames))
+    formData.set('width_input', width)
+    formData.set('height_input', height)
+    formData.set('measurement_unit_input', unit)
+    formData.set('display_size', displaySize)
 
     startTransition(async () => {
       const res = await saveArtworkAction(null, formData)
@@ -171,7 +231,7 @@ export default function AddArtworkModal({
               </div>
             </div>
 
-            {/* Row 2: Medium | Size */}
+            {/* Row 2: Medium | Year */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
@@ -187,22 +247,6 @@ export default function AddArtworkModal({
               </div>
               <div>
                 <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
-                  Artwork Size
-                </label>
-                <input
-                  name="display_size"
-                  type="text"
-                  defaultValue={initialData?.display_size ?? '24 × 36 in'}
-                  placeholder="24 × 36 in"
-                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Row 3: Year | Status */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
                   Year
                 </label>
                 <input
@@ -213,20 +257,89 @@ export default function AddArtworkModal({
                   className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
                 />
               </div>
-              <div>
-                <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
-                  Stock Status
+            </div>
+
+            {/* Structured Dimensions */}
+            <div className="bg-[#FAF9F6] border border-gray-200/80 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700">
+                  Artwork Dimensions & Display Size
                 </label>
-                <select
-                  name="availability_status"
-                  defaultValue={initialData?.availability_status ?? 'available'}
-                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 focus:border-black focus:ring-2 focus:ring-black/10 outline-none bg-white transition-all"
-                >
-                  <option value="available">Available</option>
-                  <option value="reserved">Reserved</option>
-                  <option value="sold">Sold</option>
-                </select>
+                <span className="text-[10px] text-gray-500 font-medium">Automatic conversion enabled</span>
               </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
+                    Width
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={width}
+                    onChange={(e) => handleWidthChange(e.target.value)}
+                    placeholder="24"
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
+                    Height
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={height}
+                    onChange={(e) => handleHeightChange(e.target.value)}
+                    placeholder="36"
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
+                    Unit
+                  </label>
+                  <select
+                    value={unit}
+                    onChange={(e) => handleUnitChange(e.target.value as MeasurementUnit)}
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none"
+                  >
+                    <option value="in">Inches (in)</option>
+                    <option value="cm">Centimeters (cm)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
+                    Display Text
+                  </label>
+                  <input
+                    type="text"
+                    value={displaySize}
+                    onChange={(e) => setDisplaySize(e.target.value)}
+                    placeholder="24 × 36 in"
+                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Row 4: Status */}
+            <div>
+              <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
+                Stock Status
+              </label>
+              <select
+                name="availability_status"
+                defaultValue={initialData?.availability_status ?? 'available'}
+                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 focus:border-black focus:ring-2 focus:ring-black/10 outline-none bg-white transition-all"
+              >
+                <option value="available">Available</option>
+                <option value="reserved">Reserved</option>
+                <option value="sold">Sold</option>
+              </select>
             </div>
 
             {/* Price & Offer Row */}

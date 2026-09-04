@@ -110,13 +110,40 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
       return { error: 'Artwork title is required.' }
     }
 
-    // Parse width/height from display_size ("24 × 36 in" or "60 x 90 cm")
+    // Canonical mm dimension calculation
+    const widthInputStr = formData.get('width_input') as string
+    const heightInputStr = formData.get('height_input') as string
+    const unitInput = (formData.get('measurement_unit_input') as string) || (formData.get('measurement_unit') as string) || 'in'
+    
+    let width_mm: number | null = null
+    let height_mm: number | null = null
     let width = 60
     let height = 90
-    const sizeMatch = display_size.match(/(\d+(?:\.\d+)?)\s*[x×X]\s*(\d+(?:\.\d+)?)/)
-    if (sizeMatch) {
-      width = parseFloat(sizeMatch[1])
-      height = parseFloat(sizeMatch[2])
+    let measurement_unit = 'cm'
+
+    if (widthInputStr && heightInputStr && !isNaN(parseFloat(widthInputStr)) && !isNaN(parseFloat(heightInputStr))) {
+      const wVal = parseFloat(widthInputStr)
+      const hVal = parseFloat(heightInputStr)
+      const unit = (unitInput.toLowerCase() === 'in' ? 'in' : unitInput.toLowerCase() === 'mm' ? 'mm' : 'cm') as 'mm' | 'cm' | 'in'
+      
+      const mmPerUnit: Record<string, number> = { mm: 1, cm: 10, in: 25.4 }
+      width_mm = Math.round(wVal * (mmPerUnit[unit] || 10) * 10) / 10
+      height_mm = Math.round(hVal * (mmPerUnit[unit] || 10) * 10) / 10
+      width = wVal
+      height = hVal
+      measurement_unit = unit
+    } else {
+      // Fallback: parse from display_size ("24 × 36 in" or "60 x 90 cm")
+      const sizeMatch = display_size.match(/(\d+(?:\.\d+)?)\s*[x×X]\s*(\d+(?:\.\d+)?)\s*(in|cm|mm)?/i)
+      if (sizeMatch) {
+        width = parseFloat(sizeMatch[1])
+        height = parseFloat(sizeMatch[2])
+        const unit = (sizeMatch[3] || 'in').toLowerCase() === 'cm' ? 'cm' : (sizeMatch[3] || 'in').toLowerCase() === 'mm' ? 'mm' : 'in'
+        measurement_unit = unit
+        const mmPerUnit: Record<string, number> = { mm: 1, cm: 10, in: 25.4 }
+        width_mm = Math.round(width * mmPerUnit[unit] * 10) / 10
+        height_mm = Math.round(height * mmPerUnit[unit] * 10) / 10
+      }
     }
 
     let paintingId = id
@@ -132,7 +159,9 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
           display_size,
           width,
           height,
-          measurement_unit: 'cm',
+          measurement_unit,
+          width_mm,
+          height_mm,
           year,
           availability_status,
           base_price_bdt,
@@ -159,7 +188,9 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
           display_size,
           width,
           height,
-          measurement_unit: 'cm',
+          measurement_unit,
+          width_mm,
+          height_mm,
           year,
           availability_status,
           base_price_bdt,
@@ -184,6 +215,8 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
           frame_name: string
           outer_size: string
           price_bdt: number
+          outer_width_mm?: number | null
+          outer_height_mm?: number | null
         }> = JSON.parse(framesRaw)
 
         await supabase.from('frame_options').delete().eq('painting_id', paintingId)
@@ -191,14 +224,34 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
         if (frames.length > 0) {
           const frameRecords = frames
             .filter((f) => f.frame_name?.trim())
-            .map((f, idx) => ({
-              painting_id: paintingId,
-              frame_name: f.frame_name.trim(),
-              outer_size: f.outer_size || '',
-              price_bdt: Number(f.price_bdt) || 0,
-              is_active: true,
-              sort_order: idx + 1,
-            }))
+            .map((f, idx) => {
+              let outer_width_mm = f.outer_width_mm || null
+              let outer_height_mm = f.outer_height_mm || null
+
+              // If mm is not explicitly provided, try parsing outer_size
+              if (!outer_width_mm && f.outer_size) {
+                const match = f.outer_size.match(/(\d+(?:\.\d+)?)\s*[x×X]\s*(\d+(?:\.\d+)?)\s*(in|cm|mm)?/i)
+                if (match) {
+                  const w = parseFloat(match[1])
+                  const h = parseFloat(match[2])
+                  const u = (match[3] || 'in').toLowerCase() === 'cm' ? 'cm' : (match[3] || 'in').toLowerCase() === 'mm' ? 'mm' : 'in'
+                  const factor = u === 'in' ? 25.4 : u === 'mm' ? 1 : 10
+                  outer_width_mm = Math.round(w * factor * 10) / 10
+                  outer_height_mm = Math.round(h * factor * 10) / 10
+                }
+              }
+
+              return {
+                painting_id: paintingId,
+                frame_name: f.frame_name.trim(),
+                outer_size: f.outer_size || '',
+                outer_width_mm,
+                outer_height_mm,
+                price_bdt: Number(f.price_bdt) || 0,
+                is_active: true,
+                sort_order: idx + 1,
+              }
+            })
           if (frameRecords.length > 0) {
             await supabase.from('frame_options').insert(frameRecords)
           }
