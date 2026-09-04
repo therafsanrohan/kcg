@@ -7,6 +7,8 @@ const supabaseUrl =
 
 const serviceRoleKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SECRET_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpuZGN1bmZsY2FzdG10cW1xeXZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEyMzA2ODksImV4cCI6MjA1NjgwNjY4OX0.eK8m5XN-0tM3BvhP26F3MvQ3F'
 

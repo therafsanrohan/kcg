@@ -7,11 +7,27 @@ import { cookies } from 'next/headers'
 
 export async function login(prevState: any, formData: FormData) {
   const cookieStore = await cookies()
-  const email = (formData.get('email') as string)?.trim()
-  const password = (formData.get('password') as string)?.trim()
+  
+  // Safe normalization for email; exact preservation for password (no .trim())
+  const email = String(formData.get('email') ?? '').trim().toLowerCase()
+  const password = String(formData.get('password') ?? '')
 
   if (!email || !password) {
     return { error: 'Please enter both your admin email and password.' }
+  }
+
+  // Validate that environment configuration exists
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('[Admin Auth Error]', {
+      code: 'missing_environment_configuration',
+      category: 'ConfigurationError',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'production',
+    })
+    return { error: 'Authentication service temporarily unavailable or misconfigured. Please check server settings.' }
   }
 
   try {
@@ -24,10 +40,32 @@ export async function login(prevState: any, formData: FormData) {
     })
 
     if (authError || !authData.user) {
+      // Safe server logging with NO sensitive information (no passwords, tokens, or raw responses)
+      console.error('[Admin Auth Error]', {
+        status: authError?.status,
+        code: (authError as any)?.code || authError?.name || 'unknown_auth_error',
+        category: authError?.status === 400 ? 'ClientCredentials' : authError?.status === 429 ? 'RateLimit' : 'ServerError',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'production',
+      })
+
+      // Customer-facing error categorization
+      if (authError?.message?.toLowerCase().includes('email not confirmed') || (authError as any)?.code === 'email_not_confirmed') {
+        return { error: 'Your email address has not been confirmed yet. Please verify your email.' }
+      }
+
+      if (authError?.status === 429 || authError?.message?.toLowerCase().includes('rate limit')) {
+        return { error: 'Too many login attempts. Please wait a few moments and try again.' }
+      }
+
+      if (authError?.status && authError.status >= 500) {
+        return { error: 'Authentication service temporarily unavailable. Please try again later.' }
+      }
+
       return { error: 'Invalid email or password. Please check your credentials.' }
     }
 
-    // 2. Check if user is registered in admin_users
+    // 2. Separate Authorization step: Check if user exists in public.admin_users
     const { data: adminRecord, error: adminError } = await supabase
       .from('admin_users')
       .select('id, role')
@@ -35,14 +73,26 @@ export async function login(prevState: any, formData: FormData) {
       .single()
 
     if (adminError || !adminRecord) {
-      // User signed in but is not an authorized administrator
+      // Authenticated with Supabase Auth, but NOT an authorized administrator
+      console.warn('[Admin Auth Warning]', {
+        event: 'unauthorized_admin_access_attempt',
+        maskedUserId: authData.user.id.slice(0, 8) + '-****-****-****-' + authData.user.id.slice(-4),
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'production',
+      })
       await supabase.auth.signOut()
-      return { error: 'Access denied: Your account does not have administrator privileges.' }
+      return { error: 'Access denied: This account is not an authorized administrator.' }
     }
 
     revalidatePath('/', 'layout')
+    revalidatePath('/admin', 'layout')
   } catch (err: any) {
-    console.error('Admin login error:', err)
+    console.error('[Admin Auth Unexpected Exception]', {
+      name: err?.name || 'Error',
+      category: 'UnhandledException',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'production',
+    })
     return { error: 'An unexpected error occurred during login. Please try again.' }
   }
 
@@ -54,9 +104,14 @@ export async function logout() {
   try {
     const supabase = createClient(cookieStore)
     await supabase.auth.signOut()
-  } catch (err) {
-    console.error('Logout error:', err)
+  } catch (err: any) {
+    console.error('[Admin Logout Error]', {
+      name: err?.name || 'Error',
+      timestamp: new Date().toISOString(),
+    })
   }
 
+  revalidatePath('/', 'layout')
+  revalidatePath('/admin', 'layout')
   redirect('/admin/login')
 }

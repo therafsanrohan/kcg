@@ -11,18 +11,31 @@ export default async function AdminLayout({
   children: React.ReactNode
 }) {
   const cookieStore = await cookies()
-  const isAdminSession = cookieStore.get('kcg_admin_session')?.value === 'authenticated'
   const supabase = createClient(cookieStore)
 
+  // 1. Verify Supabase authenticated user
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser()
 
-  if (!isAdminSession && !user) {
+  if (authError || !user) {
     redirect('/admin/login')
   }
 
-  const userEmail = user?.email || 'knock.rafsan@gmail.com'
+  // 2. Verify admin authorization against public.admin_users
+  const { data: adminRecord, error: adminErr } = await supabase
+    .from('admin_users')
+    .select('id, email, role')
+    .eq('id', user.id)
+    .single()
+
+  if (adminErr || !adminRecord) {
+    // If not authorized as admin, redirect to login
+    redirect('/admin/login')
+  }
+
+  const userEmail = adminRecord.email || user.email || 'Administrator'
 
   return (
     <div className="min-h-screen bg-[#F8F6F0] text-gray-900 flex flex-col font-sans">
