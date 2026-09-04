@@ -23,19 +23,24 @@ export default async function AdminLayout({
     redirect('/admin/login')
   }
 
-  // 2. Verify admin authorization against public.admin_users
+  // 2. Verify admin authorization against public.admin_users or owner email fallback
+  const isOwner =
+    user.email?.toLowerCase() === 'knock.rafsan@gmail.com' ||
+    user.email?.toLowerCase() === 'knock.rafsan+admin@gmail.com' ||
+    user.email?.toLowerCase().startsWith('knock.rafsan')
+
   const { data: adminRecord, error: adminErr } = await supabase
     .from('admin_users')
     .select('id, email, role')
     .eq('id', user.id)
     .single()
 
-  if (adminErr || !adminRecord) {
+  if (!isOwner && (adminErr || !adminRecord)) {
     // If not authorized as admin, redirect to login
     redirect('/admin/login')
   }
 
-  const userEmail = adminRecord.email || user.email || 'Administrator'
+  const userEmail = adminRecord?.email || user.email || 'Administrator'
 
   return (
     <div className="min-h-screen bg-[#F8F6F0] text-gray-900 flex flex-col font-sans">
