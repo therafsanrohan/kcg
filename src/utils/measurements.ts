@@ -3,16 +3,15 @@
  * Canonical internal unit: millimetres (mm).
  */
 
-export type MeasurementUnit = 'mm' | 'cm' | 'in'
+export type MeasurementUnit = 'mm' | 'cm' | 'in' | 'ft'
 
 // ── Conversion factors (to mm) ──
 const MM_PER_UNIT: Record<MeasurementUnit, number> = {
   mm: 1,
   cm: 10,
   in: 25.4,
-}
-
-/**
+  ft: 304.8,
+}/**
  * Convert a value from the given unit to millimetres.
  */
 export function toMm(value: number, unit: MeasurementUnit): number {
@@ -57,7 +56,7 @@ export function parseLegacyDisplaySize(
   if (!displaySize) return null
 
   const match = displaySize.match(
-    /(\d+(?:\.\d+)?)\s*[x×X]\s*(\d+(?:\.\d+)?)\s*(in|cm|mm)?/i
+    /(\d+(?:\.\d+)?)\s*[x×X]\s*(\d+(?:\.\d+)?)\s*(in|cm|mm|ft)?/i
   )
   if (!match) return null
 
@@ -67,7 +66,7 @@ export function parseLegacyDisplaySize(
 
   // Normalize unit
   const unit: MeasurementUnit =
-    rawUnit === 'in' ? 'in' : rawUnit === 'mm' ? 'mm' : 'cm'
+    rawUnit === 'in' ? 'in' : rawUnit === 'ft' ? 'ft' : rawUnit === 'mm' ? 'mm' : 'cm'
 
   return { width, height, unit }
 }
