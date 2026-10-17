@@ -6,6 +6,8 @@ import { FileText, Printer, CheckCircle, Clock, AlertTriangle, ShieldCheck } fro
 import { InvoiceItem } from '@/types/invoice'
 import InvoicePrintButton from '@/app/admin/(dashboard)/invoices/[id]/InvoicePrintButton'
 import PublicInvoiceConversation from './PublicInvoiceConversation'
+import { generateInvoiceQRCodeDataURL } from '@/utils/qrcode'
+import InvoiceVerificationQR from '@/components/admin/InvoiceVerificationQR'
 
 export const revalidate = 0
 
@@ -75,6 +77,11 @@ export default async function PublicInvoicePage({
   const grandTotal = Number(invoice.grand_total_bdt) || 0
   const totalPaid = payments.reduce((acc: number, p: any) => acc + (Number(p.amount_bdt) || 0), 0)
   const remainingDue = Math.max(0, grandTotal - totalPaid)
+
+  // Canonical HTTPS verification URL using standard domain or environment
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.kazicanvasgallery.com'
+  const verificationUrl = `${siteUrl}/invoice/${token}`
+  const qrDataUrl = await generateInvoiceQRCodeDataURL(verificationUrl)
 
   return (
     <div className="min-h-screen bg-[#FAF9F5] py-10 px-4 sm:px-6 lg:px-8 font-sans">
@@ -312,6 +319,17 @@ export default async function PublicInvoicePage({
                   <strong className="font-semibold text-gray-700">Terms & Conditions:</strong> {invoice.terms}
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Scannable Official QR Verification Badge */}
+          {qrDataUrl && (
+            <div className="border-t border-gray-100 pt-6">
+              <InvoiceVerificationQR
+                qrDataUrl={qrDataUrl}
+                verificationUrl={verificationUrl}
+                invoiceNumber={invoice.invoice_number}
+              />
             </div>
           )}
 

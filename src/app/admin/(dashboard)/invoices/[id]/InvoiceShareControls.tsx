@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Share2, Copy, Check, ExternalLink, ShieldAlert, X, MessageSquare, Phone, Mail, Send } from 'lucide-react'
+import { Share2, Copy, Check, ExternalLink, ShieldAlert, X, MessageSquare, Phone, Mail, Send, AlertCircle, Download } from 'lucide-react'
 import { generateShareLink, revokeShareLink } from '../actions'
 import { useAdminFeedback } from '@/components/admin/AdminFeedbackProvider'
+import { normalizeWhatsAppPhone, buildInvoiceWhatsAppMessage } from '@/utils/whatsapp'
 
 interface InvoiceShareControlsProps {
   invoiceId: string
@@ -12,6 +13,8 @@ interface InvoiceShareControlsProps {
   customerPhone?: string
   customerEmail?: string
   grandTotal?: number
+  totalPaid?: number
+  remainingDue?: number
   dueDate?: string | null
   initialShareToken?: string | null
   initialIsActive?: boolean
@@ -24,6 +27,8 @@ export default function InvoiceShareControls({
   customerPhone = '',
   customerEmail = '',
   grandTotal = 0,
+  totalPaid = 0,
+  remainingDue = 0,
   dueDate = null,
   initialShareToken,
   initialIsActive,
@@ -39,6 +44,7 @@ export default function InvoiceShareControls({
   // Editable recipient fields
   const [phoneRecipient, setPhoneRecipient] = useState(customerPhone)
   const [emailRecipient, setEmailRecipient] = useState(customerEmail)
+  const [isOpeningWhatsApp, setIsOpeningWhatsApp] = useState(false)
 
   const { toast } = useAdminFeedback()
 
@@ -46,12 +52,18 @@ export default function InvoiceShareControls({
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/invoice/${shareToken}`
     : ''
 
-  const defaultMessage = `Dear ${customerName},\n\nHere is your official invoice from Kazi Canvas Gallery.\n\n` +
-    `📄 Invoice No: ${invoiceNumber}\n` +
-    `💰 Total Due: ৳${Number(grandTotal).toLocaleString('en-BD')}\n` +
-    (dueDate ? `📅 Payment Due: ${dueDate}\n` : '') +
-    `\nView, download A4 PDF, or print your official invoice securely here:\n${publicUrl}\n\n` +
-    `Thank you for collecting with Kazi Canvas Gallery!`
+  const defaultMessage = buildInvoiceWhatsAppMessage({
+    customerName,
+    invoiceNumber,
+    currency: '৳',
+    grandTotal,
+    totalPaid,
+    remainingDue,
+    dueDate,
+    publicInvoiceUrl: publicUrl || '[Active Link Required]',
+  })
+
+  const phoneValidation = normalizeWhatsAppPhone(phoneRecipient)
 
   const handleGenerate = () => {
     startTransition(async () => {
@@ -94,34 +106,51 @@ export default function InvoiceShareControls({
   }
 
   const handleOpenWhatsApp = () => {
-    if (!publicUrl) {
+    if (!publicUrl || !isActive) {
       toast('Please activate the public share link first.', 'error')
       return
     }
-    const cleanNumber = phoneRecipient.replace(/[^0-9]/g, '')
-    const encodedMsg = encodeURIComponent(defaultMessage)
-    const url = cleanNumber
-      ? `https://wa.me/${cleanNumber}?text=${encodedMsg}`
-      : `https://wa.me/?text=${encodedMsg}`
-    window.open(url, '_blank', 'noopener,noreferrer')
+
+    if (!phoneValidation.isValid) {
+      toast(phoneValidation.error || 'Please enter a valid phone number.', 'error')
+      return
+    }
+
+    setIsOpeningWhatsApp(true)
+
+    try {
+      const encodedMsg = encodeURIComponent(defaultMessage)
+      const waUrl = `https://wa.me/${phoneValidation.formattedNumber}?text=${encodedMsg}`
+
+      const newWindow = window.open(waUrl, '_blank', 'noopener,noreferrer')
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+        // Fallback if popup blocker intercepted
+        window.location.href = waUrl
+      }
+      toast('WhatsApp composer opened! Review and press send.', 'info')
+    } catch (err: any) {
+      console.error('Failed to open WhatsApp:', err)
+      toast('Unable to launch WhatsApp automatically. Please use the Copy Message button.', 'error')
+    } finally {
+      setTimeout(() => setIsOpeningWhatsApp(false), 800)
+    }
   }
 
   const handleOpenSMS = () => {
-    if (!publicUrl) {
+    if (!publicUrl || !isActive) {
       toast('Please activate the public share link first.', 'error')
       return
     }
     const cleanNumber = phoneRecipient.replace(/[^0-9+]/g, '')
     const encodedBody = encodeURIComponent(
-      `Kazi Canvas Gallery Invoice #${invoiceNumber}\nAmount: ৳${Number(grandTotal).toLocaleString('en-BD')}\nView: ${publicUrl}`
+      `Kazi Canvas Gallery Invoice #${invoiceNumber}\nDue: ৳${Number(remainingDue).toLocaleString('en-BD')}\nView: ${publicUrl}`
     )
-    // Works across iOS and Android native SMS schemes
     const smsUrl = cleanNumber ? `sms:${cleanNumber}?&body=${encodedBody}` : `sms:?&body=${encodedBody}`
     window.location.href = smsUrl
   }
 
   const handleSendEmail = () => {
-    if (!publicUrl) {
+    if (!publicUrl || !isActive) {
       toast('Please activate the public share link first.', 'error')
       return
     }
@@ -228,16 +257,39 @@ export default function InvoiceShareControls({
                 {activeTab === 'whatsapp' && (
                   <div className="space-y-3 bg-[#F0FDF4] border border-emerald-200/80 rounded-xl p-4 text-xs">
                     <div>
-                      <label className="block text-gray-700 font-semibold mb-1">
-                        Recipient WhatsApp / Phone Number:
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-gray-700 font-semibold">
+                          Recipient WhatsApp / Phone Number:
+                        </label>
+                        {phoneRecipient && (
+                          <span
+                            className={`text-[10px] font-semibold ${
+                              phoneValidation.isValid ? 'text-emerald-700' : 'text-rose-600'
+                            }`}
+                          >
+                            {phoneValidation.isValid
+                              ? `International: +${phoneValidation.formattedNumber}`
+                              : 'Invalid phone format'}
+                          </span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={phoneRecipient}
                         onChange={(e) => setPhoneRecipient(e.target.value)}
-                        placeholder="e.g. 018XXXXXXXX or +88018..."
-                        className="w-full h-9 px-3 rounded-lg border border-emerald-300 bg-white text-xs font-mono text-gray-900 focus:border-emerald-600 outline-none"
+                        placeholder="e.g. 017XXXXXXXX or +88017..."
+                        className={`w-full h-9 px-3 rounded-lg border text-xs font-mono text-gray-900 outline-none transition-colors ${
+                          phoneRecipient && !phoneValidation.isValid
+                            ? 'border-rose-300 bg-rose-50/40 focus:border-rose-500'
+                            : 'border-emerald-300 bg-white focus:border-emerald-600'
+                        }`}
                       />
+                      {phoneRecipient && !phoneValidation.isValid && (
+                        <p className="text-[10px] text-rose-600 mt-1 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3 flex-shrink-0" />
+                          <span>{phoneValidation.error}</span>
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-gray-700 font-semibold mb-1">
@@ -254,15 +306,16 @@ export default function InvoiceShareControls({
                       <button
                         type="button"
                         onClick={handleOpenWhatsApp}
-                        className="flex-1 h-10 rounded-xl bg-emerald-600 text-white font-semibold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all cursor-pointer shadow-xs"
+                        disabled={isOpeningWhatsApp || !isActive || !phoneValidation.isValid}
+                        className="flex-1 h-10 rounded-xl bg-emerald-600 text-white font-semibold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <MessageSquare className="w-4 h-4" />
-                        <span>Open WhatsApp Composer</span>
+                        <span>{isOpeningWhatsApp ? 'Opening WhatsApp...' : 'Open WhatsApp Composer'}</span>
                       </button>
                       <button
                         type="button"
                         onClick={handleCopyMessage}
-                        className="px-3 h-10 rounded-xl border border-emerald-300 bg-white text-emerald-800 font-semibold hover:bg-emerald-50 transition-all flex items-center gap-1"
+                        className="px-3 h-10 rounded-xl border border-emerald-300 bg-white text-emerald-800 font-semibold hover:bg-emerald-50 transition-all flex items-center gap-1 cursor-pointer"
                         title="Copy message text"
                       >
                         {copiedMessage ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}

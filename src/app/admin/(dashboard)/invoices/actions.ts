@@ -280,6 +280,28 @@ export async function issueInvoice(id: string) {
       if (error) throw error
     }
 
+    // Ensure issued invoice has a persistent verification share_token for scannable QR verification
+    const { data: inv } = await supabase
+      .from('invoices')
+      .select('share_token, is_share_link_active')
+      .eq('id', id)
+      .single()
+
+    if (!inv?.share_token || !inv?.is_share_link_active) {
+      const tokenBytes = new Uint8Array(24)
+      crypto.getRandomValues(tokenBytes)
+      const token = Array.from(tokenBytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+
+      await supabase
+        .from('invoices')
+        .update({
+          share_token: inv?.share_token || token,
+          is_share_link_active: true,
+          share_link_created_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+    }
+
     revalidatePath('/admin/invoices')
     revalidatePath(`/admin/invoices/${id}`)
     return { success: true }
