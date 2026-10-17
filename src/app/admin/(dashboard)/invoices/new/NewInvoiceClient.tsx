@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -19,6 +19,11 @@ import {
   Phone,
   Mail,
   MapPin,
+  Frame,
+  Truck,
+  CreditCard,
+  DollarSign,
+  ChevronDown,
 } from 'lucide-react'
 import { createInvoiceDraft, searchInventoryArtworksAction } from '../actions'
 import { useAdminFeedback } from '@/components/admin/AdminFeedbackProvider'
@@ -60,17 +65,43 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
   const [saveAsNewClient, setSaveAsNewClient] = useState(false)
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0])
   const [dueDate, setDueDate] = useState('')
+
+  // Separate Financial Sections
+  // Framing Section
+  const [framingEnabled, setFramingEnabled] = useState(false)
+  const [framingType, setFramingType] = useState('Classic Wooden Box Frame')
+  const [framingSpecs, setFramingSpecs] = useState('')
+  const [framingDimensions, setFramingDimensions] = useState('')
+  const [framingQuantity, setFramingQuantity] = useState<number>(1)
+  const [framingUnitPrice, setFramingUnitPrice] = useState<number>(0)
+
+  // Delivery Section
+  const [deliveryMethod, setDeliveryMethod] = useState('Standard Courier Delivery')
   const [deliveryCharge, setDeliveryCharge] = useState<number>(0)
+  const [deliveryNotes, setDeliveryNotes] = useState('')
+
+  // Additional Charges & Adjustments
+  const [additionalChargeLabel, setAdditionalChargeLabel] = useState('Installation / Additional Service')
   const [additionalCharge, setAdditionalCharge] = useState<number>(0)
   const [discount, setDiscount] = useState<number>(0)
   const [notes, setNotes] = useState('')
   const [terms, setTerms] = useState('')
 
-  // Live Database Inventory Search State for Line Items
+  // Advance / Partial Payment Section
+  const [recordAdvancePayment, setRecordAdvancePayment] = useState(false)
+  const [advanceAmount, setAdvanceAmount] = useState<number>(0)
+  const [advancePaymentMethod, setAdvancePaymentMethod] = useState('bank_transfer')
+  const [advancePaymentDate, setAdvancePaymentDate] = useState(new Date().toISOString().split('T')[0])
+  const [advanceTransactionRef, setAdvanceTransactionRef] = useState('')
+  const [advanceNotes, setAdvanceNotes] = useState('Advance deposit received')
+
+  // Live Database Inventory Search State for Line Items with Race-Condition Protection
   const [activeInventorySearchIdx, setActiveInventorySearchIdx] = useState<number | null>(null)
   const [inventoryQuery, setInventoryQuery] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>(paintings)
   const [isSearchingInventory, setIsSearchingInventory] = useState(false)
+  const latestQueryRef = useRef<string>('')
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Item list
   const [items, setItems] = useState<InvoiceItemDraft[]>([
@@ -84,37 +115,64 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
 
   const { toast } = useAdminFeedback()
 
-  // Real-time server-side search triggered on query change
-  const handleInventorySearchChange = async (queryText: string) => {
+  // Real-time server-side search with debouncing & race-condition cancellation
+  const handleInventorySearchChange = (queryText: string) => {
     setInventoryQuery(queryText)
+    latestQueryRef.current = queryText
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
     if (!queryText.trim()) {
       setSearchResults(paintings.slice(0, 10))
+      setIsSearchingInventory(false)
       return
     }
 
-    try {
-      setIsSearchingInventory(true)
-      const res = await searchInventoryArtworksAction(queryText)
-      if (res.success && res.data) {
-        setSearchResults(res.data)
-      } else {
-        // Fallback to local memory filter if offline/error
-        const q = queryText.toLowerCase()
-        setSearchResults(
-          paintings.filter(
-            (p) =>
-              p.title.toLowerCase().includes(q) ||
-              (p.exact_medium && p.exact_medium.toLowerCase().includes(q)) ||
-              (p.display_size && p.display_size.toLowerCase().includes(q))
+    setIsSearchingInventory(true)
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      const activeQuery = queryText.trim()
+      try {
+        const res = await searchInventoryArtworksAction(activeQuery)
+        // Discard result if query has changed since request started
+        if (latestQueryRef.current !== queryText) {
+          return
+        }
+
+        if (res.success && res.data) {
+          setSearchResults(res.data)
+        } else {
+          // Local fallback filter
+          const q = activeQuery.toLowerCase()
+          setSearchResults(
+            paintings.filter(
+              (p) =>
+                p.title.toLowerCase().includes(q) ||
+                (p.exact_medium && p.exact_medium.toLowerCase().includes(q)) ||
+                (p.display_size && p.display_size.toLowerCase().includes(q))
+            )
           )
-        )
+        }
+      } catch (e) {
+        console.warn('Error during inventory live search:', e)
+      } finally {
+        if (latestQueryRef.current === queryText) {
+          setIsSearchingInventory(false)
+        }
       }
-    } catch (e) {
-      console.warn('Error during inventory live search:', e)
-    } finally {
-      setIsSearchingInventory(false)
-    }
+    }, 200)
   }
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [])
 
   // Client Selection Handler
   const handleSelectClient = (client: Client) => {
@@ -186,11 +244,22 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
   }
 
   // Calculations
-  const subtotal = items.reduce(
+  const artworkSubtotal = items.reduce(
     (sum, item) => sum + (Number(item.unit_price_bdt) || 0) * (Number(item.quantity) || 1),
     0
   )
-  const grandTotal = subtotal + Number(deliveryCharge) + Number(additionalCharge) - Number(discount)
+  const framingSubtotal = framingEnabled
+    ? (Number(framingUnitPrice) || 0) * (Number(framingQuantity) || 1)
+    : 0
+
+  const itemsSubtotal = artworkSubtotal + framingSubtotal
+  const grandTotal = Math.max(
+    0,
+    itemsSubtotal + Number(deliveryCharge) + Number(additionalCharge) - Number(discount)
+  )
+
+  const validatedAdvanceAmount = Math.min(Number(advanceAmount) || 0, grandTotal)
+  const estimatedRemainingDue = Math.max(0, grandTotal - (recordAdvancePayment ? validatedAdvanceAmount : 0))
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -211,6 +280,27 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
     }
 
     startTransition(async () => {
+      // Assemble all valid line items, including separate framing line item if enabled
+      const finalItems: any[] = items
+        .filter((i) => i.item_name.trim())
+        .map((i) => ({
+          ...i,
+          item_type: i.item_type || 'painting',
+        }))
+
+      if (framingEnabled && framingUnitPrice > 0) {
+        finalItems.push({
+          item_type: 'frame',
+          item_name: `Custom Framing: ${framingType}`,
+          item_description: framingSpecs
+            ? `${framingSpecs}${framingDimensions ? ` (${framingDimensions})` : ''}`
+            : framingDimensions || 'Custom Gallery Frame Moulding',
+          size_snapshot: framingDimensions || null,
+          quantity: Math.max(1, Number(framingQuantity) || 1),
+          unit_price_bdt: Number(framingUnitPrice),
+        })
+      }
+
       const payload = {
         client_id: selectedClientId,
         save_as_new_client: saveAsNewClient,
@@ -225,7 +315,13 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
         discount_bdt: discount,
         notes: notes || null,
         terms: terms || null,
-        items: items.filter((i) => i.item_name.trim()),
+        items: finalItems,
+        // Advance Payment fields
+        advance_payment_bdt: recordAdvancePayment ? validatedAdvanceAmount : 0,
+        advance_payment_method: advancePaymentMethod,
+        advance_payment_date: advancePaymentDate,
+        advance_transaction_ref: advanceTransactionRef,
+        advance_internal_notes: advanceNotes,
       }
 
       const res = await createInvoiceDraft(payload)
@@ -656,69 +752,6 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] text-gray-500 mb-1">
-                    Item Type
-                  </label>
-                  <CustomSelect
-                    value={item.item_type}
-                    onChange={(e) => {
-                      const val = e.target.value as any
-                      setItems((prev) => {
-                        const copy = [...prev]
-                        copy[idx].item_type = val
-                        return copy
-                      })
-                    }}
-                    options={[
-                      { value: 'painting', label: 'Original Painting' },
-                      { value: 'frame', label: 'Frame Moulding' },
-                      { value: 'delivery', label: 'Delivery / Courier' },
-                      { value: 'custom', label: 'Custom Service' },
-                    ]}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-gray-500 mb-1">
-                    Size Snapshot (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={item.size_snapshot || ''}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      setItems((prev) => {
-                        const copy = [...prev]
-                        copy[idx].size_snapshot = val
-                        return copy
-                      })
-                    }}
-                    placeholder="e.g. 24 × 36 in"
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-xs focus:border-black outline-none bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-gray-500 mb-1">
-                    Description / Details
-                  </label>
-                  <input
-                    type="text"
-                    value={item.item_description || ''}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      setItems((prev) => {
-                        const copy = [...prev]
-                        copy[idx].item_description = val
-                        return copy
-                      })
-                    }}
-                    placeholder="Medium, framing style, certificate"
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-xs focus:border-black outline-none bg-white"
-                  />
-                </div>
-              </div>
-
               <div className="text-right pt-2 border-t border-gray-200/50">
                 <span className="text-xs text-gray-500">Row Total: </span>
                 <span className="text-xs font-bold font-mono text-gray-900">
@@ -728,6 +761,311 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
             </div>
           ))}
         </div>
+      </div>
+
+      {/* ── Separate Framing Section ── */}
+      <div className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-8 shadow-xs space-y-5">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-800 flex items-center justify-center font-bold">
+              <Frame className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-gray-900">Custom Framing</h2>
+              <p className="text-xs text-gray-500 font-light">
+                Add Italian or custom wooden framing options to this invoice
+              </p>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-800 select-none">
+            <input
+              type="checkbox"
+              checked={framingEnabled}
+              onChange={(e) => setFramingEnabled(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black cursor-pointer"
+            />
+            <span>Include Framing</span>
+          </label>
+        </div>
+
+        {framingEnabled ? (
+          <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/40 border border-amber-200/80 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-800 mb-1">
+                  Frame Moulding Type
+                </label>
+                <CustomSelect
+                  value={framingType}
+                  onChange={(e) => setFramingType(e.target.value)}
+                  options={[
+                    { value: 'Classic Wooden Box Frame', label: 'Classic Wooden Box Frame' },
+                    { value: 'Floating Canvas Frame (Black)', label: 'Floating Canvas Frame (Black)' },
+                    { value: 'Floating Canvas Frame (Natural Teak)', label: 'Floating Canvas Frame (Natural Teak)' },
+                    { value: 'Antique Gold Ornate Moulding', label: 'Antique Gold Ornate Moulding' },
+                    { value: 'Minimalist White Gallery Frame', label: 'Minimalist White Gallery Frame' },
+                    { value: 'Custom Frame (Specified Below)', label: 'Custom Frame (Specified Below)' },
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-800 mb-1">
+                  Frame Dimensions / Fitting Size
+                </label>
+                <input
+                  type="text"
+                  value={framingDimensions}
+                  onChange={(e) => setFramingDimensions(e.target.value)}
+                  placeholder="e.g. 24 × 36 inches / 2.5 inch border"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-xs text-gray-900 focus:border-black outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-gray-800 mb-1">
+                  Quantity
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={framingQuantity}
+                  onChange={(e) => setFramingQuantity(parseInt(e.target.value, 10) || 1)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-xs font-mono text-gray-900 focus:border-black outline-none"
+                />
+              </div>
+
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-gray-800 mb-1">
+                  Frame Price (৳)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={framingUnitPrice}
+                  onChange={(e) => setFramingUnitPrice(parseFloat(e.target.value) || 0)}
+                  placeholder="0"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-xs font-mono text-gray-900 focus:border-black outline-none"
+                />
+              </div>
+
+              <div className="sm:col-span-1 flex flex-col justify-end">
+                <div className="px-3.5 py-2.5 rounded-xl bg-amber-100/70 border border-amber-300/80 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-amber-900">Framing Total:</span>
+                  <span className="font-bold font-mono text-amber-950">
+                    ৳{framingSubtotal.toLocaleString('en-BD')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-gray-600 mb-1">
+                Framing Specifications & Mount Notes (Optional)
+              </label>
+              <input
+                type="text"
+                value={framingSpecs}
+                onChange={(e) => setFramingSpecs(e.target.value)}
+                placeholder="e.g. Acid-free matting, acrylic glass, teak wood backing"
+                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 bg-white text-xs text-gray-800 focus:border-black outline-none"
+              />
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 italic">
+            No custom framing selected for this invoice. Click “Include Framing” if framing is ordered.
+          </p>
+        )}
+      </div>
+
+      {/* ── Separate Delivery Section ── */}
+      <div className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-8 shadow-xs space-y-4">
+        <div className="flex items-center gap-2.5 border-b border-gray-100 pb-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-800 flex items-center justify-center font-bold">
+            <Truck className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-gray-900">Delivery & Logistics</h2>
+            <p className="text-xs text-gray-500 font-light">
+              Explicit delivery charges and courier specifications
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-800 mb-1">
+              Delivery Method / Area
+            </label>
+            <CustomSelect
+              value={deliveryMethod}
+              onChange={(e) => setDeliveryMethod(e.target.value)}
+              options={[
+                { value: 'Inside Dhaka Gallery Van Delivery', label: 'Inside Dhaka Gallery Van Delivery' },
+                { value: 'Outside Dhaka Dedicated Courier', label: 'Outside Dhaka Dedicated Courier' },
+                { value: 'Express Same-Day Studio Courier', label: 'Express Same-Day Studio Courier' },
+                { value: 'Customer Studio Pickup (Free)', label: 'Customer Studio Pickup (Free)' },
+                { value: 'Standard Courier Delivery', label: 'Standard Courier Delivery' },
+              ]}
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-gray-800">
+                Delivery Charge (৳)
+              </label>
+              {deliveryCharge > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setDeliveryCharge(0)}
+                  className="text-[10px] text-gray-500 hover:text-black underline cursor-pointer"
+                >
+                  Waive Fee (৳0)
+                </button>
+              )}
+            </div>
+            <input
+              type="number"
+              min="0"
+              value={deliveryCharge}
+              onChange={(e) => setDeliveryCharge(parseFloat(e.target.value) || 0)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm font-mono focus:border-black outline-none bg-white"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[11px] text-gray-500 mb-1">
+            Delivery Instructions & Tracking Notes (Optional)
+          </label>
+          <input
+            type="text"
+            value={deliveryNotes}
+            onChange={(e) => setDeliveryNotes(e.target.value)}
+            placeholder="e.g. Fragile artwork handling required. Contact customer 30 minutes before arrival."
+            className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs text-gray-800 focus:border-black outline-none bg-white"
+          />
+        </div>
+      </div>
+
+      {/* ── Separate Advance / Partial Payment Section ── */}
+      <div className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-8 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold">
+              <CreditCard className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-gray-900">Advance / Initial Payment</h2>
+              <p className="text-xs text-gray-500 font-light">
+                Record an upfront token or partial advance payment received with this order
+              </p>
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold text-gray-800 select-none">
+            <input
+              type="checkbox"
+              checked={recordAdvancePayment}
+              onChange={(e) => setRecordAdvancePayment(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+            />
+            <span>Record Advance Payment</span>
+          </label>
+        </div>
+
+        {recordAdvancePayment ? (
+          <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/40 border border-emerald-200/80 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-800 mb-1">
+                  Advance Amount Received (৳) *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max={grandTotal}
+                  value={advanceAmount || ''}
+                  onChange={(e) => setAdvanceAmount(parseFloat(e.target.value) || 0)}
+                  placeholder="e.g. 5000"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-emerald-300 bg-white text-sm font-mono text-gray-900 focus:border-emerald-600 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-800 mb-1">
+                  Payment Method
+                </label>
+                <CustomSelect
+                  value={advancePaymentMethod}
+                  onChange={(e) => setAdvancePaymentMethod(e.target.value)}
+                  options={[
+                    { value: 'bank_transfer', label: 'Bank Transfer / Wire' },
+                    { value: 'bkash', label: 'bKash Merchant / Personal' },
+                    { value: 'nagad', label: 'Nagad' },
+                    { value: 'cash', label: 'Cash at Gallery' },
+                    { value: 'card', label: 'POS Card Payment' },
+                    { value: 'other', label: 'Other Authorized Method' },
+                  ]}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-800 mb-1">
+                  Payment Date
+                </label>
+                <input
+                  type="date"
+                  value={advancePaymentDate}
+                  onChange={(e) => setAdvancePaymentDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-mono text-gray-900 focus:border-black outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] text-gray-600 mb-1">
+                  Transaction / TrxID / Check Reference (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={advanceTransactionRef}
+                  onChange={(e) => setAdvanceTransactionRef(e.target.value)}
+                  placeholder="e.g. TRX-9J28312 / City Bank Ref"
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 bg-white text-xs font-mono text-gray-800 focus:border-black outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-gray-600 mb-1">
+                  Internal Payment Note
+                </label>
+                <input
+                  type="text"
+                  value={advanceNotes}
+                  onChange={(e) => setAdvanceNotes(e.target.value)}
+                  placeholder="e.g. 50% deposit received via bKash"
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 bg-white text-xs text-gray-800 focus:border-black outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs pt-1 border-t border-emerald-200/60 font-semibold text-emerald-900">
+              <span>Advance Paid: ৳{validatedAdvanceAmount.toLocaleString('en-BD')}</span>
+              <span>Remaining Due: ৳{estimatedRemainingDue.toLocaleString('en-BD')}</span>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400 italic">
+            Invoice will be created with status “Unpaid”. Check above to register an advance payment.
+          </p>
+        )}
       </div>
 
       {/* ── Financial Summary & Adjustments Card ── */}
@@ -775,58 +1113,65 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
           </div>
         </div>
 
-        {/* Live Calculation Receipt Summary */}
+          {/* Live Calculation Receipt Summary */}
         <div className="bg-gray-50/80 rounded-2xl p-4 sm:p-6 border border-gray-100 space-y-2">
-          {items.some((i) => i.item_type === 'painting') && (
-            <div className="flex justify-between text-xs text-gray-600">
-              <span>Artwork Subtotal</span>
-              <span className="font-mono">
-                ৳{items
-                  .filter((i) => i.item_type === 'painting')
-                  .reduce((sum, i) => sum + (Number(i.unit_price_bdt) || 0) * (Number(i.quantity) || 1), 0)
-                  .toLocaleString('en-BD')}
-              </span>
-            </div>
-          )}
-          {items.some((i) => i.item_type === 'frame') && (
-            <div className="flex justify-between text-xs text-gray-600">
-              <span>Custom Framing Subtotal</span>
-              <span className="font-mono">
-                ৳{items
-                  .filter((i) => i.item_type === 'frame')
-                  .reduce((sum, i) => sum + (Number(i.unit_price_bdt) || 0) * (Number(i.quantity) || 1), 0)
-                  .toLocaleString('en-BD')}
-              </span>
-            </div>
-          )}
-          <div className="flex justify-between text-xs text-gray-800 font-semibold pt-1 border-t border-gray-200/50">
-            <span>Items Subtotal</span>
-            <span className="font-mono">৳{subtotal.toLocaleString('en-BD')}</span>
+          <div className="flex justify-between text-xs text-gray-600">
+            <span>Artwork Items Subtotal</span>
+            <span className="font-mono">৳{artworkSubtotal.toLocaleString('en-BD')}</span>
           </div>
+
+          {framingEnabled && framingSubtotal > 0 && (
+            <div className="flex justify-between text-xs text-amber-900 font-medium">
+              <span>Custom Framing ({framingType})</span>
+              <span className="font-mono">+৳{framingSubtotal.toLocaleString('en-BD')}</span>
+            </div>
+          )}
+
+          <div className="flex justify-between text-xs text-gray-800 font-semibold pt-1 border-t border-gray-200/50">
+            <span>Combined Items Subtotal</span>
+            <span className="font-mono">৳{itemsSubtotal.toLocaleString('en-BD')}</span>
+          </div>
+
           {deliveryCharge > 0 && (
-            <div className="flex justify-between text-xs text-gray-600">
-              <span>Delivery Fee</span>
+            <div className="flex justify-between text-xs text-blue-900 font-medium">
+              <span>Delivery & Courier ({deliveryMethod})</span>
               <span className="font-mono">+৳{deliveryCharge.toLocaleString('en-BD')}</span>
             </div>
           )}
+
           {additionalCharge > 0 && (
             <div className="flex justify-between text-xs text-gray-600">
-              <span>Additional Service / Installation</span>
+              <span>{additionalChargeLabel || 'Additional Service'}</span>
               <span className="font-mono">+৳{additionalCharge.toLocaleString('en-BD')}</span>
             </div>
           )}
+
           {discount > 0 && (
             <div className="flex justify-between text-xs text-emerald-700 font-medium">
               <span>Approved Discount</span>
               <span className="font-mono">-৳{discount.toLocaleString('en-BD')}</span>
             </div>
           )}
+
           <div className="pt-3 border-t border-gray-200 flex justify-between items-baseline">
             <span className="text-sm font-bold text-gray-950">Grand Total</span>
             <span className="text-xl font-bold font-mono text-gray-950">
               ৳{grandTotal.toLocaleString('en-BD')}
             </span>
           </div>
+
+          {recordAdvancePayment && validatedAdvanceAmount > 0 && (
+            <>
+              <div className="flex justify-between text-xs text-emerald-700 font-semibold pt-1">
+                <span>Advance Payment Recorded</span>
+                <span className="font-mono">-৳{validatedAdvanceAmount.toLocaleString('en-BD')}</span>
+              </div>
+              <div className="flex justify-between text-xs font-bold text-rose-700 pt-1 border-t border-dashed border-gray-200">
+                <span>Remaining Due at Delivery</span>
+                <span className="font-mono">৳{estimatedRemainingDue.toLocaleString('en-BD')}</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

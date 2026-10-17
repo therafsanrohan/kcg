@@ -170,6 +170,40 @@ export async function createInvoiceDraft(payload: any) {
       if (itemsErr) throw itemsErr
     }
 
+    // ── Handle Advance Payment on Invoice Creation ──
+    const advanceAmount = Math.max(0, Number(payload.advance_payment_bdt) || 0)
+    if (advanceAmount > 0) {
+      const validAdvance = Math.min(advanceAmount, grandTotal)
+      const isPaidFull = validAdvance >= grandTotal && grandTotal > 0
+      const paymentStatus = isPaidFull ? 'paid' : 'partially_paid'
+
+      const paymentRecord = {
+        invoice_id: invoice.id,
+        amount_bdt: validAdvance,
+        payment_method: payload.advance_payment_method || 'bank_transfer',
+        payment_date: payload.advance_payment_date || payload.invoice_date || new Date().toISOString().split('T')[0],
+        transaction_ref: payload.advance_transaction_ref?.trim() || null,
+        internal_notes: payload.advance_internal_notes?.trim() || 'Advance payment recorded upon invoice creation',
+        recorded_by: user.id,
+      }
+
+      const { error: advanceErr } = await supabase
+        .from('invoice_payments')
+        .insert(paymentRecord)
+
+      if (advanceErr) {
+        console.warn('Could not record advance payment (invoice created):', advanceErr)
+      } else {
+        await supabase
+          .from('invoices')
+          .update({
+            payment_status: paymentStatus,
+            paid_at: isPaidFull ? new Date().toISOString() : null,
+          })
+          .eq('id', invoice.id)
+      }
+    }
+
     revalidatePath('/admin/invoices')
     return { success: true, invoiceId: invoice.id }
   } catch (err: any) {
