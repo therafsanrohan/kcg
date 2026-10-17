@@ -62,6 +62,7 @@ export default function ClientDetails({
   const [selectedZoneCode, setSelectedZoneCode] = useState<string>('inside_dhaka')
   const [activeImageIndex, setActiveImageIndex] = useState(0)
   const [displayUnit, setDisplayUnit] = useState<MeasurementUnit>('in')
+  const [isMounted, setIsMounted] = useState(false)
 
   const mainImageIdx = images?.findIndex(img => img.is_main) ?? -1
   
@@ -71,8 +72,9 @@ export default function ClientDetails({
     }
   }, [mainImageIdx])
 
-  // Persist currency preference
+  // Persist currency preference & mark mounted
   useEffect(() => {
+    setIsMounted(true)
     const updateCurr = () => {
       const saved = localStorage.getItem('preferredCurrency') as Currency
       if (saved && SUPPORTED_CURRENCIES.includes(saved)) {
@@ -134,9 +136,9 @@ export default function ClientDetails({
   const generateWhatsAppLink = () => {
     const cleanNumber = whatsappNumber.replace(/[^0-9]/g, '')
     const baseUrl = `https://wa.me/${cleanNumber}`
-    const productUrl = typeof window !== 'undefined' && window.location.origin
+    const productUrl = isMounted && typeof window !== 'undefined' && window.location.origin
       ? `${window.location.origin}/gallery/${painting.slug}`
-      : `/gallery/${painting.slug}`
+      : `https://kazicanvasgallery.com/gallery/${painting.slug}`
     
     // Compute comprehensive size description for message
     const sizeDescription = formattedArtworkSizeIn !== formattedArtworkSizeFt
@@ -432,15 +434,17 @@ export default function ClientDetails({
         {/* CTA Button */}
         <div className="mt-8">
           {isAvailable ? (
-            <a
-              href={generateWhatsAppLink()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex w-full items-center justify-center gap-2.5 rounded-md bg-[#1A1A1A] px-8 py-4 text-xs uppercase tracking-[0.18em] font-semibold text-white shadow-sm hover:bg-black transition-colors focus:outline-none"
+            <button
+              type="button"
+              onClick={() => {
+                const url = generateWhatsAppLink()
+                window.open(url, '_blank', 'noopener,noreferrer')
+              }}
+              className="flex w-full items-center justify-center gap-2.5 rounded-md bg-[#1A1A1A] px-8 py-4 text-xs uppercase tracking-[0.18em] font-semibold text-white shadow-sm hover:bg-black transition-colors focus:outline-none cursor-pointer"
             >
               <ShoppingBag className="h-4 w-4 fill-white stroke-none" />
               <span>Inquire & Acquire via WhatsApp</span>
-            </a>
+            </button>
           ) : (
              <button
               disabled

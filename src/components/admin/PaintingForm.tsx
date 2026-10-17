@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Plus, X, Crop, Trash2 } from 'lucide-react'
+import { Plus, X, Crop, Trash2, ImageIcon } from 'lucide-react'
 import Image from 'next/image'
 import { savePainting } from '@/app/admin/(dashboard)/paintings/actions'
 import { Painting } from '@/types'
@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation'
 import ImageCropperModal from './ImageCropperModal'
 import DimensionInputGroup from './DimensionInputGroup'
 import CustomSelect from '@/components/ui/CustomSelect'
+import { getPaintingImageUrl } from '@/utils/image'
 
 interface FrameRow {
   id: string
@@ -111,11 +112,33 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     ]
   })
 
-  const [selectedFileName, setSelectedFileName] = useState<string>('no file selected')
+  // Multi-Image State for Artwork
+  interface FormArtworkImage {
+    id: string
+    file?: File
+    storageKey?: string // existing saved image key
+    previewUrl: string
+    isPrimary: boolean
+    croppedBlob?: Blob
+  }
+
+  const [artworkImages, setArtworkImages] = useState<FormArtworkImage[]>(() => {
+    if (painting?.painting_images && painting.painting_images.length > 0) {
+      return (painting.painting_images as any[])
+        .filter((img) => !img.archived_at)
+        .map((img, idx) => ({
+          id: img.id || `saved-${idx}`,
+          storageKey: img.storage_key,
+          previewUrl: getPaintingImageUrl(img.storage_key),
+          isPrimary: Boolean(img.is_main || img.primary_image || idx === 0),
+        }))
+    }
+    return []
+  })
+
+  const [activeCropIndex, setActiveCropIndex] = useState<number | null>(null)
   const [cropModalOpen, setCropModalOpen] = useState(false)
   const [imageSrcToCrop, setImageSrcToCrop] = useState<string | null>(null)
-  const [croppedBlob, setCroppedBlob] = useState<Blob | null>(null)
-  const [cropPreviewUrl, setCropPreviewUrl] = useState<string | null>(null)
 
   const handleAddFrame = () => {
     setFrames((prev) => [
@@ -139,50 +162,120 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     )
   }
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState<string | null>(null)
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setErrorMsg(`Selected file is ${(file.size / (1024 * 1024)).toFixed(2)} MB. Maximum allowed size is 5.0 MB.`)
-        clearSelectedImage()
-        return
-      }
-      setErrorMsg(null)
-      setSelectedFile(file)
-      setSelectedFileName(file.name)
-      const objUrl = URL.createObjectURL(file)
-      setImageSrcToCrop(objUrl)
-      setCropModalOpen(true)
-    } else {
-      clearSelectedImage()
+  const handleFilesSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const remainingSlots = 5 - artworkImages.length
+    if (remainingSlots <= 0) {
+      setErrorMsg('Maximum 5 images allowed per artwork.')
+      e.target.value = ''
+      return
     }
+
+    const selectedFiles = Array.from(files).slice(0, remainingSlots)
+    const newItems: FormArtworkImage[] = []
+
+    for (const file of selectedFiles) {
+      if (file.size > 5 * 1024 * 1024) {
+        setErrorMsg(`"${file.name}" is ${(file.size / (1024 * 1024)).toFixed(2)} MB. Max limit is 5.0 MB.`)
+        continue
+      }
+      const previewUrl = URL.createObjectURL(file)
+      newItems.push({
+        id: `new-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        file,
+        previewUrl,
+        isPrimary: artworkImages.length === 0 && newItems.length === 0,
+      })
+    }
+
+    if (newItems.length > 0) {
+      setArtworkImages((prev) => {
+        const combined = [...prev, ...newItems]
+        if (!combined.some((img) => img.isPrimary)) {
+          combined[0].isPrimary = true
+        }
+        return combined
+      })
+      // Open cropper immediately for the first newly added image if it's the cover
+      if (artworkImages.length === 0 && newItems[0].file) {
+        setImageSrcToCrop(newItems[0].previewUrl)
+        setActiveCropIndex(0)
+        setCropModalOpen(true)
+      }
+    }
+
+    e.target.value = ''
   }
 
-  const clearSelectedImage = () => {
-    setSelectedFileName('no file selected')
-    setSelectedFile(null)
-    if (imageSrcToCrop) {
-      URL.revokeObjectURL(imageSrcToCrop)
-    }
-    if (cropPreviewUrl) {
-      URL.revokeObjectURL(cropPreviewUrl)
-    }
-    setImageSrcToCrop(null)
-    setCroppedBlob(null)
-    setCropPreviewUrl(null)
-    const fileInput = document.getElementById('artwork_image_standalone') as HTMLInputElement | null
-    if (fileInput) {
-      fileInput.value = ''
+  const handleSetPrimary = (index: number) => {
+    setArtworkImages((prev) =>
+      prev.map((img, idx) => ({
+        ...img,
+        isPrimary: idx === index,
+      }))
+    )
+  }
+
+  const handleRemoveImage = (index: number) => {
+    setArtworkImages((prev) => {
+      const target = prev[index]
+      if (target?.previewUrl && target.file) {
+        URL.revokeObjectURL(target.previewUrl)
+      }
+      const updated = prev.filter((_, idx) => idx !== index)
+      if (updated.length > 0 && !updated.some((img) => img.isPrimary)) {
+        updated[0].isPrimary = true
+      }
+      return updated
+    })
+  }
+
+  const handleStartCrop = async (index: number) => {
+    const target = artworkImages[index]
+    if (!target) return
+
+    if (target.file || target.croppedBlob) {
+      setImageSrcToCrop(target.previewUrl)
+      setActiveCropIndex(index)
+      setCropModalOpen(true)
+    } else if (target.storageKey) {
+      // Existing saved image from Supabase
+      try {
+        setUploadProgress('Loading existing image for recropping...')
+        const res = await fetch(target.previewUrl)
+        const blob = await res.blob()
+        const objUrl = URL.createObjectURL(blob)
+        setImageSrcToCrop(objUrl)
+        setActiveCropIndex(index)
+        setCropModalOpen(true)
+      } catch (err: any) {
+        setErrorMsg('Could not load current image for recropping: ' + err.message)
+      } finally {
+        setUploadProgress(null)
+      }
     }
   }
 
   const handleCropComplete = (blob: Blob) => {
-    setCroppedBlob(blob)
-    setCropPreviewUrl(URL.createObjectURL(blob))
+    if (activeCropIndex !== null && artworkImages[activeCropIndex]) {
+      const croppedUrl = URL.createObjectURL(blob)
+      setArtworkImages((prev) => {
+        const copy = [...prev]
+        copy[activeCropIndex] = {
+          ...copy[activeCropIndex],
+          croppedBlob: blob,
+          previewUrl: croppedUrl,
+        }
+        return copy
+      })
+    }
     setCropModalOpen(false)
+    setActiveCropIndex(null)
+    setImageSrcToCrop(null)
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -199,35 +292,89 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     // Remove raw binary from Server Action payload
     formData.delete('artwork_image')
 
-    const fileToUpload = croppedBlob || selectedFile
-
     startTransition(async () => {
       try {
-        if (fileToUpload) {
-          setUploadProgress('Uploading & optimizing high-resolution artwork...')
-          const uploadData = new FormData()
-          const uploadPaintingId = painting?.id || 'new'
-          uploadData.append('paintingId', uploadPaintingId)
-          uploadData.append('isPrimary', 'true')
-          uploadData.append('sortOrder', '1')
+        const uploadPaintingId = painting?.id || 'new'
+        const processedPayload: any[] = []
 
-          const filePayload = fileToUpload instanceof File
-            ? fileToUpload
-            : new File([fileToUpload], `artwork-${Date.now()}.webp`, { type: fileToUpload.type || 'image/webp' })
+        // Process and upload each image
+        for (let i = 0; i < artworkImages.length; i++) {
+          const item = artworkImages[i]
+          const fileToUpload = item.croppedBlob || item.file
 
-          uploadData.append('image', filePayload)
+          if (fileToUpload) {
+            setUploadProgress(`Uploading & optimizing image ${i + 1} of ${artworkImages.length}...`)
+            const uploadData = new FormData()
+            uploadData.append('paintingId', uploadPaintingId)
+            uploadData.append('isPrimary', item.isPrimary ? 'true' : 'false')
+            uploadData.append('sortOrder', String(i + 1))
 
-          const uploadRes = await fetch('/api/images/upload', {
-            method: 'POST',
-            body: uploadData,
-          })
+            const filePayload =
+              fileToUpload instanceof File
+                ? fileToUpload
+                : new File([fileToUpload], `artwork-${Date.now()}-${i + 1}.webp`, {
+                    type: fileToUpload.type || 'image/webp',
+                  })
 
-          const jsonRes = await uploadRes.json()
-          if (!uploadRes.ok || !jsonRes.success) {
-            throw new Error(jsonRes.error || 'Failed to process and upload image.')
+            uploadData.append('image', filePayload)
+
+            const uploadRes = await fetch('/api/images/upload', {
+              method: 'POST',
+              body: uploadData,
+            })
+
+            const jsonRes = await uploadRes.json()
+            if (!uploadRes.ok || !jsonRes.success) {
+              throw new Error(jsonRes.error || `Failed to process image ${i + 1}.`)
+            }
+
+            processedPayload.push({
+              id: item.id,
+              originalKey: jsonRes.data.masterStorageKey || jsonRes.data.storageKey,
+              storageKey: jsonRes.data.displayKey || jsonRes.data.storageKey,
+              displayKey: jsonRes.data.displayKey || jsonRes.data.storageKey,
+              thumbnailKey: jsonRes.data.thumbnailKey,
+              responsiveUrls: jsonRes.data.responsiveUrls,
+              isPrimary: item.isPrimary,
+              sortOrder: i + 1,
+              mimeType: jsonRes.data.mimeType || 'image/webp',
+            })
+          } else if (item.storageKey) {
+            // Already persisted image
+            processedPayload.push({
+              id: item.id,
+              originalKey: item.storageKey,
+              storageKey: item.storageKey,
+              displayKey: item.storageKey,
+              thumbnailKey: item.storageKey,
+              responsiveUrls: {},
+              isPrimary: item.isPrimary,
+              sortOrder: i + 1,
+              mimeType: 'image/webp',
+            })
           }
+        }
 
-          formData.set('uploaded_image_json', JSON.stringify(jsonRes.data))
+        if (processedPayload.length > 0) {
+          // Send as advanced_images_json to store all images atomically
+          formData.set('advanced_images_json', JSON.stringify(processedPayload))
+
+          // Also set uploaded_image_json for the primary image for backward-compatible fallback
+          const primaryItem = processedPayload.find((p) => p.isPrimary) || processedPayload[0]
+          if (primaryItem) {
+            formData.set(
+              'uploaded_image_json',
+              JSON.stringify({
+                storageKey: primaryItem.storageKey,
+                displayKey: primaryItem.displayKey,
+                thumbnailKey: primaryItem.thumbnailKey,
+                responsiveUrls: primaryItem.responsiveUrls,
+                isPrimary: true,
+                sortOrder: 1,
+                mimeType: primaryItem.mimeType,
+              })
+            )
+          }
         }
 
         setUploadProgress('Saving artwork details to database...')
@@ -467,78 +614,144 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
           />
         </div>
 
-        {/* Artwork Image Upload */}
+        {/* Artwork Images (Up to 5) */}
         <div>
-          <label className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
-            ARTWORK IMAGE ({orientation.toUpperCase()} RATIO)
-          </label>
-
-          {/* Cropped Preview if available */}
-          {cropPreviewUrl && (
-            <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-xl flex items-center gap-4">
-              <div className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden border border-gray-300 flex-shrink-0 flex items-center justify-center">
-                <Image
-                  src={cropPreviewUrl}
-                  alt="Crop preview"
-                  fill
-                  className="object-contain p-1"
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-gray-900 truncate">
-                  {orientation.toUpperCase()} Preview Ready
-                </p>
-                <p className="text-[11px] text-gray-500">
-                  Image optimized for {orientation} aspect ratio without unwanted cropping.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCropModalOpen(true)}
-                className="px-2.5 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5"
-              >
-                <Crop className="w-3.5 h-3.5" />
-                <span>Adjust Crop</span>
-              </button>
-            </div>
-          )}
-
-          <div className="border border-gray-300 rounded-md p-2 flex items-center justify-between gap-3 bg-white">
-            <div className="flex items-center gap-3 min-w-0">
-              <label
-                htmlFor="artwork_image_standalone"
-                className="cursor-pointer bg-black text-white text-xs font-semibold px-3.5 py-1.5 rounded-md hover:bg-gray-800 transition-colors shadow-2xs flex-shrink-0"
-              >
-                Choose File
+          <div className="flex items-center justify-between mb-1.5">
+            <div>
+              <label className="block text-[11px] font-bold tracking-wider uppercase text-gray-800">
+                ARTWORK IMAGES ({artworkImages.length}/5) — {orientation.toUpperCase()} RATIO
               </label>
-              <input
-                id="artwork_image_standalone"
-                name="artwork_image"
-                type="file"
-                accept="image/png, image/jpeg, image/webp"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-              <span className="text-xs text-gray-600 font-mono truncate">
-                {selectedFileName}
-              </span>
+              <p className="text-xs text-gray-500 font-light mt-0.5">
+                Upload up to 5 photos directly. Choose cover, adjust crop, and save in one go.
+              </p>
             </div>
-
-            {(cropPreviewUrl || selectedFileName !== 'no file selected') && (
-              <button
-                type="button"
-                onClick={clearSelectedImage}
-                className="text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0"
-                title="Remove selected image"
+            {artworkImages.length < 5 && (
+              <label
+                htmlFor="artwork_images_input"
+                className="cursor-pointer bg-black text-white text-xs font-semibold px-3 py-1.5 rounded-md hover:bg-gray-800 transition-colors shadow-2xs flex items-center gap-1.5"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Remove</span>
-              </button>
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Photos</span>
+              </label>
             )}
+            <input
+              id="artwork_images_input"
+              type="file"
+              multiple
+              accept="image/png, image/jpeg, image/webp"
+              onChange={handleFilesSelect}
+              className="hidden"
+            />
           </div>
 
-          <p className="mt-1.5 text-[11px] text-gray-400 font-light">
-            JPG, PNG or WebP, up to 12 MB. Supports Portrait, Landscape, Square and Custom ratios.
+          {/* Images Grid */}
+          {artworkImages.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5 mt-3">
+              {artworkImages.map((img, idx) => (
+                <div
+                  key={img.id}
+                  className={`group relative flex flex-col rounded-xl border overflow-hidden bg-white shadow-2xs transition-all ${
+                    img.isPrimary
+                      ? 'border-black ring-2 ring-black/10'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {/* Thumbnail Container */}
+                  <div className="relative aspect-[4/5] w-full bg-gray-100 overflow-hidden flex items-center justify-center">
+                    <Image
+                      src={img.previewUrl}
+                      alt={`Artwork photo ${idx + 1}`}
+                      fill
+                      className="object-contain p-1"
+                      sizes="(max-width: 640px) 50vw, 20vw"
+                      unoptimized={img.previewUrl.startsWith('blob:')}
+                    />
+
+                    {/* Primary Badge */}
+                    {img.isPrimary ? (
+                      <span className="absolute top-2 left-2 bg-black text-white text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded shadow-sm">
+                        Cover
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSetPrimary(idx)}
+                        className="absolute top-2 left-2 bg-black/60 hover:bg-black text-white text-[10px] font-semibold px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        Make Cover
+                      </button>
+                    )}
+
+                    {/* Top Right Actions */}
+                    <div className="absolute top-2 right-2 flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleStartCrop(idx)}
+                        className="h-6 w-6 rounded bg-white/90 hover:bg-white text-gray-700 shadow-sm flex items-center justify-center transition-transform hover:scale-105"
+                        title="Crop / adjust"
+                      >
+                        <Crop className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage(idx)}
+                        className="h-6 w-6 rounded bg-white/90 hover:bg-red-50 text-red-600 shadow-sm flex items-center justify-center transition-transform hover:scale-105"
+                        title="Remove image"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Caption & Status */}
+                  <div className="p-2 bg-gray-50/60 border-t border-gray-100 flex items-center justify-between text-[11px]">
+                    <span className="text-gray-500 font-medium">#{idx + 1}</span>
+                    {img.croppedBlob ? (
+                      <span className="text-emerald-700 font-semibold text-[10px]">Cropped</span>
+                    ) : img.file ? (
+                      <span className="text-blue-700 font-semibold text-[10px]">New</span>
+                    ) : (
+                      <span className="text-gray-400 text-[10px]">Saved</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {/* Upload Placeholder if under limit */}
+              {artworkImages.length < 5 && (
+                <label
+                  htmlFor="artwork_images_input"
+                  className="aspect-[4/5] border-2 border-dashed border-gray-300 hover:border-gray-400 rounded-xl flex flex-col items-center justify-center p-3 text-center cursor-pointer bg-gray-50/50 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="h-9 w-9 rounded-full bg-white shadow-2xs border border-gray-200 flex items-center justify-center mb-1 text-gray-500">
+                    <Plus className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-700">Add Image</span>
+                  <span className="text-[10px] text-gray-400 mt-0.5 font-light">Up to 5 images</span>
+                </label>
+              )}
+            </div>
+          ) : (
+            /* Empty State */
+            <label
+              htmlFor="artwork_images_input"
+              className="mt-2 block border-2 border-dashed border-gray-300 hover:border-gray-400 rounded-xl p-8 text-center cursor-pointer bg-gray-50/50 hover:bg-gray-50 transition-colors"
+            >
+              <div className="mx-auto h-12 w-12 rounded-full bg-white shadow-2xs border border-gray-200 flex items-center justify-center mb-3 text-gray-500">
+                <ImageIcon className="w-6 h-6" />
+              </div>
+              <p className="text-sm font-semibold text-gray-900">Click to upload artwork photos</p>
+              <p className="text-xs text-gray-500 font-light mt-1">
+                Select 1 to 5 images. High resolution PNG, JPG or WebP up to 5 MB each.
+              </p>
+              <span className="inline-block mt-3 px-4 py-1.5 rounded-md bg-black text-white text-xs font-semibold shadow-2xs">
+                Select Photos
+              </span>
+            </label>
+          )}
+
+          <p className="mt-2 text-[11px] text-gray-400 font-light">
+            JPG, PNG or WebP, up to 5 MB each. Supports Portrait, Landscape, Square and Custom ratios.
           </p>
         </div>
 

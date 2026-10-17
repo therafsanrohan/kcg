@@ -86,12 +86,11 @@ export default function ArtworkFramePreview({
 
         {/* Framing & Artwork Coordinate Container */}
         <div
-          className="relative transition-all duration-300 max-h-[460px] max-w-full flex items-center justify-center"
+          className="relative transition-all duration-300 w-full flex items-center justify-center"
           style={{
             aspectRatio: `${containerAspect}`,
-            width: containerAspect >= 1 ? '100%' : `${Math.round(420 * containerAspect)}px`,
-            maxWidth: containerAspect >= 1 ? '560px' : '420px',
-            padding: isFramed ? '18px' : '0px',
+            maxWidth: containerAspect >= 1 ? '100%' : `${Math.min(540, Math.round(520 * containerAspect))}px`,
+            padding: isFramed ? '16px' : '0px',
             backgroundColor: isFramed ? frameBg : 'transparent',
             borderColor: isFramed ? frameBorderColor : 'transparent',
             borderWidth: isFramed ? '6px' : '0px',
@@ -102,7 +101,7 @@ export default function ArtworkFramePreview({
           }}
         >
           {/* Inner Canvas Image */}
-          <div className="relative w-full h-full bg-[#E5E2DC] overflow-hidden shadow-2xs">
+          <div className="relative w-full h-full bg-[#E5E2DC] rounded-sm overflow-hidden shadow-2xs">
             {imageUrl ? (
               <Image
                 src={imageUrl}

@@ -561,22 +561,48 @@ export default function AddArtworkModal({
 
               {/* Current image preview for edit mode */}
               {existingImageUrl && (
-                <div className="mb-3 flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                  <div className="relative h-14 w-14 rounded-md overflow-hidden border border-gray-200 flex-shrink-0">
-                    <Image
-                      src={existingImageUrl}
-                      alt="Current artwork"
-                      fill
-                      className="object-cover"
-                      sizes="56px"
-                    />
+                <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="relative h-14 w-14 rounded-md overflow-hidden border border-gray-200 flex-shrink-0 bg-white">
+                      <Image
+                        src={existingImageUrl}
+                        alt="Current artwork"
+                        fill
+                        className="object-contain p-0.5"
+                        sizes="56px"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-700">Current image</p>
+                      <p className="text-[11px] text-gray-500 font-light">
+                        Saved in database. Recrop directly or upload a new file.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold text-gray-700">Current image</p>
-                    <p className="text-[11px] text-gray-500 font-light">
-                      Upload a new file below to replace it
-                    </p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        setErrorMsg(null)
+                        setUploadProgress('Loading existing image for recropping...')
+                        const res = await fetch(existingImageUrl)
+                        const blob = await res.blob()
+                        const objUrl = URL.createObjectURL(blob)
+                        setSelectedFile(new File([blob], `artwork-recrop-${Date.now()}.jpg`, { type: blob.type }))
+                        setSelectedFileName('Current artwork image')
+                        setImageSrcToCrop(objUrl)
+                        setCropModalOpen(true)
+                      } catch (err: any) {
+                        setErrorMsg('Could not load current image for recropping: ' + err.message)
+                      } finally {
+                        setUploadProgress(null)
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold text-gray-800 bg-white border border-gray-300 hover:bg-gray-100 rounded-md transition-colors flex items-center justify-center gap-1.5 shadow-2xs flex-shrink-0 cursor-pointer"
+                  >
+                    <Crop className="w-3.5 h-3.5" />
+                    <span>Recrop Current Image</span>
+                  </button>
                 </div>
               )}
 

@@ -27,7 +27,7 @@ export default async function PaintingDetailsPage({ params }: { params: Promise<
   // Fetch images
   const { data: images } = await supabase
     .from('painting_images')
-    .select('storage_key, processed_key, thumbnail_key, alt_text, is_main, sort_order')
+    .select('storage_key, processed_key, thumbnail_key, responsive_urls, alt_text, is_main, sort_order')
     .eq('painting_id', painting.id)
     .order('sort_order', { ascending: true })
 

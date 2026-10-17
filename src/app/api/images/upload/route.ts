@@ -73,6 +73,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden: Insufficient privileges.' }, { status: 403 })
     }
 
+    if (isOwner && !adminCheck) {
+      await supabase
+        .from('admin_users')
+        .upsert({ id: user.id, email: user.email, role: 'superadmin' }, { onConflict: 'id' })
+    }
+
     // 2. Parse Multipart Form Data directly via Next.js Route Handler
     const formData = await req.formData()
     const paintingId = (formData.get('paintingId') as string) || 'temp'
@@ -214,10 +220,20 @@ export async function POST(req: NextRequest) {
 
     await Promise.all(uploadPromises)
 
+    // Choose the best optimized variant for direct web display in paintings_optimized bucket
+    const displayKey =
+      responsiveUrls['1600'] ||
+      responsiveUrls['960'] ||
+      responsiveUrls['2560'] ||
+      responsiveUrls['480'] ||
+      thumbnailKey
+
     return NextResponse.json({
       success: true,
       data: {
-        storageKey: masterStorageKey,
+        storageKey: displayKey, // Direct web deliverable in paintings_optimized
+        masterStorageKey,       // High-res master in paintings_master
+        displayKey,
         thumbnailKey,
         responsiveUrls,
         isPrimary,
@@ -225,6 +241,7 @@ export async function POST(req: NextRequest) {
         mimeType,
         width: metadata.width,
         height: metadata.height,
+        fileSize: file.size,
       },
     })
   } catch (error: any) {

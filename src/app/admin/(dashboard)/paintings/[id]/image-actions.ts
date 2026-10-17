@@ -15,17 +15,29 @@ export async function saveAdvancedImagesAction(paintingId: string, advancedImage
         .eq('painting_id', paintingId)
         .is('archived_at', null)
 
-      const imageRecords = advancedImages.map((img) => ({
-        painting_id: paintingId,
-        storage_key: img.originalKey,
-        thumbnail_key: img.thumbnailKey,
-        responsive_urls: img.responsiveUrls,
-        is_main: img.isPrimary,
-        primary_image: img.isPrimary,
-        sort_order: img.sortOrder,
-        mime_type: img.mimeType,
-        file_format: img.mimeType?.split('/')[1] || 'webp'
-      }))
+      const imageRecords = advancedImages.map((img) => {
+        const deliverableKey =
+          img.storageKey ||
+          img.displayKey ||
+          img.responsiveUrls?.['1600'] ||
+          img.responsiveUrls?.['960'] ||
+          img.thumbnailKey ||
+          img.originalKey
+
+        return {
+          painting_id: paintingId,
+          storage_key: deliverableKey,
+          processed_key: deliverableKey,
+          thumbnail_key: img.thumbnailKey || deliverableKey,
+          responsive_urls: img.responsiveUrls || {},
+          is_main: Boolean(img.isPrimary),
+          primary_image: Boolean(img.isPrimary),
+          sort_order: Number(img.sortOrder) || 1,
+          mime_type: img.mimeType || 'image/webp',
+          file_format: img.mimeType?.split('/')[1] || 'webp',
+          processing_status: 'completed',
+        }
+      })
 
       const { error: imgInsertErr } = await supabase.from('painting_images').insert(imageRecords)
       if (imgInsertErr) {

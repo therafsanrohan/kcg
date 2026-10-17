@@ -268,7 +268,13 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
     if (uploadedImageRaw && paintingId) {
       try {
         const uploadedImg = JSON.parse(uploadedImageRaw)
-        if (uploadedImg && uploadedImg.storageKey) {
+        const primaryStorageKey =
+          uploadedImg.displayKey ||
+          uploadedImg.storageKey ||
+          uploadedImg.responsiveUrls?.['1600'] ||
+          uploadedImg.thumbnailKey
+
+        if (uploadedImg && primaryStorageKey) {
           // If editing and updating main cover image, demote existing primary
           if (id) {
             await supabase
@@ -280,24 +286,29 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
 
           const { error: insertImgErr } = await supabase.from('painting_images').insert({
             painting_id: paintingId,
-            storage_key: uploadedImg.storageKey,
-            thumbnail_key: uploadedImg.thumbnailKey || uploadedImg.storageKey,
+            storage_key: primaryStorageKey,
+            processed_key: primaryStorageKey,
+            thumbnail_key: uploadedImg.thumbnailKey || primaryStorageKey,
             responsive_urls: uploadedImg.responsiveUrls || {},
             is_main: true,
             primary_image: true,
             sort_order: 1,
             mime_type: uploadedImg.mimeType || 'image/webp',
             file_format: uploadedImg.mimeType?.split('/')[1] || 'webp',
-            width_px: uploadedImg.width || null,
-            height_px: uploadedImg.height || null,
+            width: uploadedImg.width || null,
+            height: uploadedImg.height || null,
+            file_size: uploadedImg.fileSize || null,
+            processing_status: 'completed',
           })
 
           if (insertImgErr) {
             console.error('Error inserting uploaded image record:', insertImgErr)
+            throw new Error(`Failed to save image metadata: ${insertImgErr.message}`)
           }
         }
-      } catch (e) {
-        console.error('Error parsing uploaded_image_json:', e)
+      } catch (e: any) {
+        console.error('Error handling uploaded_image_json:', e)
+        throw e
       }
     } else if (advancedImagesRaw && paintingId) {
       try {
@@ -319,25 +330,38 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
             .eq('painting_id', paintingId)
             .is('archived_at', null)
 
-          const imageRecords = advancedImages.map((img) => ({
-            painting_id: paintingId,
-            storage_key: img.originalKey,
-            thumbnail_key: img.thumbnailKey,
-            responsive_urls: img.responsiveUrls,
-            is_main: img.isPrimary,
-            primary_image: img.isPrimary,
-            sort_order: img.sortOrder,
-            mime_type: img.mimeType,
-            file_format: img.mimeType?.split('/')[1] || 'webp'
-          }))
+          const imageRecords = advancedImages.map((img) => {
+            const deliverableKey =
+              img.responsiveUrls?.['1600'] ||
+              img.responsiveUrls?.['960'] ||
+              img.responsiveUrls?.['2560'] ||
+              img.thumbnailKey ||
+              img.originalKey
+
+            return {
+              painting_id: paintingId,
+              storage_key: deliverableKey,
+              processed_key: deliverableKey,
+              thumbnail_key: img.thumbnailKey || deliverableKey,
+              responsive_urls: img.responsiveUrls || {},
+              is_main: Boolean(img.isPrimary),
+              primary_image: Boolean(img.isPrimary),
+              sort_order: Number(img.sortOrder) || 1,
+              mime_type: img.mimeType || 'image/webp',
+              file_format: img.mimeType?.split('/')[1] || 'webp',
+              processing_status: 'completed',
+            }
+          })
 
           const { error: imgInsertErr } = await supabase.from('painting_images').insert(imageRecords)
           if (imgInsertErr) {
             console.error('Error inserting advanced images:', imgInsertErr)
+            throw new Error(`Failed to save images: ${imgInsertErr.message}`)
           }
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error('Error parsing advanced images JSON:', e)
+        throw e
       }
     } else {
       // ── SINGLE IMAGE FALLBACK (Legacy compatibility) ──

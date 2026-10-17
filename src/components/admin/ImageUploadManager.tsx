@@ -281,9 +281,19 @@ export default function ImageUploadManager({
           throw new Error('Failed to process images on server.')
         }
 
+        const procResult = await response.json()
+        const processedList = procResult.processed || []
+
         for (let i = 0; i < updatedImages.length; i++) {
           if (updatedImages[i].status === 'processing') {
             updatedImages[i].status = 'done'
+            const matched = processedList.find((p: any) => p.id === updatedImages[i].id)
+            if (matched) {
+              updatedImages[i].storageKey = matched.displayKey || matched.storageKey
+              ;(updatedImages[i] as any).originalKey = matched.originalKey
+              ;(updatedImages[i] as any).thumbnailKey = matched.thumbnailKey
+              ;(updatedImages[i] as any).responsiveUrls = matched.responsiveUrls
+            }
           }
         }
         setImages([...updatedImages])

@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     }
 
     // Ensure user is an admin
-    const { data: adminCheck } = await supabase.from('admin_users').select('id').eq('email', user.email).single()
+    const { data: adminCheck } = await supabase.from('admin_users').select('id').eq('email', user.email).maybeSingle()
     const isOwner =
       user.email?.toLowerCase() === 'knock.rafsan@gmail.com' ||
       user.email?.toLowerCase() === 'knock.rafsan+admin@gmail.com' ||
@@ -26,6 +26,12 @@ export async function POST(req: Request) {
 
     if (!adminCheck && !isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    if (isOwner && !adminCheck) {
+      await supabase
+        .from('admin_users')
+        .upsert({ id: user.id, email: user.email, role: 'superadmin' }, { onConflict: 'id' })
     }
 
     const { paintingId, images } = await req.json()
@@ -127,14 +133,23 @@ export async function POST(req: Request) {
       
       await Promise.all([...uploadPromises, thumbPromise()])
 
+      const displayKey =
+        responsiveUrls['1600'] ||
+        responsiveUrls['960'] ||
+        responsiveUrls['2560'] ||
+        responsiveUrls['480'] ||
+        thumbnailKey
+
       processedImages.push({
         id,
         originalKey: storageKey,
+        storageKey: displayKey,
+        displayKey,
         thumbnailKey,
         responsiveUrls,
         isPrimary,
         sortOrder,
-        mimeType
+        mimeType,
       })
     }
 
