@@ -3,12 +3,19 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { X, ZoomIn, ZoomOut, RotateCw, Maximize2, Minimize2, Check, RefreshCw } from 'lucide-react'
 
+export type CropperAspectRatioPreset = 'original' | 'portrait' | 'landscape' | 'square' | 'custom'
+
 interface ImageCropperModalProps {
   isOpen: boolean
   imageSrc: string
   onClose: () => void
-  onCropComplete: (croppedBlob: Blob, cropData: { x: number; y: number; zoom: number; rotation: number; mode: 'fill' | 'fit' }) => void
-  initialCrop?: { x: number; y: number; zoom: number; rotation: number; mode: 'fill' | 'fit' }
+  onCropComplete: (
+    croppedBlob: Blob,
+    cropData: { x: number; y: number; zoom: number; rotation: number; mode: 'fill' | 'fit'; aspectRatio: number }
+  ) => void
+  initialCrop?: { x: number; y: number; zoom: number; rotation: number; mode: 'fill' | 'fit'; aspectRatio?: number }
+  defaultAspectRatio?: number
+  defaultOrientation?: 'portrait' | 'landscape' | 'square' | 'custom'
 }
 
 export default function ImageCropperModal({
@@ -17,6 +24,8 @@ export default function ImageCropperModal({
   onClose,
   onCropComplete,
   initialCrop,
+  defaultAspectRatio,
+  defaultOrientation,
 }: ImageCropperModalProps) {
   const [zoom, setZoom] = useState(initialCrop?.zoom ?? 1)
   const [rotation, setRotation] = useState(initialCrop?.rotation ?? 0)
@@ -25,6 +34,19 @@ export default function ImageCropperModal({
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [isProcessing, setIsProcessing] = useState(false)
+
+  // Ratio preset selection
+  const [aspectPreset, setAspectPreset] = useState<CropperAspectRatioPreset>(() => {
+    if (defaultOrientation) return defaultOrientation
+    if (defaultAspectRatio) {
+      if (Math.abs(defaultAspectRatio - 0.8) < 0.05) return 'portrait'
+      if (Math.abs(defaultAspectRatio - 1) < 0.05) return 'square'
+      if (Math.abs(defaultAspectRatio - 1.25) < 0.05 || defaultAspectRatio > 1.1) return 'landscape'
+    }
+    return 'original'
+  })
+
+  const [activeAspectRatio, setActiveAspectRatio] = useState<number>(defaultAspectRatio || 0.8)
 
   const imageRef = useRef<HTMLImageElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -42,6 +64,38 @@ export default function ImageCropperModal({
       setMode('fill')
     }
   }, [initialCrop, imageSrc, isOpen])
+
+  const [naturalAspect, setNaturalAspect] = useState<number>(1)
+
+  const handleImageLoad = () => {
+    if (imageRef.current) {
+      const nw = imageRef.current.naturalWidth
+      const nh = imageRef.current.naturalHeight
+      if (nw > 0 && nh > 0) {
+        const nat = nw / nh
+        setNaturalAspect(nat)
+        if (aspectPreset === 'original') {
+          setActiveAspectRatio(nat)
+        }
+      }
+    }
+  }
+
+  // Handle preset change
+  const handlePresetSelect = (preset: CropperAspectRatioPreset) => {
+    setAspectPreset(preset)
+    if (preset === 'original') {
+      setActiveAspectRatio(naturalAspect)
+    } else if (preset === 'portrait') {
+      setActiveAspectRatio(0.8) // 4:5
+    } else if (preset === 'landscape') {
+      setActiveAspectRatio(1.25) // 5:4 or 4:3
+    } else if (preset === 'square') {
+      setActiveAspectRatio(1.0)
+    } else if (preset === 'custom') {
+      setActiveAspectRatio(defaultAspectRatio || naturalAspect)
+    }
+  }
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -102,9 +156,26 @@ export default function ImageCropperModal({
       const img = imageRef.current
       const canvas = document.createElement('canvas')
       
-      // Target 4:5 aspect ratio derivative for gallery cards (e.g. 960x1200)
-      const targetWidth = 960
-      const targetHeight = 1200
+      // Calculate target canvas dimensions respecting active aspect ratio
+      const baseDim = 1200
+      let targetWidth = baseDim
+      let targetHeight = baseDim
+
+      if (activeAspectRatio >= 1) {
+        targetWidth = Math.round(baseDim * activeAspectRatio)
+        targetHeight = baseDim
+      } else {
+        targetWidth = baseDim
+        targetHeight = Math.round(baseDim / (activeAspectRatio || 0.8))
+      }
+
+      // Bound max canvas dimension to 2400 for memory and performance safety
+      if (targetWidth > 2400 || targetHeight > 2400) {
+        const factor = 2400 / Math.max(targetWidth, targetHeight)
+        targetWidth = Math.round(targetWidth * factor)
+        targetHeight = Math.round(targetHeight * factor)
+      }
+
       canvas.width = targetWidth
       canvas.height = targetHeight
 
@@ -134,8 +205,10 @@ export default function ImageCropperModal({
       const drawHeight = img.naturalHeight * finalScale
 
       // Apply drag offset scaled to target canvas resolution
-      const scaledOffsetX = (offset.x / (containerRef.current?.clientWidth || 300)) * targetWidth
-      const scaledOffsetY = (offset.y / (containerRef.current?.clientHeight || 400)) * targetHeight
+      const containerWidth = containerRef.current?.clientWidth || 300
+      const containerHeight = containerRef.current?.clientHeight || 300
+      const scaledOffsetX = (offset.x / containerWidth) * targetWidth
+      const scaledOffsetY = (offset.y / containerHeight) * targetHeight
 
       ctx.drawImage(
         img,
@@ -157,6 +230,7 @@ export default function ImageCropperModal({
               zoom,
               rotation,
               mode,
+              aspectRatio: activeAspectRatio,
             })
             onClose()
           }
@@ -168,18 +242,28 @@ export default function ImageCropperModal({
       console.error('Cropping error:', err)
       setIsProcessing(false)
     }
-  }, [imageSrc, offset, zoom, rotation, mode, onCropComplete, onClose])
+  }, [imageRef, activeAspectRatio, offset, zoom, rotation, mode, onCropComplete, onClose])
 
   if (!isOpen) return null
 
+  // Calculate container display box style based on activeAspectRatio
+  let containerStyle: React.CSSProperties = {
+    aspectRatio: `${activeAspectRatio}`,
+    maxHeight: '340px',
+    maxWidth: '100%',
+    width: activeAspectRatio >= 1 ? '340px' : `${Math.round(340 * activeAspectRatio)}px`,
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-      <div className="bg-white rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
           <div>
             <h3 className="font-sans font-bold text-lg text-gray-950">Crop & Position Artwork</h3>
-            <p className="text-xs text-gray-500 font-light">4:5 Gallery Aspect Ratio Preview</p>
+            <p className="text-xs text-gray-500 font-light">
+              Multi-Orientation Aspect Ratio: {aspectPreset.toUpperCase()} ({activeAspectRatio.toFixed(2)})
+            </p>
           </div>
           <button
             type="button"
@@ -190,8 +274,26 @@ export default function ImageCropperModal({
           </button>
         </div>
 
-        {/* Viewport Canvas (4:5 ratio) */}
-        <div className="p-6 flex-1 flex items-center justify-center bg-gray-950 overflow-hidden">
+        {/* Orientation Aspect Ratio Tabs */}
+        <div className="px-6 pt-3 pb-2 bg-gray-50 border-b border-gray-100 flex items-center gap-1.5 overflow-x-auto">
+          {(['original', 'portrait', 'landscape', 'square', 'custom'] as CropperAspectRatioPreset[]).map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => handlePresetSelect(preset)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+                aspectPreset === preset
+                  ? 'bg-black text-white shadow-xs'
+                  : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-400'
+              }`}
+            >
+              {preset === 'portrait' ? 'Portrait (4:5)' : preset === 'landscape' ? 'Landscape (5:4)' : preset === 'square' ? 'Square (1:1)' : preset}
+            </button>
+          ))}
+        </div>
+
+        {/* Viewport Canvas */}
+        <div className="p-6 flex-1 flex items-center justify-center bg-gray-950 overflow-hidden min-h-[360px]">
           <div
             ref={containerRef}
             onMouseDown={handleMouseDown}
@@ -201,7 +303,8 @@ export default function ImageCropperModal({
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
-            className="relative w-64 h-[320px] sm:w-72 sm:h-[360px] rounded-2xl overflow-hidden bg-[#F5F4F0] border-2 border-white/20 shadow-2xl cursor-grab active:cursor-grabbing select-none"
+            style={containerStyle}
+            className="relative rounded-2xl overflow-hidden bg-[#F5F4F0] border-2 border-white/20 shadow-2xl cursor-grab active:cursor-grabbing select-none"
           >
             <div
               className="absolute inset-0 flex items-center justify-center"
@@ -215,12 +318,13 @@ export default function ImageCropperModal({
                 ref={imageRef}
                 src={imageSrc}
                 alt="Crop preview"
+                onLoad={handleImageLoad}
                 className={`max-w-none ${mode === 'fill' ? 'w-full h-full object-cover' : 'max-w-full max-h-full object-contain'}`}
                 draggable={false}
               />
             </div>
 
-            {/* Subtle Grid Overlay */}
+            {/* Rule-of-Thirds Grid Overlay */}
             <div className="absolute inset-0 border border-white/30 pointer-events-none grid grid-cols-3 grid-rows-3">
               <div className="border-r border-b border-white/20" />
               <div className="border-r border-b border-white/20" />
@@ -228,8 +332,8 @@ export default function ImageCropperModal({
               <div className="border-r border-b border-white/20" />
               <div className="border-r border-b border-white/20" />
               <div className="border-b border-white/20" />
-              <div className="border-r border-white/20" />
-              <div className="border-r border-white/20" />
+              <div className="border-r border-b border-white/20" />
+              <div className="border-r border-b border-white/20" />
               <div />
             </div>
           </div>
@@ -304,7 +408,7 @@ export default function ImageCropperModal({
               type="button"
               disabled={isProcessing}
               onClick={generateCrop}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-black text-white text-xs font-bold shadow-md hover:bg-gray-800 disabled:opacity-50 transition-all"
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-black text-white text-xs font-bold shadow-md hover:bg-gray-800 disabled:opacity-50 transition-all cursor-pointer"
             >
               <Check className="h-4 w-4" />
               {isProcessing ? 'Processing...' : 'Apply Crop'}

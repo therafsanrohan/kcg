@@ -63,6 +63,7 @@ export default function ImageUploadManager({
   // For the active cropper
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
+  const [cropAspect, setCropAspect] = useState<number | undefined>(undefined) // undefined = free/original
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -656,7 +657,7 @@ export default function ImageUploadManager({
               image={activeCropImage.previewUrl}
               crop={crop}
               zoom={zoom}
-              aspect={4 / 5}
+              aspect={cropAspect}
               onCropChange={setCrop}
               onZoomChange={setZoom}
               onCropComplete={(croppedArea, croppedAreaPixels) =>
@@ -665,38 +666,68 @@ export default function ImageUploadManager({
             />
           </div>
 
-          <div className="mt-6 w-full max-w-xl bg-white p-4 rounded-2xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4 w-full sm:w-auto">
+          <div className="mt-4 w-full max-w-xl bg-white p-4 rounded-2xl shadow-xl flex flex-col gap-3">
+            {/* Aspect Ratio Selector Pills */}
+            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
               <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
-                Zoom
+                Aspect Ratio
               </span>
-              <input
-                type="range"
-                value={zoom}
-                min={1}
-                max={3}
-                step={0.1}
-                aria-labelledby="Zoom"
-                onChange={(e) => setZoom(Number(e.target.value))}
-                className="w-full sm:w-48 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-              />
+              <div className="flex items-center gap-1.5">
+                {[
+                  { label: 'Free / Original', value: undefined },
+                  { label: 'Portrait (4:5)', value: 4 / 5 },
+                  { label: 'Landscape (16:9)', value: 16 / 9 },
+                  { label: 'Square (1:1)', value: 1 },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => setCropAspect(preset.value)}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-colors ${
+                      cropAspect === preset.value
+                        ? 'bg-black text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setCropModalImageId(null)}
-                className="px-4 py-2 text-sm font-bold text-gray-600 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={saveCrop}
-                className="px-6 py-2 text-sm font-bold text-white bg-black hover:bg-gray-800 rounded-lg shadow-md transition-colors"
-              >
-                Save Crop (4:5)
-              </button>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-4 w-full sm:w-auto">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                  Zoom
+                </span>
+                <input
+                  type="range"
+                  value={zoom}
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  aria-labelledby="Zoom"
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="w-full sm:w-48 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCropModalImageId(null)}
+                  className="px-4 py-2 text-sm font-bold text-gray-600 hover:text-black bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveCrop}
+                  className="px-6 py-2 text-sm font-bold text-white bg-black hover:bg-gray-800 rounded-lg shadow-md transition-colors cursor-pointer"
+                >
+                  Save Crop
+                </button>
+              </div>
             </div>
           </div>
         </div>

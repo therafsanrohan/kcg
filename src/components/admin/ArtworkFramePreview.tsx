@@ -88,7 +88,9 @@ export default function ArtworkFramePreview({
         <div
           className="relative transition-all duration-300 max-h-[460px] max-w-full flex items-center justify-center"
           style={{
-            aspectRatio: containerAspect,
+            aspectRatio: `${containerAspect}`,
+            width: containerAspect >= 1 ? '100%' : `${Math.round(420 * containerAspect)}px`,
+            maxWidth: containerAspect >= 1 ? '560px' : '420px',
             padding: isFramed ? '18px' : '0px',
             backgroundColor: isFramed ? frameBg : 'transparent',
             borderColor: isFramed ? frameBorderColor : 'transparent',

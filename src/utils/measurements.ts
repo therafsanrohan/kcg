@@ -117,10 +117,12 @@ export function formatDimensions(
 /**
  * Calculate area in all standard units from canonical millimetres.
  */
+export type ArtworkOrientation = 'portrait' | 'landscape' | 'square' | 'custom'
+
 export interface DimensionCalculations {
   widthMm: number
   heightMm: number
-  orientation: 'portrait' | 'landscape' | 'square'
+  orientation: ArtworkOrientation
   aspectRatio: number
   areaSqIn: number
   areaSqFt: number
@@ -129,12 +131,29 @@ export interface DimensionCalculations {
   perimeterMm: number
 }
 
-export function calculateDimensions(width: number, height: number, unit: MeasurementUnit = 'mm'): DimensionCalculations {
+export function calculateDimensions(
+  width: number,
+  height: number,
+  unit: MeasurementUnit = 'mm',
+  forcedOrientation?: ArtworkOrientation
+): DimensionCalculations {
   const wMm = toCanonicalMm(Math.max(0, width), unit)
   const hMm = toCanonicalMm(Math.max(0, height), unit)
   
-  const orientation: 'portrait' | 'landscape' | 'square' =
-    wMm === hMm ? 'square' : wMm > hMm ? 'landscape' : 'portrait'
+  let orientation: ArtworkOrientation = 'custom'
+  if (forcedOrientation === 'custom') {
+    orientation = 'custom'
+  } else if (wMm > 0 && hMm > 0) {
+    if (Math.abs(wMm - hMm) < 0.5) {
+      orientation = 'square'
+    } else if (wMm > hMm) {
+      orientation = 'landscape'
+    } else {
+      orientation = 'portrait'
+    }
+  } else {
+    orientation = forcedOrientation || 'portrait'
+  }
 
   const aspectRatio = hMm > 0 ? wMm / hMm : 1
 
@@ -315,4 +334,42 @@ export function calculateFramedDimensions(
     finalFramedHeight: framedHeightMm,
     unit: 'mm',
   }
+}
+
+/**
+ * Get natural aspect ratio (width / height) from painting dimensions or image metadata.
+ * Returns 0.8 (4:5) as default portrait fallback for legacy records.
+ */
+export function getArtworkAspectRatio(painting: {
+  width_mm?: number | null
+  height_mm?: number | null
+  width?: number | null
+  height?: number | null
+  display_size?: string | null
+  measurement_unit?: string | null
+}): number {
+  if (
+    typeof painting.width_mm === 'number' &&
+    typeof painting.height_mm === 'number' &&
+    painting.width_mm > 0 &&
+    painting.height_mm > 0
+  ) {
+    return painting.width_mm / painting.height_mm
+  }
+
+  const parsed = parseLegacyDisplaySize(painting.display_size)
+  if (parsed && parsed.width > 0 && parsed.height > 0) {
+    return parsed.width / parsed.height
+  }
+
+  if (
+    typeof painting.width === 'number' &&
+    typeof painting.height === 'number' &&
+    painting.width > 0 &&
+    painting.height > 0
+  ) {
+    return painting.width / painting.height
+  }
+
+  return 0.8 // 4:5 portrait fallback
 }

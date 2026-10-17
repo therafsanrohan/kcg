@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { Search, ArrowUpRight, ChevronDown } from 'lucide-react'
 import { getPaintingImageUrl } from '@/utils/image'
 import { Currency, convertCurrency, FALLBACK_RATES } from '@/utils/currency-shared'
-import { getDisplayDimensions } from '@/utils/measurements'
+import { getDisplayDimensions, getArtworkAspectRatio } from '@/utils/measurements'
 
 interface CustomerGallerySectionProps {
   paintings: any[]
@@ -205,19 +205,28 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
                 ? `৳${effectivePrice.toLocaleString('en-BD')}`
                 : `${convertCurrency(effectivePrice, currency, rates)} ${currency}`
 
+            const artAspect = getArtworkAspectRatio(painting)
+            const isStandardPortrait = Math.abs(artAspect - 0.8) < 0.08
+
             return (
               <div
                 key={painting.id}
                 className="group relative flex flex-col cursor-pointer"
               >
                 {/* Artwork Image Box */}
-                <div className="relative w-full aspect-[4/5] overflow-hidden bg-[#F2F0EB] border border-gray-200/60 shadow-2xs transition-all duration-700 ease-out group-hover:shadow-md">
+                <div
+                  className="relative w-full aspect-[4/5] overflow-hidden bg-[#F2F0EB] border border-gray-200/60 shadow-2xs transition-all duration-700 ease-out group-hover:shadow-md flex items-center justify-center"
+                >
                   <Image
                     src={imageUrl}
                     alt={painting.title}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                    className={`${
+                      isStandardPortrait
+                        ? 'object-cover object-center'
+                        : 'object-contain object-center p-2'
+                    } transition-transform duration-700 ease-out group-hover:scale-[1.02]`}
                   />
 
                   {/* Curated Offer Badge (Top-Left) */}

@@ -196,10 +196,10 @@ export async function POST(req: NextRequest) {
       }
     })
 
-    // Generate Thumbnail (240w)
+    // Generate Thumbnail (240w, preserving aspect ratio)
     const thumbBuffer = await sharpInstance
       .clone()
-      .resize({ width: 240, height: isPrimary ? 300 : undefined, fit: 'cover', withoutEnlargement: true })
+      .resize({ width: 240, withoutEnlargement: true })
       .toFormat('webp', { quality: 80 })
       .toBuffer()
 

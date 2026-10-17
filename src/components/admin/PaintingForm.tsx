@@ -5,7 +5,7 @@ import { Plus, X, Crop, Trash2 } from 'lucide-react'
 import Image from 'next/image'
 import { savePainting } from '@/app/admin/(dashboard)/paintings/actions'
 import { Painting } from '@/types'
-import { MeasurementUnit, parseLegacyDisplaySize, fromCanonicalMm, formatDimensions } from '@/utils/measurements'
+import { MeasurementUnit, parseLegacyDisplaySize, fromCanonicalMm, formatDimensions, ArtworkOrientation } from '@/utils/measurements'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import ImageCropperModal from './ImageCropperModal'
@@ -42,6 +42,15 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     }
     return initialParsed?.height ? String(initialParsed.height) : painting?.height ? String(painting.height) : '36'
   })
+  const [orientation, setOrientation] = useState<ArtworkOrientation>(() => {
+    const numW = parseFloat(width) || 0
+    const numH = parseFloat(height) || 0
+    if (numW > 0 && numH > 0) {
+      if (Math.abs(numW - numH) < 0.05) return 'square'
+      return numW > numH ? 'landscape' : 'portrait'
+    }
+    return 'portrait'
+  })
   const [displaySize, setDisplaySize] = useState<string>(
     painting?.display_size || `${width} × ${height} ${unit}`
   )
@@ -50,6 +59,12 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     setWidth(newW)
     if (newW && height) {
       setDisplaySize(`${newW} × ${height} ${unit}`)
+      const nw = parseFloat(newW) || 0
+      const nh = parseFloat(height) || 0
+      if (orientation !== 'custom' && nw > 0 && nh > 0) {
+        if (Math.abs(nw - nh) < 0.05) setOrientation('square')
+        else setOrientation(nw > nh ? 'landscape' : 'portrait')
+      }
     }
   }
 
@@ -57,6 +72,12 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     setHeight(newH)
     if (width && newH) {
       setDisplaySize(`${width} × ${newH} ${unit}`)
+      const nw = parseFloat(width) || 0
+      const nh = parseFloat(newH) || 0
+      if (orientation !== 'custom' && nw > 0 && nh > 0) {
+        if (Math.abs(nw - nh) < 0.05) setOrientation('square')
+        else setOrientation(nw > nh ? 'landscape' : 'portrait')
+      }
     }
   }
 
@@ -65,6 +86,10 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     if (width && height) {
       setDisplaySize(`${width} × ${height} ${newUnit}`)
     }
+  }
+
+  const handleOrientationChange = (newOrient: ArtworkOrientation) => {
+    setOrientation(newOrient)
   }
 
   const [frames, setFrames] = useState<FrameRow[]>(() => {
@@ -315,9 +340,11 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
               width={width}
               height={height}
               unit={unit}
+              orientation={orientation}
               onWidthChange={handleWidthChange}
               onHeightChange={handleHeightChange}
               onUnitChange={handleUnitChange}
+              onOrientationChange={handleOrientationChange}
             />
           </div>
 
@@ -443,26 +470,26 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
         {/* Artwork Image Upload */}
         <div>
           <label className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
-            ARTWORK IMAGE (4:5 GALLERY RATIO)
+            ARTWORK IMAGE ({orientation.toUpperCase()} RATIO)
           </label>
 
-          {/* 4:5 Cropped Preview if available */}
+          {/* Cropped Preview if available */}
           {cropPreviewUrl && (
             <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-xl flex items-center gap-4">
-              <div className="relative w-16 h-20 bg-gray-100 rounded-lg overflow-hidden border border-gray-300 flex-shrink-0">
+              <div className="relative w-20 h-20 bg-gray-100 rounded-lg overflow-hidden border border-gray-300 flex-shrink-0 flex items-center justify-center">
                 <Image
                   src={cropPreviewUrl}
-                  alt="4:5 Crop preview"
+                  alt="Crop preview"
                   fill
-                  className="object-cover"
+                  className="object-contain p-1"
                 />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-gray-900 truncate">
-                  4:5 Gallery Crop Ready
+                  {orientation.toUpperCase()} Preview Ready
                 </p>
                 <p className="text-[11px] text-gray-500">
-                  Image optimized and framed to 4:5 portrait ratio.
+                  Image optimized for {orientation} aspect ratio without unwanted cropping.
                 </p>
               </div>
               <button
@@ -471,7 +498,7 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
                 className="px-2.5 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5"
               >
                 <Crop className="w-3.5 h-3.5" />
-                <span>Recrop</span>
+                <span>Adjust Crop</span>
               </button>
             </div>
           )}
@@ -511,7 +538,7 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
           </div>
 
           <p className="mt-1.5 text-[11px] text-gray-400 font-light">
-            JPG, PNG or WebP, up to 12 MB. Selecting an image automatically opens the 4:5 portrait cropper.
+            JPG, PNG or WebP, up to 12 MB. Supports Portrait, Landscape, Square and Custom ratios.
           </p>
         </div>
 
@@ -533,11 +560,17 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
         </div>
       </form>
 
-      {/* 4:5 Aspect Ratio Image Cropper Modal */}
+      {/* Multi-Orientation Aspect Ratio Image Cropper Modal */}
       {cropModalOpen && imageSrcToCrop && (
         <ImageCropperModal
           isOpen={cropModalOpen}
           imageSrc={imageSrcToCrop}
+          defaultOrientation={orientation}
+          defaultAspectRatio={
+            parseFloat(width) && parseFloat(height) && parseFloat(height) > 0
+              ? parseFloat(width) / parseFloat(height)
+              : undefined
+          }
           onClose={() => setCropModalOpen(false)}
           onCropComplete={handleCropComplete}
         />

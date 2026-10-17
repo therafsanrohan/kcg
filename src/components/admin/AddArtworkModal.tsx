@@ -5,7 +5,7 @@ import { X, Plus, ImageIcon, Crop, Trash2 } from 'lucide-react'
 import { saveArtworkAction } from '@/app/admin/(dashboard)/paintings/actions'
 import Image from 'next/image'
 import { getPaintingImageUrl } from '@/utils/image'
-import { MeasurementUnit, parseLegacyDisplaySize, fromCanonicalMm } from '@/utils/measurements'
+import { MeasurementUnit, parseLegacyDisplaySize, fromCanonicalMm, ArtworkOrientation } from '@/utils/measurements'
 import ImageCropperModal from './ImageCropperModal'
 import DimensionInputGroup from './DimensionInputGroup'
 import CustomSelect from '@/components/ui/CustomSelect'
@@ -53,6 +53,7 @@ export default function AddArtworkModal({
   const [unit, setUnit] = useState<MeasurementUnit>('in')
   const [width, setWidth] = useState<string>('24')
   const [height, setHeight] = useState<string>('36')
+  const [orientation, setOrientation] = useState<ArtworkOrientation>('portrait')
   const [displaySize, setDisplaySize] = useState<string>('24 × 36 in')
 
   const isEditMode = Boolean(initialData?.id)
@@ -89,6 +90,12 @@ export default function AddArtworkModal({
 
     setWidth(w)
     setHeight(h)
+    const nw = parseFloat(w) || 0
+    const nh = parseFloat(h) || 0
+    if (nw > 0 && nh > 0) {
+      if (Math.abs(nw - nh) < 0.05) setOrientation('square')
+      else setOrientation(nw > nh ? 'landscape' : 'portrait')
+    }
     setDisplaySize(initialData?.display_size || `${w} × ${h} ${u}`)
   }, [initialData?.id, initialData?.display_size, initialData?.width_mm, initialData?.height_mm])
 
@@ -96,6 +103,12 @@ export default function AddArtworkModal({
     setWidth(newW)
     if (newW && height) {
       setDisplaySize(`${newW} × ${height} ${unit}`)
+      const nw = parseFloat(newW) || 0
+      const nh = parseFloat(height) || 0
+      if (orientation !== 'custom' && nw > 0 && nh > 0) {
+        if (Math.abs(nw - nh) < 0.05) setOrientation('square')
+        else setOrientation(nw > nh ? 'landscape' : 'portrait')
+      }
     }
   }
 
@@ -103,6 +116,12 @@ export default function AddArtworkModal({
     setHeight(newH)
     if (width && newH) {
       setDisplaySize(`${width} × ${newH} ${unit}`)
+      const nw = parseFloat(width) || 0
+      const nh = parseFloat(newH) || 0
+      if (orientation !== 'custom' && nw > 0 && nh > 0) {
+        if (Math.abs(nw - nh) < 0.05) setOrientation('square')
+        else setOrientation(nw > nh ? 'landscape' : 'portrait')
+      }
     }
   }
 
@@ -111,6 +130,10 @@ export default function AddArtworkModal({
     if (width && height) {
       setDisplaySize(`${width} × ${height} ${newUnit}`)
     }
+  }
+
+  const handleOrientationChange = (newOrient: ArtworkOrientation) => {
+    setOrientation(newOrient)
   }
 
   const handleAddFrame = useCallback(() => {
@@ -365,9 +388,11 @@ export default function AddArtworkModal({
               width={width}
               height={height}
               unit={unit}
+              orientation={orientation}
               onWidthChange={handleWidthChange}
               onHeightChange={handleHeightChange}
               onUnitChange={handleUnitChange}
+              onOrientationChange={handleOrientationChange}
             />
 
             {/* Row 4: Status */}
@@ -565,21 +590,21 @@ export default function AddArtworkModal({
                 </div>
               )}
 
-              {/* 4:5 Cropped Preview if admin cropped new image */}
+              {/* Multi-Orientation Cropped Preview if admin cropped new image */}
               {cropPreviewUrl && (
                 <div className="mb-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="relative h-14 w-11 rounded-md overflow-hidden border border-emerald-300 flex-shrink-0 bg-white">
+                    <div className="relative h-14 w-14 rounded-md overflow-hidden border border-emerald-300 flex-shrink-0 bg-white flex items-center justify-center">
                       <Image
                         src={cropPreviewUrl}
                         alt="Cropped artwork preview"
                         fill
-                        className="object-cover"
-                        sizes="44px"
+                        className="object-contain p-0.5"
+                        sizes="56px"
                       />
                     </div>
                     <div>
-                      <p className="text-xs font-semibold text-emerald-900">4:5 Crop Applied</p>
+                      <p className="text-xs font-semibold text-emerald-900 capitalize">{orientation} Preview Applied</p>
                       <p className="text-[11px] text-emerald-700 font-light">
                         Prepared for gallery presentation
                       </p>
@@ -591,7 +616,7 @@ export default function AddArtworkModal({
                     className="text-xs font-semibold text-emerald-800 bg-white px-3 py-1.5 rounded border border-emerald-300 hover:bg-emerald-100 transition-colors flex items-center gap-1.5"
                   >
                     <Crop className="w-3.5 h-3.5" />
-                    <span>Recrop</span>
+                    <span>Adjust Crop</span>
                   </button>
                 </div>
               )}
@@ -721,11 +746,17 @@ export default function AddArtworkModal({
         </div>
       </div>
 
-      {/* 4:5 Aspect Ratio Image Cropper Modal */}
+      {/* Multi-Orientation Aspect Ratio Image Cropper Modal */}
       {cropModalOpen && imageSrcToCrop && (
         <ImageCropperModal
           isOpen={cropModalOpen}
           imageSrc={imageSrcToCrop}
+          defaultOrientation={orientation}
+          defaultAspectRatio={
+            parseFloat(width) && parseFloat(height) && parseFloat(height) > 0
+              ? parseFloat(width) / parseFloat(height)
+              : undefined
+          }
           onClose={() => setCropModalOpen(false)}
           onCropComplete={handleCropComplete}
         />
