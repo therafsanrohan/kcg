@@ -29,9 +29,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang="en"
-      className={`h-full antialiased`}
+      className="h-full antialiased"
     >
-      <body className="min-h-screen flex flex-col">
+      <body className="min-h-screen flex flex-col font-sans bg-[#FBFBFA] text-[#1A1A1A] selection:bg-[#EAE8E3]">
         <Navbar whatsappNumber={whatsappNumber} />
         <main className="flex-1">
           {children}

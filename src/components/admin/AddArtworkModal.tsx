@@ -1,11 +1,14 @@
 'use client'
 
 import { useState, useTransition, useEffect, useCallback } from 'react'
-import { X, Plus, ImageIcon } from 'lucide-react'
+import { X, Plus, ImageIcon, Crop, Trash2 } from 'lucide-react'
 import { saveArtworkAction } from '@/app/admin/(dashboard)/paintings/actions'
 import Image from 'next/image'
 import { getPaintingImageUrl } from '@/utils/image'
-import { MeasurementUnit, parseLegacyDisplaySize, fromMm } from '@/utils/measurements'
+import { MeasurementUnit, parseLegacyDisplaySize, fromCanonicalMm } from '@/utils/measurements'
+import ImageCropperModal from './ImageCropperModal'
+import DimensionInputGroup from './DimensionInputGroup'
+import CustomSelect from '@/components/ui/CustomSelect'
 
 export interface FrameRow {
   id: string
@@ -41,6 +44,10 @@ export default function AddArtworkModal({
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [frames, setFrames] = useState<FrameRow[]>(() => makeDefaultFrames(initialData))
   const [selectedFileName, setSelectedFileName] = useState<string>('no file selected')
+  const [cropModalOpen, setCropModalOpen] = useState(false)
+  const [imageSrcToCrop, setImageSrcToCrop] = useState<string | null>(null)
+  const [croppedBlob, setCroppedBlob] = useState<Blob | null>(null)
+  const [cropPreviewUrl, setCropPreviewUrl] = useState<string | null>(null)
 
   // Size state
   const [unit, setUnit] = useState<MeasurementUnit>('in')
@@ -53,7 +60,7 @@ export default function AddArtworkModal({
   // Reset form state whenever initialData changes (new edit target or cleared for new)
   useEffect(() => {
     setFrames(makeDefaultFrames(initialData))
-    setSelectedFileName('no file selected')
+    clearSelectedImage()
     setErrorMsg(null)
 
     const parsed = parseLegacyDisplaySize(initialData?.display_size)
@@ -63,7 +70,7 @@ export default function AddArtworkModal({
     let w = '24'
     let h = '36'
     if (initialData?.width_mm) {
-      const val = fromMm(initialData.width_mm, u)
+      const val = fromCanonicalMm(initialData.width_mm, u)
       w = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)
     } else if (parsed?.width) {
       w = String(parsed.width)
@@ -72,7 +79,7 @@ export default function AddArtworkModal({
     }
 
     if (initialData?.height_mm) {
-      const val = fromMm(initialData.height_mm, u)
+      const val = fromCanonicalMm(initialData.height_mm, u)
       h = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)
     } else if (parsed?.height) {
       h = String(parsed.height)
@@ -124,29 +131,118 @@ export default function AddArtworkModal({
     []
   )
 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null)
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedFileName(e.target.files?.[0]?.name ?? 'no file selected')
+    const file = e.target.files?.[0]
+    if (file) {
+      // 5 MB strict validation
+      if (file.size > 5 * 1024 * 1024) {
+        setErrorMsg(`Selected file is ${(file.size / (1024 * 1024)).toFixed(2)} MB. Maximum allowed size is 5.0 MB.`)
+        clearSelectedImage()
+        return
+      }
+      setErrorMsg(null)
+      setSelectedFile(file)
+      setSelectedFileName(file.name)
+      const objUrl = URL.createObjectURL(file)
+      setImageSrcToCrop(objUrl)
+      setCropModalOpen(true)
+    } else {
+      clearSelectedImage()
+    }
+  }
+
+  const clearSelectedImage = () => {
+    setSelectedFileName('no file selected')
+    setSelectedFile(null)
+    if (imageSrcToCrop) {
+      URL.revokeObjectURL(imageSrcToCrop)
+    }
+    if (cropPreviewUrl) {
+      URL.revokeObjectURL(cropPreviewUrl)
+    }
+    setImageSrcToCrop(null)
+    setCroppedBlob(null)
+    setCropPreviewUrl(null)
+    const fileInput = document.getElementById('modal_artwork_image') as HTMLInputElement | null
+    if (fileInput) {
+      fileInput.value = ''
+    }
+  }
+
+  const handleCropComplete = (blob: Blob) => {
+    setCroppedBlob(blob)
+    setCropPreviewUrl(URL.createObjectURL(blob))
+    setCropModalOpen(false)
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setErrorMsg(null)
-    const formData = new FormData(e.currentTarget)
+    setUploadProgress(null)
+    const formElement = e.currentTarget
+    const formData = new FormData(formElement)
     formData.set('frames_json', JSON.stringify(frames))
     formData.set('width_input', width)
     formData.set('height_input', height)
     formData.set('measurement_unit_input', unit)
     formData.set('display_size', displaySize)
 
+    // Remove direct binary upload from Server Action payload to avoid 1MB limit
+    formData.delete('artwork_image')
+
+    const fileToUpload = croppedBlob || selectedFile
+
     startTransition(async () => {
-      const res = await saveArtworkAction(null, formData)
-      if (res?.error) {
-        setErrorMsg(res.error)
-      } else {
-        onClose(true) // signal that a save occurred
+      try {
+        let uploadedImagePayload = null
+
+        // If there's an image to upload, route through the dedicated /api/images/upload pipeline
+        if (fileToUpload) {
+          setUploadProgress('Uploading & optimizing high-resolution artwork...')
+          const uploadData = new FormData()
+          const uploadPaintingId = initialData?.id || 'new'
+          uploadData.append('paintingId', uploadPaintingId)
+          uploadData.append('isPrimary', 'true')
+          uploadData.append('sortOrder', '1')
+
+          const fileUploadPayload = fileToUpload instanceof File
+            ? fileToUpload
+            : new File([fileToUpload], `artwork-${Date.now()}.webp`, { type: fileToUpload.type || 'image/webp' })
+
+          uploadData.append('image', fileUploadPayload)
+
+          const uploadRes = await fetch('/api/images/upload', {
+            method: 'POST',
+            body: uploadData,
+          })
+
+          const jsonRes = await uploadRes.json()
+          if (!uploadRes.ok || !jsonRes.success) {
+            throw new Error(jsonRes.error || 'Failed to process and upload image.')
+          }
+
+          uploadedImagePayload = jsonRes.data
+          formData.set('uploaded_image_json', JSON.stringify(uploadedImagePayload))
+        }
+
+        setUploadProgress('Saving artwork details to database...')
+        const res = await saveArtworkAction(null, formData)
+        if (res?.error) {
+          setErrorMsg(res.error)
+        } else {
+          onClose(true) // signal that a save occurred
+        }
+      } catch (err: any) {
+        setErrorMsg(err.message || 'Failed to save artwork.')
+      } finally {
+        setUploadProgress(null)
       }
     })
   }
+
 
   // Existing image for edit mode
   const existingImage = isEditMode
@@ -195,6 +291,13 @@ export default function AddArtworkModal({
             </div>
           )}
 
+          {uploadProgress && (
+            <div className="mb-5 p-3.5 rounded-lg bg-blue-50 text-blue-800 text-xs border border-blue-200 font-semibold flex items-center gap-2 animate-pulse">
+              <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+              <span>{uploadProgress}</span>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {initialData?.id && (
               <input type="hidden" name="id" value={initialData.id} />
@@ -216,18 +319,16 @@ export default function AddArtworkModal({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
-                  Painting Type
-                </label>
-                <select
+                <CustomSelect
+                  label="Painting Type"
                   name="painting_type"
                   defaultValue={initialData?.painting_type ?? 'oil'}
-                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 focus:border-black focus:ring-2 focus:ring-black/10 outline-none bg-white transition-all"
-                >
-                  <option value="oil">Oil</option>
-                  <option value="acrylic">Acrylic</option>
-                  <option value="mixed">Mixed Media</option>
-                </select>
+                  options={[
+                    { value: 'oil', label: 'Oil' },
+                    { value: 'acrylic', label: 'Acrylic' },
+                    { value: 'mixed', label: 'Mixed Media' },
+                  ]}
+                />
               </div>
             </div>
 
@@ -260,86 +361,27 @@ export default function AddArtworkModal({
             </div>
 
             {/* Structured Dimensions */}
-            <div className="bg-[#FAF9F6] border border-gray-200/80 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700">
-                  Artwork Dimensions & Display Size
-                </label>
-                <span className="text-[10px] text-gray-500 font-medium">Automatic conversion enabled</span>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
-                    Width
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={width}
-                    onChange={(e) => handleWidthChange(e.target.value)}
-                    placeholder="24"
-                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
-                    Height
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={height}
-                    onChange={(e) => handleHeightChange(e.target.value)}
-                    placeholder="36"
-                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
-                    Unit
-                  </label>
-                  <select
-                    value={unit}
-                    onChange={(e) => handleUnitChange(e.target.value as MeasurementUnit)}
-                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none"
-                  >
-                    <option value="in">Inches (in)</option>
-                    <option value="cm">Centimeters (cm)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
-                    Display Text
-                  </label>
-                  <input
-                    type="text"
-                    value={displaySize}
-                    onChange={(e) => setDisplaySize(e.target.value)}
-                    placeholder="24 × 36 in"
-                    className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none"
-                  />
-                </div>
-              </div>
-            </div>
+            <DimensionInputGroup
+              width={width}
+              height={height}
+              unit={unit}
+              onWidthChange={handleWidthChange}
+              onHeightChange={handleHeightChange}
+              onUnitChange={handleUnitChange}
+            />
 
             {/* Row 4: Status */}
             <div>
-              <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
-                Stock Status
-              </label>
-              <select
+              <CustomSelect
+                label="Stock Status"
                 name="availability_status"
                 defaultValue={initialData?.availability_status ?? 'available'}
-                className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 focus:border-black focus:ring-2 focus:ring-black/10 outline-none bg-white transition-all"
-              >
-                <option value="available">Available</option>
-                <option value="reserved">Reserved</option>
-                <option value="sold">Sold</option>
-              </select>
+                options={[
+                  { value: 'available', label: 'Available' },
+                  { value: 'reserved', label: 'Reserved' },
+                  { value: 'sold', label: 'Sold' },
+                ]}
+              />
             </div>
 
             {/* Price & Offer Row */}
@@ -523,28 +565,74 @@ export default function AddArtworkModal({
                 </div>
               )}
 
-              <div className="border border-gray-300 rounded-lg p-2 flex items-center gap-3 bg-white">
-                <label
-                  htmlFor="modal_artwork_image"
-                  className="cursor-pointer bg-black text-white text-xs font-semibold px-3.5 py-1.5 rounded-md hover:bg-gray-800 transition-colors flex-shrink-0"
-                >
-                  Choose File
-                </label>
-                <input
-                  id="modal_artwork_image"
-                  name="artwork_image"
-                  type="file"
-                  accept="image/png, image/jpeg, image/webp"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                <span className="text-xs text-gray-500 font-mono truncate">
-                  {selectedFileName}
-                </span>
+              {/* 4:5 Cropped Preview if admin cropped new image */}
+              {cropPreviewUrl && (
+                <div className="mb-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="relative h-14 w-11 rounded-md overflow-hidden border border-emerald-300 flex-shrink-0 bg-white">
+                      <Image
+                        src={cropPreviewUrl}
+                        alt="Cropped artwork preview"
+                        fill
+                        className="object-cover"
+                        sizes="44px"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-emerald-900">4:5 Crop Applied</p>
+                      <p className="text-[11px] text-emerald-700 font-light">
+                        Prepared for gallery presentation
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCropModalOpen(true)}
+                    className="text-xs font-semibold text-emerald-800 bg-white px-3 py-1.5 rounded border border-emerald-300 hover:bg-emerald-100 transition-colors flex items-center gap-1.5"
+                  >
+                    <Crop className="w-3.5 h-3.5" />
+                    <span>Recrop</span>
+                  </button>
+                </div>
+              )}
+
+              <div className="border border-gray-300 rounded-lg p-2 flex items-center justify-between gap-3 bg-white">
+                <div className="flex items-center gap-3 min-w-0">
+                  <label
+                    htmlFor="modal_artwork_image"
+                    className="cursor-pointer bg-black text-white text-xs font-semibold px-3.5 py-1.5 rounded-md hover:bg-gray-800 transition-colors flex-shrink-0"
+                  >
+                    Choose File
+                  </label>
+                  <input
+                    id="modal_artwork_image"
+                    name="artwork_image"
+                    type="file"
+                    accept="image/png, image/jpeg, image/webp"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <span className="text-xs text-gray-500 font-mono truncate">
+                    {selectedFileName}
+                  </span>
+                </div>
+
+                {(cropPreviewUrl || selectedFileName !== 'no file selected') && (
+                  <button
+                    type="button"
+                    onClick={clearSelectedImage}
+                    className="text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0"
+                    title="Remove selected image"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove</span>
+                  </button>
+                )}
               </div>
               <p className="mt-1.5 text-[11px] text-gray-400 font-light">
                 JPG, PNG or WebP · up to 12 MB · use a sharp, straight-on photo
               </p>
+
             </div>
 
             {/* Publish toggles */}
@@ -632,6 +720,16 @@ export default function AddArtworkModal({
           </form>
         </div>
       </div>
+
+      {/* 4:5 Aspect Ratio Image Cropper Modal */}
+      {cropModalOpen && imageSrcToCrop && (
+        <ImageCropperModal
+          isOpen={cropModalOpen}
+          imageSrc={imageSrcToCrop}
+          onClose={() => setCropModalOpen(false)}
+          onCropComplete={handleCropComplete}
+        />
+      )}
     </div>
   )
 }

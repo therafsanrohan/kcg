@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
+import { Suspense } from 'react'
 import CustomerGallerySection from '@/components/CustomerGallerySection'
 
 export const revalidate = 0 // Instant updates from database
@@ -21,7 +22,9 @@ export default async function GalleryPage() {
 
   return (
     <div className="bg-white min-h-screen pt-8">
-      <CustomerGallerySection paintings={paintings || []} />
+      <Suspense fallback={null}>
+        <CustomerGallerySection paintings={paintings || []} />
+      </Suspense>
     </div>
   )
 }

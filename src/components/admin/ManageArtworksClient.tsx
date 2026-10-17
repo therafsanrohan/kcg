@@ -7,6 +7,7 @@ import { Plus, Pencil, Trash2, Eye, EyeOff, Search, X } from 'lucide-react'
 import AddArtworkModal from '@/components/admin/AddArtworkModal'
 import { deletePainting, togglePublishPainting } from '@/app/admin/(dashboard)/paintings/actions'
 import { getPaintingImageUrl } from '@/utils/image'
+import { useAdminFeedback } from '@/components/admin/AdminFeedbackProvider'
 
 interface ManageArtworksClientProps {
   initialPaintings: any[]
@@ -55,23 +56,41 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
     [router]
   )
 
+  const { toast, confirm: confirmModal } = useAdminFeedback()
+
   const handleDelete = (id: string, title: string) => {
-    if (confirm(`Delete "${title}"?\n\nThis will remove it from the website permanently.`)) {
-      setDeletingId(id)
-      startDeleteTransition(async () => {
-        await deletePainting(id)
-        setDeletingId(null)
-        router.refresh()
-      })
-    }
+    confirmModal({
+      title: 'Delete Artwork',
+      message: `Are you sure you want to delete "${title}"? This will permanently remove the artwork and all associated images from the website.`,
+      confirmText: 'Delete Permanently',
+      isDestructive: true,
+      onConfirm: () => {
+        setDeletingId(id)
+        startDeleteTransition(async () => {
+          const res = await deletePainting(id)
+          setDeletingId(null)
+          if (res?.success) {
+            toast(`"${title}" was deleted successfully.`, 'success')
+            router.refresh()
+          } else {
+            toast(res?.error || 'Failed to delete painting.', 'error')
+          }
+        })
+      },
+    })
   }
 
   const handleTogglePublish = (id: string, currentValue: boolean) => {
     setTogglingId(id)
     startToggleTransition(async () => {
-      await togglePublishPainting(id, currentValue)
+      const res = await togglePublishPainting(id, currentValue)
       setTogglingId(null)
-      router.refresh()
+      if (res?.success) {
+        toast(`Visibility updated to ${!currentValue ? 'Published' : 'Hidden'}.`, 'success')
+        router.refresh()
+      } else {
+        toast(res?.error || 'Failed to update visibility.', 'error')
+      }
     })
   }
 

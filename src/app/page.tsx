@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
+import { Suspense } from 'react'
 import Image from 'next/image'
 import { getPaintingImageUrl } from '@/utils/image'
 import { ArrowUpRight, ChevronDown } from 'lucide-react'
@@ -37,99 +38,105 @@ export default async function Home() {
     <div className="bg-white text-gray-950 font-sans">
       
       {/* ── 1. Hero Section ── */}
-      <section className="pt-12 sm:pt-20 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div>
-          <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
-            ORIGINAL PAINTINGS &bull; DHAKA
-          </span>
+      <section className="pt-16 sm:pt-28 pb-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        <div className="max-w-4xl">
           
-          <h1 className="font-sans text-5xl sm:text-7xl lg:text-8xl font-extrabold text-gray-950 tracking-tight leading-[1.05] mt-4 mb-6">
+          <h1 className="text-5xl sm:text-7xl lg:text-8xl font-bold text-gray-950 tracking-tight leading-[1.05] mb-8">
             Made by hand.<br />
-            Chosen by feeling.
+            <span className="font-light text-gray-700">Chosen by feeling.</span>
           </h1>
 
-          <p className="text-base sm:text-xl text-gray-600 font-light max-w-xl mb-8 leading-relaxed">
-            One-of-one oil and acrylic paintings, ready for homes, workspaces and thoughtful gifts.
+          <p className="text-base sm:text-lg text-gray-600 font-light max-w-xl mb-10 leading-relaxed">
+            One-of-one oil and acrylic paintings on stretched canvas, thoughtfully crafted for residences, contemporary spaces, and private collectors.
           </p>
 
-          <a
-            href="#available-works"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-gray-950 border-b border-gray-950 pb-0.5 hover:text-gray-600 hover:border-gray-600 transition-colors group"
-          >
-            <span>Browse available paintings</span>
-            <ChevronDown className="h-4 w-4 transition-transform group-hover:translate-y-0.5" />
-          </a>
+          <div className="flex items-center gap-6">
+            <a
+              href="#available-works"
+              className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] font-medium text-gray-950 border-b border-black pb-1 hover:text-gray-600 hover:border-gray-400 transition-all group"
+            >
+              <span>Explore collection</span>
+              <ChevronDown className="h-3.5 w-3.5 transition-transform group-hover:translate-y-0.5" />
+            </a>
+            <span className="text-xs text-gray-400 font-mono">
+              {paintings?.length || 0} works catalogued
+            </span>
+          </div>
         </div>
       </section>
 
       {/* ── 2. Featured Artwork Showcase Banner ── */}
       {featuredPainting && (
-        <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto my-8 sm:my-12">
-          <div className="relative w-full h-[450px] sm:h-[580px] lg:h-[650px] rounded-3xl overflow-hidden shadow-lg border border-gray-200/80 group">
+        <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto my-8 sm:my-14">
+          <div className="relative w-full h-[480px] sm:h-[600px] lg:h-[680px] overflow-hidden border border-gray-200/60 bg-[#F4F3EE] group">
             <Image
               src={featuredImageUrl}
               alt={featuredPainting.title}
               fill
               priority
               sizes="100vw"
-              className="object-cover object-center transition-transform duration-1000 group-hover:scale-105"
+              className="object-cover object-center transition-transform duration-1000 ease-out group-hover:scale-[1.02]"
             />
             
-            {/* Gradient Overlay for Text Readability */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            {/* Subtle Gradient for Legend Contrast */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
 
-            {/* Bottom-Left Overlay Text */}
-            <div className="absolute bottom-8 left-6 sm:bottom-12 sm:left-10 z-20 max-w-xl text-white">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-white/80">
-                FEATURED WORK
+            {/* Bottom-Left Overlay Text: Editorial Label */}
+            <div className="absolute bottom-8 left-6 sm:bottom-12 sm:left-12 z-20 max-w-xl text-white">
+              <span className="text-[10px] uppercase tracking-[0.22em] text-white/80 font-medium block mb-2">
+                EXHIBITION SPOTLIGHT
               </span>
-              <h2 className="font-sans text-3xl sm:text-5xl font-bold text-white mt-1 leading-tight">
+              <h2 className="font-editorial text-3xl sm:text-5xl font-normal text-white leading-tight">
                 {featuredPainting.title}
               </h2>
-              <p className="text-sm sm:text-base text-white/90 font-light mt-1">
+              <p className="text-xs sm:text-sm text-white/80 font-light mt-2 tracking-wide">
                 {featuredPainting.exact_medium} &bull; {featuredPainting.display_size || `${featuredPainting.width} × ${featuredPainting.height} in`}
               </p>
             </div>
 
-            {/* Bottom-Right Circular Arrow Button */}
+            {/* Bottom-Right Arrow Link */}
             <Link
               href={`/gallery/${featuredPainting.slug}`}
-              className="absolute bottom-8 right-6 sm:bottom-12 sm:right-10 z-20 h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-white text-black flex items-center justify-center shadow-2xl hover:scale-110 transition-transform duration-300"
+              className="absolute bottom-8 right-6 sm:bottom-12 sm:right-12 z-20 h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-white/95 text-black flex items-center justify-center hover:bg-black hover:text-white transition-all duration-300 shadow-md"
               title={`View ${featuredPainting.title}`}
             >
-              <ArrowUpRight className="h-6 w-6 stroke-[2.5]" />
+              <ArrowUpRight className="h-5 w-5 stroke-[2]" />
             </Link>
           </div>
         </section>
       )}
 
       {/* ── 3. Interactive Gallery Section (Find your piece) ── */}
-      <CustomerGallerySection paintings={paintings || []} />
+      <Suspense fallback={null}>
+        <CustomerGallerySection paintings={paintings || []} />
+      </Suspense>
 
-      {/* ── 4. Dark Info Banner: Ready for your wall ── */}
-      <section className="bg-[#141414] text-white py-20 sm:py-28 px-6 sm:px-12 lg:px-16 my-12">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="font-sans text-4xl sm:text-6xl font-bold text-white tracking-tight mb-6">
-            Ready for your wall.
-          </h2>
-          <p className="text-base sm:text-xl text-gray-300 font-light leading-relaxed">
-            Choose from the frame sizes and finishes available for each painting. The painting price, frame price and total are shown separately before you contact us.
-          </p>
-        </div>
-      </section>
+      {/* ── 4. Editorial Information Split ── */}
+      <section className="border-t border-gray-200/80 bg-[#FAF9F5] py-20 sm:py-28 px-4 sm:px-6 lg:px-8 mt-16">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-20">
+          <div className="space-y-4">
+            <span className="text-[10px] uppercase tracking-[0.24em] text-gray-400 font-semibold block">
+              AUTHENTICITY & CRAFT
+            </span>
+            <h3 className="font-editorial text-3xl sm:text-4xl text-gray-950 font-normal leading-tight">
+              Individually created with traditional patience.
+            </h3>
+            <p className="text-sm sm:text-base text-gray-600 font-light leading-relaxed">
+              Every canvas represents original hours of physical composition, rich pigment layering, and deliberate texture. Small organic surface marks attest to the authentic touch of hand-applied fine oils and acrylics.
+            </p>
+          </div>
 
-      {/* ── 5. Light Info Banner: Handmade paintings ── */}
-      <section className="bg-[#FAF9F6] text-gray-950 py-20 sm:py-28 px-6 sm:px-12 lg:px-16 border-t border-gray-200/60">
-        <div className="max-w-4xl mx-auto">
-          <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400 block mb-4">
-            KAZI CANVAS GALLERY
-          </span>
-          <h2 className="font-sans text-4xl sm:text-6xl font-bold text-gray-950 tracking-tight mb-6 leading-tight">
-            Handmade paintings, presented with the clarity collectors expect.
-          </h2>
-          <p className="text-base sm:text-xl text-gray-600 font-light leading-relaxed">
-            Every artwork is individually painted. Visible brushwork, texture and small surface variations are part of the original piece.
-          </p>
+          <div className="space-y-4 md:border-l md:border-gray-200/80 md:pl-12 lg:pl-16">
+            <span className="text-[10px] uppercase tracking-[0.24em] text-gray-400 font-semibold block">
+              COLLECTOR ASSURANCE
+            </span>
+            <h3 className="font-editorial text-3xl sm:text-4xl text-gray-950 font-normal leading-tight">
+              Pristine framing and reliable delivery.
+            </h3>
+            <p className="text-sm sm:text-base text-gray-600 font-light leading-relaxed">
+              Select tailored gallery floating frames or receive the piece canvas-only. Artwork pricing, framing options, and destination logistics are transparently detailed before direct artist consultation.
+            </p>
+          </div>
         </div>
       </section>
 

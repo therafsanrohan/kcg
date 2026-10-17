@@ -1,12 +1,16 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Crop, Trash2 } from 'lucide-react'
+import Image from 'next/image'
 import { savePainting } from '@/app/admin/(dashboard)/paintings/actions'
 import { Painting } from '@/types'
-import { MeasurementUnit, parseLegacyDisplaySize, fromMm } from '@/utils/measurements'
+import { MeasurementUnit, parseLegacyDisplaySize, fromCanonicalMm, formatDimensions } from '@/utils/measurements'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import ImageCropperModal from './ImageCropperModal'
+import DimensionInputGroup from './DimensionInputGroup'
+import CustomSelect from '@/components/ui/CustomSelect'
 
 interface FrameRow {
   id: string
@@ -26,14 +30,14 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
   const [unit, setUnit] = useState<MeasurementUnit>(initialUnit)
   const [width, setWidth] = useState<string>(() => {
     if (painting?.width_mm) {
-      const val = fromMm(painting.width_mm, initialUnit)
+      const val = fromCanonicalMm(painting.width_mm, initialUnit)
       return val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)
     }
     return initialParsed?.width ? String(initialParsed.width) : painting?.width ? String(painting.width) : '24'
   })
   const [height, setHeight] = useState<string>(() => {
     if (painting?.height_mm) {
-      const val = fromMm(painting.height_mm, initialUnit)
+      const val = fromCanonicalMm(painting.height_mm, initialUnit)
       return val % 1 === 0 ? val.toFixed(0) : val.toFixed(1)
     }
     return initialParsed?.height ? String(initialParsed.height) : painting?.height ? String(painting.height) : '36'
@@ -63,25 +67,30 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     }
   }
 
-  const [frames, setFrames] = useState<FrameRow[]>(
-    painting?.frame_options?.length
-      ? painting.frame_options.map((f: any) => ({
-          id: f.id || Math.random().toString(),
-          frame_name: f.frame_name,
-          outer_size: f.outer_size || '',
-          price_bdt: f.price_bdt || 0,
-        }))
-      : [
-          {
-            id: '1',
-            frame_name: 'Natural oak',
-            outer_size: '27 × 39 in',
-            price_bdt: 0,
-          },
-        ]
-  )
+  const [frames, setFrames] = useState<FrameRow[]>(() => {
+    if (painting?.frame_options?.length) {
+      return painting.frame_options.map((f: any, idx: number) => ({
+        id: f.id || `frame-${idx + 1}`,
+        frame_name: f.frame_name,
+        outer_size: f.outer_size || '',
+        price_bdt: f.price_bdt || 0,
+      }))
+    }
+    return [
+      {
+        id: 'frame-default',
+        frame_name: 'Natural oak',
+        outer_size: '27 × 39 in',
+        price_bdt: 0,
+      },
+    ]
+  })
 
   const [selectedFileName, setSelectedFileName] = useState<string>('no file selected')
+  const [cropModalOpen, setCropModalOpen] = useState(false)
+  const [imageSrcToCrop, setImageSrcToCrop] = useState<string | null>(null)
+  const [croppedBlob, setCroppedBlob] = useState<Blob | null>(null)
+  const [cropPreviewUrl, setCropPreviewUrl] = useState<string | null>(null)
 
   const handleAddFrame = () => {
     setFrames((prev) => [
@@ -105,17 +114,56 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     )
   }
 
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null)
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFileName(e.target.files[0].name)
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setErrorMsg(`Selected file is ${(file.size / (1024 * 1024)).toFixed(2)} MB. Maximum allowed size is 5.0 MB.`)
+        clearSelectedImage()
+        return
+      }
+      setErrorMsg(null)
+      setSelectedFile(file)
+      setSelectedFileName(file.name)
+      const objUrl = URL.createObjectURL(file)
+      setImageSrcToCrop(objUrl)
+      setCropModalOpen(true)
     } else {
-      setSelectedFileName('no file selected')
+      clearSelectedImage()
     }
+  }
+
+  const clearSelectedImage = () => {
+    setSelectedFileName('no file selected')
+    setSelectedFile(null)
+    if (imageSrcToCrop) {
+      URL.revokeObjectURL(imageSrcToCrop)
+    }
+    if (cropPreviewUrl) {
+      URL.revokeObjectURL(cropPreviewUrl)
+    }
+    setImageSrcToCrop(null)
+    setCroppedBlob(null)
+    setCropPreviewUrl(null)
+    const fileInput = document.getElementById('artwork_image_standalone') as HTMLInputElement | null
+    if (fileInput) {
+      fileInput.value = ''
+    }
+  }
+
+  const handleCropComplete = (blob: Blob) => {
+    setCroppedBlob(blob)
+    setCropPreviewUrl(URL.createObjectURL(blob))
+    setCropModalOpen(false)
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setErrorMsg(null)
+    setUploadProgress(null)
     const formData = new FormData(e.currentTarget)
     formData.set('frames_json', JSON.stringify(frames))
     formData.set('width_input', width)
@@ -123,15 +171,55 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     formData.set('measurement_unit_input', unit)
     formData.set('display_size', displaySize)
 
+    // Remove raw binary from Server Action payload
+    formData.delete('artwork_image')
+
+    const fileToUpload = croppedBlob || selectedFile
+
     startTransition(async () => {
-      const res = await savePainting(null, formData)
-      if (res?.error) {
-        setErrorMsg(res.error)
-      } else {
-        router.push('/admin')
+      try {
+        if (fileToUpload) {
+          setUploadProgress('Uploading & optimizing high-resolution artwork...')
+          const uploadData = new FormData()
+          const uploadPaintingId = painting?.id || 'new'
+          uploadData.append('paintingId', uploadPaintingId)
+          uploadData.append('isPrimary', 'true')
+          uploadData.append('sortOrder', '1')
+
+          const filePayload = fileToUpload instanceof File
+            ? fileToUpload
+            : new File([fileToUpload], `artwork-${Date.now()}.webp`, { type: fileToUpload.type || 'image/webp' })
+
+          uploadData.append('image', filePayload)
+
+          const uploadRes = await fetch('/api/images/upload', {
+            method: 'POST',
+            body: uploadData,
+          })
+
+          const jsonRes = await uploadRes.json()
+          if (!uploadRes.ok || !jsonRes.success) {
+            throw new Error(jsonRes.error || 'Failed to process and upload image.')
+          }
+
+          formData.set('uploaded_image_json', JSON.stringify(jsonRes.data))
+        }
+
+        setUploadProgress('Saving artwork details to database...')
+        const res = await savePainting(null, formData)
+        if (res?.error) {
+          setErrorMsg(res.error)
+        } else {
+          router.push('/admin')
+        }
+      } catch (err: any) {
+        setErrorMsg(err.message || 'Failed to save artwork.')
+      } finally {
+        setUploadProgress(null)
       }
     })
   }
+
 
   const isEditMode = Boolean(painting?.id)
 
@@ -149,6 +237,13 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
       {errorMsg && (
         <div className="mb-6 p-3 rounded-lg bg-red-50 text-red-600 text-sm border border-red-200">
           {errorMsg}
+        </div>
+      )}
+
+      {uploadProgress && (
+        <div className="mb-6 p-3 rounded-lg bg-blue-50 text-blue-800 text-xs border border-blue-200 font-semibold flex items-center gap-2 animate-pulse">
+          <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+          <span>{uploadProgress}</span>
         </div>
       )}
 
@@ -173,19 +268,17 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
           </div>
 
           <div>
-            <label htmlFor="painting_type" className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
-              PAINTING TYPE
-            </label>
-            <select
+            <CustomSelect
+              label="PAINTING TYPE"
               id="painting_type"
               name="painting_type"
               defaultValue={painting?.painting_type || 'oil'}
-              className="w-full rounded-md border border-gray-300 px-3.5 py-2 text-sm text-gray-900 focus:border-black focus:ring-1 focus:ring-black outline-none bg-white transition-all"
-            >
-              <option value="oil">Oil</option>
-              <option value="acrylic">Acrylic</option>
-              <option value="mixed">Mixed</option>
-            </select>
+              options={[
+                { value: 'oil', label: 'Oil' },
+                { value: 'acrylic', label: 'Acrylic' },
+                { value: 'mixed', label: 'Mixed Media' },
+              ]}
+            />
           </div>
 
           <div>
@@ -217,86 +310,29 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
           </div>
 
           {/* Structured Artwork Dimensions */}
-          <div className="sm:col-span-2 bg-[#FAF9F6] border border-gray-200/80 rounded-xl p-4">
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-[11px] font-bold tracking-wider uppercase text-gray-800">
-                ARTWORK DIMENSIONS & DISPLAY SIZE
-              </label>
-              <span className="text-[10px] text-gray-500 font-medium">Automatic conversion enabled</span>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
-                  WIDTH
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={width}
-                  onChange={(e) => handleWidthChange(e.target.value)}
-                  placeholder="24"
-                  className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 bg-white focus:border-black outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
-                  HEIGHT
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={height}
-                  onChange={(e) => handleHeightChange(e.target.value)}
-                  placeholder="36"
-                  className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 bg-white focus:border-black outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
-                  UNIT
-                </label>
-                <select
-                  value={unit}
-                  onChange={(e) => handleUnitChange(e.target.value as MeasurementUnit)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 bg-white focus:border-black outline-none"
-                >
-                  <option value="in">Inches (in)</option>
-                  <option value="cm">Centimeters (cm)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
-                  DISPLAY TEXT
-                </label>
-                <input
-                  type="text"
-                  value={displaySize}
-                  onChange={(e) => setDisplaySize(e.target.value)}
-                  placeholder="24 × 36 in"
-                  className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 bg-white focus:border-black outline-none"
-                />
-              </div>
-            </div>
+          <div className="sm:col-span-2">
+            <DimensionInputGroup
+              width={width}
+              height={height}
+              unit={unit}
+              onWidthChange={handleWidthChange}
+              onHeightChange={handleHeightChange}
+              onUnitChange={handleUnitChange}
+            />
           </div>
 
           <div>
-            <label htmlFor="availability_status" className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
-              STOCK STATUS
-            </label>
-            <select
+            <CustomSelect
+              label="STOCK STATUS"
               id="availability_status"
               name="availability_status"
               defaultValue={painting?.availability_status || 'available'}
-              className="w-full rounded-md border border-gray-300 px-3.5 py-2 text-sm text-gray-900 focus:border-black focus:ring-1 focus:ring-black outline-none bg-white transition-all capitalize"
-            >
-              <option value="available">Available</option>
-              <option value="reserved">Reserved</option>
-              <option value="sold">Sold</option>
-            </select>
+              options={[
+                { value: 'available', label: 'Available' },
+                { value: 'reserved', label: 'Reserved' },
+                { value: 'sold', label: 'Sold' },
+              ]}
+            />
           </div>
 
           <div>
@@ -407,29 +443,75 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
         {/* Artwork Image Upload */}
         <div>
           <label className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
-            ARTWORK IMAGE
+            ARTWORK IMAGE (4:5 GALLERY RATIO)
           </label>
-          <div className="border border-gray-300 rounded-md p-2 flex items-center gap-3 bg-white">
-            <label
-              htmlFor="artwork_image_standalone"
-              className="cursor-pointer bg-black text-white text-xs font-semibold px-3.5 py-1.5 rounded-md hover:bg-gray-800 transition-colors shadow-2xs"
-            >
-              Choose File
-            </label>
-            <input
-              id="artwork_image_standalone"
-              name="artwork_image"
-              type="file"
-              accept="image/png, image/jpeg, image/webp"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <span className="text-xs text-gray-600 font-mono truncate">
-              {selectedFileName}
-            </span>
+
+          {/* 4:5 Cropped Preview if available */}
+          {cropPreviewUrl && (
+            <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-xl flex items-center gap-4">
+              <div className="relative w-16 h-20 bg-gray-100 rounded-lg overflow-hidden border border-gray-300 flex-shrink-0">
+                <Image
+                  src={cropPreviewUrl}
+                  alt="4:5 Crop preview"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-gray-900 truncate">
+                  4:5 Gallery Crop Ready
+                </p>
+                <p className="text-[11px] text-gray-500">
+                  Image optimized and framed to 4:5 portrait ratio.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCropModalOpen(true)}
+                className="px-2.5 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5"
+              >
+                <Crop className="w-3.5 h-3.5" />
+                <span>Recrop</span>
+              </button>
+            </div>
+          )}
+
+          <div className="border border-gray-300 rounded-md p-2 flex items-center justify-between gap-3 bg-white">
+            <div className="flex items-center gap-3 min-w-0">
+              <label
+                htmlFor="artwork_image_standalone"
+                className="cursor-pointer bg-black text-white text-xs font-semibold px-3.5 py-1.5 rounded-md hover:bg-gray-800 transition-colors shadow-2xs flex-shrink-0"
+              >
+                Choose File
+              </label>
+              <input
+                id="artwork_image_standalone"
+                name="artwork_image"
+                type="file"
+                accept="image/png, image/jpeg, image/webp"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <span className="text-xs text-gray-600 font-mono truncate">
+                {selectedFileName}
+              </span>
+            </div>
+
+            {(cropPreviewUrl || selectedFileName !== 'no file selected') && (
+              <button
+                type="button"
+                onClick={clearSelectedImage}
+                className="text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded transition-colors flex items-center gap-1 flex-shrink-0"
+                title="Remove selected image"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Remove</span>
+              </button>
+            )}
           </div>
+
           <p className="mt-1.5 text-[11px] text-gray-400 font-light">
-            JPG, PNG or WebP, up to 12 MB. Use a sharp, straight-on image.
+            JPG, PNG or WebP, up to 12 MB. Selecting an image automatically opens the 4:5 portrait cropper.
           </p>
         </div>
 
@@ -450,6 +532,16 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
           </button>
         </div>
       </form>
+
+      {/* 4:5 Aspect Ratio Image Cropper Modal */}
+      {cropModalOpen && imageSrcToCrop && (
+        <ImageCropperModal
+          isOpen={cropModalOpen}
+          imageSrc={imageSrcToCrop}
+          onClose={() => setCropModalOpen(false)}
+          onCropComplete={handleCropComplete}
+        />
+      )}
     </div>
   )
 }

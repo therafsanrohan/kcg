@@ -230,12 +230,12 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
 
               // If mm is not explicitly provided, try parsing outer_size
               if (!outer_width_mm && f.outer_size) {
-                const match = f.outer_size.match(/(\d+(?:\.\d+)?)\s*[x×X]\s*(\d+(?:\.\d+)?)\s*(in|cm|mm)?/i)
+                const match = f.outer_size.match(/(\d+(?:\.\d+)?)\s*[x×X]\s*(\d+(?:\.\d+)?)\s*(in|cm|mm|ft)?/i)
                 if (match) {
                   const w = parseFloat(match[1])
                   const h = parseFloat(match[2])
-                  const u = (match[3] || 'in').toLowerCase() === 'cm' ? 'cm' : (match[3] || 'in').toLowerCase() === 'mm' ? 'mm' : 'in'
-                  const factor = u === 'in' ? 25.4 : u === 'mm' ? 1 : 10
+                  const rawUnit = (match[3] || 'in').toLowerCase()
+                  const factor = rawUnit === 'ft' ? 304.8 : rawUnit === 'in' ? 25.4 : rawUnit === 'mm' ? 1 : 10
                   outer_width_mm = Math.round(w * factor * 10) / 10
                   outer_height_mm = Math.round(h * factor * 10) / 10
                 }
@@ -263,7 +263,43 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
 
     // ── ADVANCED IMAGES PAYLOAD ──
     const advancedImagesRaw = formData.get('advanced_images_json') as string
-    if (advancedImagesRaw && paintingId) {
+    const uploadedImageRaw = formData.get('uploaded_image_json') as string
+
+    if (uploadedImageRaw && paintingId) {
+      try {
+        const uploadedImg = JSON.parse(uploadedImageRaw)
+        if (uploadedImg && uploadedImg.storageKey) {
+          // If editing and updating main cover image, demote existing primary
+          if (id) {
+            await supabase
+              .from('painting_images')
+              .update({ is_main: false, primary_image: false })
+              .eq('painting_id', id)
+              .eq('is_main', true)
+          }
+
+          const { error: insertImgErr } = await supabase.from('painting_images').insert({
+            painting_id: paintingId,
+            storage_key: uploadedImg.storageKey,
+            thumbnail_key: uploadedImg.thumbnailKey || uploadedImg.storageKey,
+            responsive_urls: uploadedImg.responsiveUrls || {},
+            is_main: true,
+            primary_image: true,
+            sort_order: 1,
+            mime_type: uploadedImg.mimeType || 'image/webp',
+            file_format: uploadedImg.mimeType?.split('/')[1] || 'webp',
+            width_px: uploadedImg.width || null,
+            height_px: uploadedImg.height || null,
+          })
+
+          if (insertImgErr) {
+            console.error('Error inserting uploaded image record:', insertImgErr)
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing uploaded_image_json:', e)
+      }
+    } else if (advancedImagesRaw && paintingId) {
       try {
         const advancedImages: Array<{
           id: string
@@ -312,7 +348,7 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
           const fileName = `${paintingId}-${Date.now()}.${fileExt}`
 
           const { error: uploadErr } = await supabase.storage
-            .from('paintings')
+            .from('paintings_optimized')
             .upload(fileName, imageFile, { upsert: true, contentType: imageFile.type })
 
           if (uploadErr) {
@@ -328,6 +364,7 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
             await supabase.from('painting_images').insert({
               painting_id: paintingId,
               storage_key: fileName,
+              thumbnail_key: fileName,
               alt_text: title,
               is_main: true,
               primary_image: true,
@@ -340,10 +377,14 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
       }
     }
 
+
     revalidatePath('/admin')
     revalidatePath('/admin/paintings')
     revalidatePath('/')
     revalidatePath('/gallery')
+    if (id) {
+      revalidatePath(`/admin/paintings/${id}`)
+    }
 
     return { success: true }
   } catch (err: any) {

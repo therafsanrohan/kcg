@@ -35,13 +35,28 @@ export async function requireAdmin() {
     .eq('id', user.id)
     .single()
 
-  if (!isOwner && (adminErr || !adminRecord)) {
+  let currentAdminRecord = adminRecord as AdminUserRecord | null
+
+  if (isOwner && (!adminRecord || adminErr)) {
+    // Ensure owner is recorded in public.admin_users so PostgreSQL is_admin() evaluates to true
+    const { data: upserted } = await supabase
+      .from('admin_users')
+      .upsert({
+        id: user.id,
+        email: user.email,
+        role: 'superadmin',
+      }, { onConflict: 'id' })
+      .select('id, email, role')
+      .single()
+
+    currentAdminRecord = upserted as AdminUserRecord || { id: user.id, email: user.email, role: 'superadmin' }
+  } else if (!isOwner && (adminErr || !adminRecord)) {
     throw new Error('Forbidden: Your account does not have administrator privileges.')
   }
 
   return {
     supabase,
     user,
-    adminRecord: (adminRecord as AdminUserRecord) || { id: user.id, email: user.email, role: 'superadmin' },
+    adminRecord: currentAdminRecord || { id: user.id, email: user.email, role: 'superadmin' },
   }
 }

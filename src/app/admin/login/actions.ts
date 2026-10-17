@@ -17,8 +17,8 @@ export async function login(prevState: any, formData: FormData) {
   }
 
   // Validate that environment configuration exists
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://jndcunflcastmtqmqyvx.supabase.co'
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpuZGN1bmZsY2FzdG10cW1xeXZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0MzY5MzUsImV4cCI6MjEwNDAxMjkzNX0.p2Vni1gwACsc21E-MWOVNPuEacF9Wg6u-loviaQTBIw'
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || ''
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
   if (!supabaseUrl || !supabaseKey) {
     console.error('[Admin Auth Error]', {
@@ -86,6 +86,15 @@ export async function login(prevState: any, formData: FormData) {
       })
       await supabase.auth.signOut()
       return { error: 'Access denied: This account is not an authorized administrator.' }
+    }
+
+    // If owner email is verified but missing from public.admin_users, safely register them
+    if (isOwnerEmail && (!adminRecord || adminError)) {
+      await supabase.from('admin_users').upsert({
+        id: authData.user.id,
+        email: authData.user.email,
+        role: 'superadmin'
+      }, { onConflict: 'id' })
     }
 
     revalidatePath('/', 'layout')

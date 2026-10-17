@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { Upload, Trash2, Crop, Star, ArrowUp, ArrowDown, Plus } from 'lucide-react'
 import ImageCropperModal from './ImageCropperModal'
 import { getPaintingImageUrl } from '@/utils/image'
+import { useAdminFeedback } from '@/components/admin/AdminFeedbackProvider'
 
 export interface ImageItem {
   id: string
@@ -23,6 +24,7 @@ interface MultiImageManagerProps {
 }
 
 export default function MultiImageManager({ initialImages = [], onChange }: MultiImageManagerProps) {
+  const { toast } = useAdminFeedback()
   const [images, setImages] = useState<ImageItem[]>(() => {
     if (!initialImages || initialImages.length === 0) return []
     return initialImages.map((img, idx) => ({
@@ -55,7 +57,7 @@ export default function MultiImageManager({ initialImages = [], onChange }: Mult
     const availableSlots = 5 - images.length
 
     if (availableSlots <= 0) {
-      alert('Maximum 5 images allowed per artwork.')
+      toast('Maximum 5 images allowed per artwork.', 'warning')
       return
     }
 
@@ -83,7 +85,7 @@ export default function MultiImageManager({ initialImages = [], onChange }: Mult
 
   const handleRemove = (index: number) => {
     if (images.length === 1) {
-      alert('At least 1 image is required for an artwork.')
+      toast('At least 1 image is required for an artwork.', 'warning')
       return
     }
     const updated = images.filter((_, idx) => idx !== index)

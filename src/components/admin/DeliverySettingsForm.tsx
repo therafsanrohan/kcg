@@ -4,6 +4,7 @@ import { useActionState, useTransition } from 'react'
 import { saveDeliveryZonesAction } from '@/app/admin/(dashboard)/settings/delivery-actions'
 import { DeliveryZone } from '@/types'
 import { Truck, Check, AlertCircle } from 'lucide-react'
+import CustomSelect from '@/components/ui/CustomSelect'
 
 interface DeliverySettingsFormProps {
   zones: DeliveryZone[]
@@ -57,16 +58,16 @@ export default function DeliverySettingsForm({ zones }: DeliverySettingsFormProp
               <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
                 Pricing Mode
               </label>
-              <select
+              <CustomSelect
                 name={`${prefix}_pricing_mode`}
                 defaultValue={zone?.pricing_mode ?? defaultMode}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-black outline-none bg-white"
-              >
-                <option value="free">Free Delivery</option>
-                <option value="fixed">Fixed Charge (BDT)</option>
-                <option value="courier_quotation">Courier Quotation</option>
-                <option value="destination_quotation">Destination Quotation</option>
-              </select>
+                options={[
+                  { value: "free", label: "Free Delivery" },
+                  { value: "fixed", label: "Fixed Charge (BDT)" },
+                  { value: "courier_quotation", label: "Courier Quotation" },
+                  { value: "destination_quotation", label: "Destination Quotation" },
+                ]}
+              />
             </div>
 
             <div>

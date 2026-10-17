@@ -5,7 +5,7 @@ import { getExchangeRates } from '@/utils/currency'
 import ClientDetails from './ClientDetails'
 import Link from 'next/link'
 
-export const revalidate = 60 // 1 minute for fresh updates
+export const revalidate = 0 // Instant updates from database
 
 export default async function PaintingDetailsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params

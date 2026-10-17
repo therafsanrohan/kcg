@@ -7,10 +7,13 @@ import {
   MeasurementUnit,
   getDisplayDimensions,
   getFrameDisplayDimensions,
+  toCanonicalMm,
 } from '@/utils/measurements'
 import Image from 'next/image'
 import { getPaintingImageUrl, getResponsiveSrcSet } from '@/utils/image'
-import { Truck, ShieldCheck, ShoppingBag, Ruler } from 'lucide-react'
+import { Truck, ShieldCheck, ShoppingBag, Ruler, Check } from 'lucide-react'
+import ArtworkFramePreview from '@/components/admin/ArtworkFramePreview'
+import CustomSelect from '@/components/ui/CustomSelect'
 
 interface PaintingData {
   id: string
@@ -113,6 +116,15 @@ export default function ClientDetails({
 
   const isAvailable = painting.availability_status === 'available'
 
+  // Canonical mm dimensions
+  const widthMm = painting.width_mm && painting.width_mm > 0
+    ? painting.width_mm
+    : toCanonicalMm(painting.width || 60, (painting.measurement_unit as MeasurementUnit) || 'cm')
+  
+  const heightMm = painting.height_mm && painting.height_mm > 0
+    ? painting.height_mm
+    : toCanonicalMm(painting.height || 90, (painting.measurement_unit as MeasurementUnit) || 'cm')
+
   // Dimensions formatted in current display unit
   const formattedArtworkSize = getDisplayDimensions(painting, displayUnit)
   const formattedArtworkSizeIn = getDisplayDimensions(painting, 'in')
@@ -122,7 +134,9 @@ export default function ClientDetails({
   const generateWhatsAppLink = () => {
     const cleanNumber = whatsappNumber.replace(/[^0-9]/g, '')
     const baseUrl = `https://wa.me/${cleanNumber}`
-    const productUrl = typeof window !== 'undefined' ? `${window.location.origin}/gallery/${painting.slug}` : `https://kcg-gray.vercel.app/gallery/${painting.slug}`
+    const productUrl = typeof window !== 'undefined' && window.location.origin
+      ? `${window.location.origin}/gallery/${painting.slug}`
+      : `/gallery/${painting.slug}`
     
     // Compute comprehensive size description for message
     const sizeDescription = formattedArtworkSizeIn !== formattedArtworkSizeFt
@@ -176,8 +190,8 @@ export default function ClientDetails({
 
   const activeImage = images?.[activeImageIndex] || images?.[0]
   
-  // Try optimized bucket first, fallback to standard if missing
-  const bucket = activeImage?.responsive_urls || activeImage?.thumbnail_key ? 'paintings_optimized' : 'paintings'
+  // Use paintings_optimized bucket by default
+  const bucket = 'paintings_optimized'
   const activeImageUrl = getPaintingImageUrl(activeImage?.storage_key || activeImage?.processed_key, bucket)
   const srcSet = getResponsiveSrcSet(activeImage?.responsive_urls, bucket)
 
@@ -191,8 +205,7 @@ export default function ClientDetails({
           <div className="mb-4 overflow-x-auto pb-2">
             <div className="flex space-x-3">
               {images.map((img, idx) => {
-                const thumbBucket = img.thumbnail_key ? 'paintings_optimized' : 'paintings'
-                const thumbUrl = getPaintingImageUrl(img.thumbnail_key || img.storage_key, thumbBucket)
+                const thumbUrl = getPaintingImageUrl(img.thumbnail_key || img.storage_key, 'paintings_optimized')
                 const isSelected = idx === activeImageIndex
                 return (
                   <button
@@ -217,93 +230,67 @@ export default function ClientDetails({
           </div>
         )}
 
-        <div 
-          className="w-full aspect-[3/4] sm:aspect-[4/5] bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 shadow-lg relative group select-none"
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          <img
-            key={activeImageUrl}
-            src={activeImageUrl}
-            srcSet={srcSet}
-            sizes="(max-width: 768px) 100vw, 50vw"
-            alt={painting.title}
-            className="w-full h-full object-cover object-center transition-all duration-500 group-hover:scale-105 pointer-events-none"
-          />
-
-          {/* Offer Badge Top Left */}
-          {hasDiscount && (
-            <div className="absolute top-4 left-4 z-20">
-              <span className="bg-red-600 text-white font-bold text-xs uppercase tracking-wider px-3.5 py-1.5 rounded-full shadow-lg">
-                {painting.offer_badge || 'OFFER'}
-              </span>
-            </div>
-          )}
-
-          {/* Availability Badge Top Right */}
-          {painting.availability_status && painting.availability_status !== 'available' && (
-            <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-md text-white px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg z-20">
-              {painting.availability_status}
-            </div>
-          )}
-
-          {/* Watermark Overlay */}
-          <div className="absolute bottom-3 right-3 text-[10px] font-sans font-bold text-white/40 tracking-widest pointer-events-none uppercase">
-            Kazi Canvas Gallery
-          </div>
-        </div>
+        {/* Unified Artwork & Frame Live Preview Canvas */}
+        <ArtworkFramePreview
+          imageUrl={activeImageUrl}
+          title={painting.title}
+          widthMm={widthMm}
+          heightMm={heightMm}
+          selectedFrame={selectedFrame}
+          displayUnit={displayUnit}
+        />
       </div>
 
       {/* RIGHT COL: Painting info & interactivity */}
       <div className="flex flex-col gap-y-8 mt-10 lg:mt-0">
         <div>
-          <div className="flex items-center justify-between gap-4">
-            <h1 className="text-3xl font-bold text-gray-950">{painting.title}</h1>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-gray-400 block mb-1.5">
+                ORIGINAL CANVAS
+              </span>
+              <h1 className="font-editorial text-4xl sm:text-5xl font-normal text-gray-950 tracking-[-0.01em] leading-tight">
+                {painting.title}
+              </h1>
+            </div>
             
-            <select 
-              value={currency} 
-              onChange={(e) => handleCurrencyChange(e.target.value as Currency)}
-              className="text-sm font-bold text-gray-900 border-gray-300 rounded-md shadow-sm focus:border-black focus:ring-black bg-white px-3 py-1.5"
-            >
-              {SUPPORTED_CURRENCIES.map(c => (
-                <option key={c} value={c} className="text-gray-900 bg-white">
-                  {c}
-                </option>
-              ))}
-            </select>
+            <div className="w-24">
+              <CustomSelect 
+                value={currency} 
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleCurrencyChange(e.target.value as Currency)}
+                aria-label="Select currency"
+                className="text-xs font-mono font-medium text-gray-800 py-1.5 pl-2.5 pr-7"
+                options={SUPPORTED_CURRENCIES.map(c => ({ value: c, label: c }))}
+              />
+            </div>
           </div>
-          <p className="mt-2 text-sm text-gray-500 capitalize font-medium">{painting.painting_type} &middot; {painting.exact_medium}</p>
+          <p className="mt-3 text-xs sm:text-sm text-gray-500 font-light">
+            {painting.painting_type} &bull; {painting.exact_medium}
+          </p>
           
           {/* Size with unit toggle */}
-          <div className="mt-2.5 flex items-center gap-3">
-            <div className="flex items-center gap-1.5 text-sm text-gray-700 font-mono bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-md">
-              <Ruler className="h-3.5 w-3.5 text-gray-500" />
+          <div className="mt-3 flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-xs text-gray-700 font-mono bg-white border border-gray-200 px-2.5 py-1 rounded-sm">
+              <Ruler className="h-3 w-3 text-gray-400" />
               <span>{formattedArtworkSize}</span>
             </div>
 
-            {/* Unit Switcher */}
+            {/* Unit Switcher with all 4 supported units */}
             <div className="inline-flex rounded-md shadow-2xs border border-gray-200 bg-white p-0.5">
-              <button
-                type="button"
-                onClick={() => setDisplayUnit('in')}
-                className={`px-2 py-0.5 text-xs font-semibold rounded ${
-                  displayUnit === 'in'
-                    ? 'bg-black text-white'
-                    : 'text-gray-600 hover:text-black'
-                } transition-all`}
-              >
-                in
-              </button>
-              <button
-                type="button"
-                onClick={() => setDisplayUnit('ft')}
-                className={`px-2 py-0.5 text-xs font-semibold rounded ${
-                  displayUnit === 'ft'
-                    ? 'bg-black text-white'
-                    : 'text-gray-600 hover:text-black'
-                } transition-all`}
-              >
-                ft
-              </button>
+              {(['in', 'ft', 'cm', 'mm'] as MeasurementUnit[]).map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => setDisplayUnit(u)}
+                  className={`px-2 py-0.5 text-xs font-semibold rounded ${
+                    displayUnit === u
+                      ? 'bg-black text-white'
+                      : 'text-gray-600 hover:text-black'
+                  } transition-all`}
+                >
+                  {u}
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -313,32 +300,34 @@ export default function ClientDetails({
         </div>
 
         {/* Framing Options */}
-        <div className="border-t border-gray-200 pt-6">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-gray-900 mb-3">1. Select Framing Option</h3>
-          <div className="space-y-3">
-            <label className={`block border p-4 rounded-xl cursor-pointer transition-colors ${selectedFrameId === 'none' ? 'border-black bg-gray-50/80 ring-1 ring-black' : 'border-gray-200 hover:border-gray-300'}`}>
+        <div className="border-t border-gray-200/80 pt-6">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 mb-4">
+            1. Framing Selection
+          </h3>
+          <div className="space-y-2.5">
+            <label className={`block border p-3.5 rounded-lg cursor-pointer transition-colors ${selectedFrameId === 'none' ? 'border-black bg-gray-50/60 ring-1 ring-black' : 'border-gray-200 hover:border-gray-300'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <input type="radio" name="frame" value="none" checked={selectedFrameId === 'none'} onChange={() => setSelectedFrameId('none')} className="h-4 w-4 text-black focus:ring-black border-gray-300" />
-                  <span className="ml-3 font-semibold text-gray-900 text-sm">Painting Only (Unframed Canvas)</span>
+                  <span className="ml-3 font-medium text-gray-900 text-sm">Canvas Only (Unframed)</span>
                 </div>
-                <span className="text-xs font-bold text-gray-500 uppercase">Included</span>
+                <span className="text-[11px] font-mono text-gray-400 uppercase">Included</span>
               </div>
             </label>
             
             {frames.map((frame) => {
               const frameSizeStr = getFrameDisplayDimensions(frame, displayUnit)
               return (
-                <label key={frame.id} className={`block border p-4 rounded-xl cursor-pointer transition-colors ${selectedFrameId === frame.id ? 'border-black bg-gray-50/80 ring-1 ring-black' : 'border-gray-200 hover:border-gray-300'}`}>
+                <label key={frame.id} className={`block border p-3.5 rounded-lg cursor-pointer transition-colors ${selectedFrameId === frame.id ? 'border-black bg-gray-50/60 ring-1 ring-black' : 'border-gray-200 hover:border-gray-300'}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center">
                       <input type="radio" name="frame" value={frame.id} checked={selectedFrameId === frame.id} onChange={() => setSelectedFrameId(frame.id)} className="h-4 w-4 text-black focus:ring-black border-gray-300" />
                       <div className="ml-3">
-                        <span className="block font-semibold text-gray-900 text-sm">{frame.frame_name}</span>
-                        <span className="block text-xs text-gray-500">Outer Size: {frameSizeStr}</span>
+                        <span className="block font-medium text-gray-900 text-sm">{frame.frame_name}</span>
+                        <span className="block text-xs text-gray-500 font-light">Outer: {frameSizeStr}</span>
                       </div>
                     </div>
-                    <span className="text-sm font-bold text-gray-900 font-mono">
+                    <span className="text-xs font-mono font-medium text-gray-900">
                       + {convertCurrency(frame.price_bdt, currency, rates)} {currency}
                     </span>
                   </div>
@@ -441,29 +430,29 @@ export default function ClientDetails({
         </div>
 
         {/* CTA Button */}
-        <div className="mt-6">
+        <div className="mt-8">
           {isAvailable ? (
             <a
               href={generateWhatsAppLink()}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-transparent bg-green-600 px-8 py-4 text-base font-bold text-white shadow-lg hover:bg-green-700 hover:-translate-y-0.5 hover:shadow-xl transition-all duration-300 focus:outline-none"
+              className="flex w-full items-center justify-center gap-2.5 rounded-md bg-[#1A1A1A] px-8 py-4 text-xs uppercase tracking-[0.18em] font-semibold text-white shadow-sm hover:bg-black transition-colors focus:outline-none"
             >
-              <ShoppingBag className="h-5 w-5 fill-white stroke-none" />
-              Order Now via WhatsApp
+              <ShoppingBag className="h-4 w-4 fill-white stroke-none" />
+              <span>Inquire & Acquire via WhatsApp</span>
             </a>
           ) : (
              <button
               disabled
-              className="flex w-full items-center justify-center rounded-xl border border-transparent bg-gray-300 px-8 py-4 text-base font-bold text-gray-500 cursor-not-allowed uppercase tracking-wider"
+              className="flex w-full items-center justify-center rounded-md bg-gray-200 px-8 py-4 text-xs font-mono font-semibold text-gray-500 cursor-not-allowed uppercase tracking-wider"
             >
               {painting.availability_status}
             </button>
           )}
           
-          <div className="mt-4 flex items-center justify-center gap-2 text-xs text-gray-500 font-light">
-            <ShieldCheck className="h-4 w-4 text-gray-400" />
-            Original handmade artwork &bull; Direct artist consultation &bull; Secure delivery
+          <div className="mt-5 flex items-center justify-center gap-2 text-xs text-gray-400 font-light">
+            <ShieldCheck className="h-3.5 w-3.5 text-gray-400" />
+            Original one-of-one physical artwork &bull; Direct consultation &bull; Secure shipment
           </div>
         </div>
       </div>
