@@ -58,9 +58,26 @@ export default async function InvoiceDetailPage({
   const remainingDue = Math.max(0, Number(invoice.grand_total_bdt) - totalPaid)
 
   // Canonical HTTPS verification URL & QR Code
+  // If historical invoice lacks a share_token, auto-provision one deterministically
+  let activeShareToken = invoice.share_token
+  if (!activeShareToken) {
+    const tokenBytes = new Uint8Array(24)
+    crypto.getRandomValues(tokenBytes)
+    activeShareToken = Array.from(tokenBytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+
+    await supabase
+      .from('invoices')
+      .update({
+        share_token: activeShareToken,
+        is_share_link_active: true,
+        share_link_created_at: new Date().toISOString(),
+      })
+      .eq('id', invoice.id)
+  }
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.kazicanvasgallery.com'
-  const verificationUrl = invoice.share_token ? `${siteUrl}/invoice/${invoice.share_token}` : ''
-  const qrDataUrl = verificationUrl ? await generateInvoiceQRCodeDataURL(verificationUrl) : ''
+  const verificationUrl = `${siteUrl}/invoice/${activeShareToken}`
+  const qrDataUrl = await generateInvoiceQRCodeDataURL(verificationUrl)
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 font-sans">

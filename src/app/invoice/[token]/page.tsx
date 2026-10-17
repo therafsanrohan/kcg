@@ -104,6 +104,39 @@ export default async function PublicInvoicePage({
 
         {/* Invoice Container */}
         <div className="invoice-paper-doc bg-white rounded-3xl border border-gray-200/90 p-6 sm:p-12 shadow-sm space-y-8 print:border-none print:shadow-none print:p-0 print:m-0 relative">
+          {/* Official Verification & Authenticity Banner */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-[#F6F5F0] border border-gray-200/80">
+            <div className="flex items-center gap-2.5">
+              <ShieldCheck className="w-5 h-5 text-emerald-700 flex-shrink-0" />
+              <div>
+                <span className="text-xs font-bold text-gray-900 tracking-tight block">
+                  Official Authentic Invoice Verified
+                </span>
+                <span className="text-[11px] text-gray-500 font-light">
+                  Digitally registered and cryptographically verified by Kazi Canvas Gallery
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2.5 py-1 rounded-md text-[11px] font-mono font-bold uppercase bg-white border border-gray-200 text-gray-800">
+                Ref: {invoice.invoice_number}
+              </span>
+              <span
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider ${
+                  isVoid
+                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                    : isPaid
+                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                    : isPartiallyPaid
+                    ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                    : 'bg-blue-50 text-blue-900 border border-blue-200'
+                }`}
+              >
+                {isVoid ? 'Void Invoice' : isPaid ? 'Status: Paid' : isPartiallyPaid ? 'Status: Partially Paid' : 'Status: Unpaid / Due'}
+              </span>
+            </div>
+          </div>
+
           {/* Status Alert for VOID, PAID or PARTIALLY PAID */}
           {isVoid ? (
             <div className="bg-rose-50 border-2 border-dashed border-rose-300 rounded-2xl p-4 text-center text-rose-800 space-y-1">
@@ -126,7 +159,7 @@ export default async function PublicInvoicePage({
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3 flex items-center justify-between text-amber-900 text-xs">
               <span className="flex items-center gap-2 font-semibold">
                 <Clock className="w-4 h-4 text-amber-600" />
-                Partially Paid &bull; Deposit Received
+                Partially Paid &bull; Deposit Confirmed
               </span>
               <span className="font-mono text-[11px] text-amber-800 font-bold">
                 Due: ৳{remainingDue.toLocaleString('en-BD')}

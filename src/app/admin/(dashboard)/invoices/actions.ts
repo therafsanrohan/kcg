@@ -139,14 +139,25 @@ export async function createInvoiceDraft(payload: any) {
       additional_charge_bdt: additionalCharge,
       grand_total_bdt: grandTotal,
       notes: payload.notes || null,
-      terms: payload.terms || null,
       created_by: user.id
+    }
+
+    // Always generate a unique, cryptographically secure verification share_token for every invoice
+    const tokenBytes = new Uint8Array(24)
+    crypto.getRandomValues(tokenBytes)
+    const initialShareToken = Array.from(tokenBytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
+
+    const invoicePayloadWithToken = {
+      ...invoiceData,
+      share_token: initialShareToken,
+      is_share_link_active: true,
+      share_link_created_at: new Date().toISOString(),
     }
 
     const { data: invoice, error: invoiceErr } = await supabase
       .from('invoices')
-      .insert(invoiceData)
-      .select('id, invoice_number')
+      .insert(invoicePayloadWithToken)
+      .select('id, invoice_number, share_token')
       .single()
 
     if (invoiceErr) throw invoiceErr
