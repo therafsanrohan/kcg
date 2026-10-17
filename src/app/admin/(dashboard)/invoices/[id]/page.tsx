@@ -22,14 +22,27 @@ export default async function InvoiceDetailPage({
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
-  const { data: invoice, error } = await supabase
+  // Query with invoice_payments, falling back safely if table has not yet been migrated
+  let invoice: any = null
+  const resWithPayments = await supabase
     .from('invoices')
     .select('*, invoice_items(*), invoice_payments(*)')
     .eq('id', id)
     .single()
 
-  if (error || !invoice) {
-    notFound()
+  if (resWithPayments.error || !resWithPayments.data) {
+    const resFallback = await supabase
+      .from('invoices')
+      .select('*, invoice_items(*)')
+      .eq('id', id)
+      .single()
+
+    if (resFallback.error || !resFallback.data) {
+      notFound()
+    }
+    invoice = resFallback.data
+  } else {
+    invoice = resWithPayments.data
   }
 
   const items: InvoiceItem[] = invoice.invoice_items || []

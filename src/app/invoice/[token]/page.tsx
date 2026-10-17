@@ -20,15 +20,29 @@ export default async function PublicInvoicePage({
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
-  // Query only invoices with matching active share token
-  const { data: invoice, error } = await supabase
+  // Query only invoices with matching active share token, with resilient fallback
+  let invoice: any = null
+  const resWithPayments = await supabase
     .from('invoices')
     .select('*, invoice_items(*), invoice_payments(*)')
     .eq('share_token', token)
     .eq('is_share_link_active', true)
     .maybeSingle()
 
-  if (error || !invoice) {
+  if (resWithPayments.error || !resWithPayments.data) {
+    const resFallback = await supabase
+      .from('invoices')
+      .select('*, invoice_items(*)')
+      .eq('share_token', token)
+      .eq('is_share_link_active', true)
+      .maybeSingle()
+
+    invoice = resFallback.data
+  } else {
+    invoice = resWithPayments.data
+  }
+
+  if (!invoice) {
     return (
       <div className="min-h-screen bg-[#FAF9F5] flex items-center justify-center p-4 font-sans">
         <div className="max-w-md w-full bg-white rounded-3xl border border-gray-200 p-8 text-center space-y-4 shadow-sm">

@@ -10,13 +10,30 @@ export default async function InvoicesPage() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
-  const { data: invoices, error } = await supabase
+  // Try querying with invoice_payments join, with safe fallback if table is not yet migrated
+  let invoices: any[] | null = null
+  let error: any = null
+
+  const resWithPayments = await supabase
     .from('invoices')
     .select('*, invoice_items(*), invoice_payments(*)')
     .order('created_at', { ascending: false })
 
-  if (error) {
-    console.error('Error fetching invoices:', error)
+  if (resWithPayments.error) {
+    // If invoice_payments table does not exist or relation is not found, fallback to standard query
+    const resFallback = await supabase
+      .from('invoices')
+      .select('*, invoice_items(*)')
+      .order('created_at', { ascending: false })
+
+    if (resFallback.error) {
+      console.error('Error fetching invoices:', resFallback.error.message || resFallback.error)
+      error = resFallback.error
+    } else {
+      invoices = resFallback.data
+    }
+  } else {
+    invoices = resWithPayments.data
   }
 
   const invoiceList: any[] = invoices || []
