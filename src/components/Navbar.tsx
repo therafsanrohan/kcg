@@ -92,8 +92,17 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
       <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 h-16 sm:h-20" aria-label="Global">
         
         {/* Left: Brand Title */}
-        <div className="flex items-center flex-shrink-0">
-          <Link href="/" className="group flex items-center">
+        <div className="flex items-center flex-shrink-0 z-20">
+          <Link
+            href="/"
+            onClick={() => {
+              setMobileMenuOpen(false)
+              if (pathname === '/') {
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }
+            }}
+            className="group flex items-center cursor-pointer py-1"
+          >
             <span
               className="font-editorial text-xl sm:text-2xl lg:text-3xl font-medium tracking-tight text-gray-950 group-hover:text-gray-600 transition-colors whitespace-nowrap"
             >

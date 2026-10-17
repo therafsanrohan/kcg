@@ -87,7 +87,7 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
   }, [paintings, activeCategory, searchQuery, sortBy])
 
   return (
-    <section id="available-works" className="py-20 sm:py-28 bg-[#FBFBFA]">
+    <section id="available-works" className="py-10 sm:py-16 bg-[#FBFBFA]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}

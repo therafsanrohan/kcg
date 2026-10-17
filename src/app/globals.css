@@ -46,6 +46,13 @@ h1, h2, h3, h4, h5, h6, p, span, a, button, input, select, textarea {
   font-stretch: normal !important;
 }
 
+/* Prevent auto-zooming on mobile iOS Safari when focusing form inputs */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
 .font-editorial {
   font-family: var(--font-helvetica);
   font-stretch: normal !important;

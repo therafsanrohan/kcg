@@ -38,15 +38,15 @@ export default async function Home() {
     <div className="bg-white text-gray-950 font-sans">
       
       {/* ── 1. Hero Section ── */}
-      <section className="pt-16 sm:pt-28 pb-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <section className="pt-10 sm:pt-16 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         <div className="max-w-4xl">
           
-          <h1 className="text-5xl sm:text-7xl lg:text-8xl font-bold text-gray-950 tracking-tight leading-[1.05] mb-8">
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-gray-950 tracking-tight leading-[1.05] mb-6">
             Made by hand.<br />
             <span className="font-light text-gray-700">Chosen by feeling.</span>
           </h1>
 
-          <p className="text-base sm:text-lg text-gray-600 font-light max-w-xl mb-10 leading-relaxed">
+          <p className="text-sm sm:text-base text-gray-600 font-light max-w-xl mb-6 leading-relaxed">
             One-of-one oil and acrylic paintings on stretched canvas, thoughtfully crafted for residences, contemporary spaces, and private collectors.
           </p>
 
@@ -67,8 +67,8 @@ export default async function Home() {
 
       {/* ── 2. Featured Artwork Showcase Banner ── */}
       {featuredPainting && (
-        <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto my-8 sm:my-14">
-          <div className="relative w-full h-[480px] sm:h-[600px] lg:h-[680px] overflow-hidden border border-gray-200/60 bg-[#F4F3EE] group">
+        <section className="px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto my-4 sm:my-8">
+          <div className="relative w-full h-[400px] sm:h-[520px] lg:h-[600px] overflow-hidden border border-gray-200/60 bg-[#F4F3EE] group">
             <Image
               src={featuredImageUrl}
               alt={featuredPainting.title}
@@ -112,8 +112,8 @@ export default async function Home() {
       </Suspense>
 
       {/* ── 4. Editorial Information Split ── */}
-      <section className="border-t border-gray-200/80 bg-[#FAF9F5] py-20 sm:py-28 px-4 sm:px-6 lg:px-8 mt-16">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-20">
+      <section className="border-t border-gray-200/80 bg-[#FAF9F5] py-12 sm:py-16 px-4 sm:px-6 lg:px-8 mt-8">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-14">
           <div className="space-y-4">
             <span className="text-[10px] uppercase tracking-[0.24em] text-gray-400 font-semibold block">
               AUTHENTICITY & CRAFT
@@ -126,7 +126,7 @@ export default async function Home() {
             </p>
           </div>
 
-          <div className="space-y-4 md:border-l md:border-gray-200/80 md:pl-12 lg:pl-16">
+          <div className="space-y-4 md:border-l md:border-gray-200/80 md:pl-8 lg:pl-12">
             <span className="text-[10px] uppercase tracking-[0.24em] text-gray-400 font-semibold block">
               COLLECTOR ASSURANCE
             </span>
