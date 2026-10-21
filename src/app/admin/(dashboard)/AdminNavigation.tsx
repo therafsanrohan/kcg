@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Users,
   Settings,
+  User,
   LogOut,
   ChevronDown,
   Menu,
@@ -67,6 +68,12 @@ export default function AdminNavigation({ userEmail, onHoverChange }: AdminNavig
       href: '/admin/settings',
       icon: Settings,
       active: pathname.startsWith('/admin/settings'),
+    },
+    {
+      name: 'Admin Profile',
+      href: '/admin/profile',
+      icon: User,
+      active: pathname.startsWith('/admin/profile'),
     },
   ]
 
@@ -157,9 +164,10 @@ export default function AdminNavigation({ userEmail, onHoverChange }: AdminNavig
             </span>
           </Link>
 
-          {/* User Profile Card */}
-          <div
-            className={`flex items-center gap-3 px-3.5 py-2 rounded-xl bg-gray-50/80 transition-all ${
+          {/* User Profile Card - Clickable link to Profile */}
+          <Link
+            href="/admin/profile"
+            className={`flex items-center gap-3 px-3.5 py-2 rounded-xl bg-gray-50/80 hover:bg-gray-100 transition-all ${
               isSidebarHovered ? 'opacity-100' : 'opacity-0 w-0 p-0 overflow-hidden'
             }`}
           >
@@ -170,9 +178,9 @@ export default function AdminNavigation({ userEmail, onHoverChange }: AdminNavig
               <p className="text-[11px] font-medium text-gray-800 truncate" title={userEmail}>
                 {userEmail}
               </p>
-              <p className="text-[9px] text-gray-400">Authenticated Admin</p>
+              <p className="text-[9px] text-gray-400">View Profile</p>
             </div>
-          </div>
+          </Link>
 
           {/* Sign Out Button */}
           <form action={logout}>
