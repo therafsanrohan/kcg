@@ -153,6 +153,34 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
       return { error: 'Artwork title is required.' }
     }
 
+    // ── IMAGE CONSTRAINTS VALIDATION (MIN 1 MANDATORY, MAX 4) ──
+    const advancedImagesRaw = formData.get('advanced_images_json') as string
+    const uploadedImageRaw = formData.get('uploaded_image_json') as string
+
+    let payloadImagesCount = 0
+    if (advancedImagesRaw) {
+      try {
+        const parsed = JSON.parse(advancedImagesRaw)
+        if (Array.isArray(parsed)) {
+          payloadImagesCount = parsed.length
+        }
+      } catch {}
+    } else if (uploadedImageRaw) {
+      payloadImagesCount = 1
+    }
+
+    if (payloadImagesCount > 4) {
+      return { error: 'Maximum 4 images allowed per artwork.' }
+    }
+
+    if (!id && payloadImagesCount === 0) {
+      return { error: 'Artwork image is mandatory. Please upload at least 1 image.' }
+    }
+
+    if (id && advancedImagesRaw && payloadImagesCount === 0) {
+      return { error: 'Artwork image is mandatory. At least 1 image is required.' }
+    }
+
     // Canonical mm dimension calculation
     const widthInputStr = formData.get('width_input') as string
     const heightInputStr = formData.get('height_input') as string
@@ -314,9 +342,6 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
     }
 
     // ── ADVANCED IMAGES PAYLOAD ──
-    const advancedImagesRaw = formData.get('advanced_images_json') as string
-    const uploadedImageRaw = formData.get('uploaded_image_json') as string
-
     if (advancedImagesRaw && paintingId) {
       try {
         const advancedImages: Array<{

@@ -161,9 +161,9 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     const files = e.target.files
     if (!files || files.length === 0) return
 
-    const remainingSlots = 5 - artworkImages.length
+    const remainingSlots = 4 - artworkImages.length
     if (remainingSlots <= 0) {
-      setErrorMsg('Maximum 5 images allowed per artwork.')
+      setErrorMsg('Maximum 4 images allowed per artwork.')
       e.target.value = ''
       return
     }
@@ -285,6 +285,16 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     }
     if (!height || isNaN(numHeight) || numHeight <= 0) {
       setErrorMsg('Please enter a valid Height greater than 0.')
+      return
+    }
+
+    if (artworkImages.length === 0) {
+      setErrorMsg('Artwork image is mandatory. Please upload at least 1 image (up to 4 max).')
+      return
+    }
+
+    if (artworkImages.length > 4) {
+      setErrorMsg('Maximum 4 images allowed per artwork.')
       return
     }
 
@@ -625,13 +635,13 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
           <div className="flex items-center justify-between mb-1.5">
             <div>
               <label className="block text-[11px] font-bold tracking-wider uppercase text-gray-800">
-                ARTWORK IMAGES ({artworkImages.length}/5) — {orientation.toUpperCase()} RATIO
+                ARTWORK IMAGES ({artworkImages.length}/4) — {orientation.toUpperCase()} RATIO (MUST HAVE AT LEAST 1)
               </label>
               <p className="text-xs text-gray-500 font-light mt-0.5">
-                Upload up to 5 photos directly. Choose cover, adjust crop, and save in one go.
+                Upload up to 4 photos. 1 image is strictly mandatory. Choose cover, adjust crop, and save.
               </p>
             </div>
-            {artworkImages.length < 5 && (
+            {artworkImages.length < 4 && (
               <label
                 htmlFor="artwork_images_input"
                 className="cursor-pointer bg-black text-white text-xs font-semibold px-3 py-1.5 rounded-md hover:bg-gray-800 transition-colors shadow-2xs flex items-center gap-1.5"
@@ -652,7 +662,7 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
 
           {/* Images Grid */}
           {artworkImages.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5 mt-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mt-3">
               {artworkImages.map((img, idx) => (
                 <div
                   key={img.id}

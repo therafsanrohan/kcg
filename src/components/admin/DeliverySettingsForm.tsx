@@ -64,8 +64,8 @@ export default function DeliverySettingsForm({ zones }: DeliverySettingsFormProp
                 options={[
                   { value: "free", label: "Free Delivery" },
                   { value: "fixed", label: "Fixed Charge (BDT)" },
-                  { value: "courier_quotation", label: "Courier Quotation" },
-                  { value: "destination_quotation", label: "Destination Quotation" },
+                  { value: "courier_quotation", label: "As per Sundarban Courier / S.A. Paribahan charges" },
+                  { value: "destination_quotation", label: "As per mailing address (Worldwide)" },
                 ]}
               />
             </div>

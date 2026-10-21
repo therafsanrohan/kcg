@@ -146,30 +146,36 @@ export default function ClientDetails({
       : formattedArtworkSize
     
     let message = `Hello Kazi Canvas Gallery,\n\nI would like to purchase this artwork.\n\n`
-    message += `🎨 Painting: ${painting.title}\n`
-    message += `📍 Ref ID: ${painting.id}\n`
-    message += `🖌️ Medium: ${painting.exact_medium}\n`
-    message += `📐 Size: ${sizeDescription}\n`
+    message += `Painting: ${painting.title}\n`
+    message += `Ref ID: ${painting.id}\n`
+    message += `Medium: ${painting.exact_medium}\n`
+    message += `Size: ${sizeDescription}\n`
 
     if (hasDiscount) {
-      message += `🏷️ Original Price: ${basePrice.toLocaleString('en-BD')} BDT\n`
-      message += `🔥 Offer Price: ${discountPrice.toLocaleString('en-BD')} BDT (${painting.offer_badge || 'Discount Offer'})\n`
+      message += `Original Price: ${basePrice.toLocaleString('en-BD')} BDT\n`
+      message += `Offer Price: ${discountPrice.toLocaleString('en-BD')} BDT (${painting.offer_badge || 'Discount Offer'})\n`
     } else {
-      message += `💰 Artwork Price: ${basePrice.toLocaleString('en-BD')} BDT\n`
+      message += `Artwork Price: ${basePrice.toLocaleString('en-BD')} BDT\n`
     }
     
     if (selectedFrame) {
       const frameSizeStr = getFrameDisplayDimensions(selectedFrame, displayUnit)
-      message += `🖼️ Framing: ${selectedFrame.frame_name} (${frameSizeStr})\n`
+      message += `Framing: ${selectedFrame.frame_name} (${frameSizeStr})\n`
       message += `   Frame Cost: +${framePrice.toLocaleString('en-BD')} BDT\n`
     } else {
-      message += `🖼️ Framing: Wooden fabric Canvas\n`
+      message += `Framing: Wooden fabric Canvas\n`
     }
 
     if (selectedZone) {
-      message += `🚚 Delivery Zone: ${selectedZone.label}\n`
+      message += `Delivery Zone: ${selectedZone.label}\n`
       if (isQuotationDelivery) {
-        message += `   Delivery Fee: Quotation Required based on location\n`
+        if (selectedZone.code === 'outside_dhaka' || selectedZone.label.toLowerCase().includes('outside dhaka')) {
+          message += `   Delivery Fee: As per Sundarban Courier / S.A. Paribahan charges\n`
+        } else if (selectedZone.code === 'international' || selectedZone.label.toLowerCase().includes('worldwide') || selectedZone.label.toLowerCase().includes('outside bangladesh')) {
+          message += `   Delivery Fee: As per mailing address\n`
+        } else {
+          message += `   Delivery Fee: As per courier quotation\n`
+        }
       } else if (isFreeDeliveryOfferActive || selectedZone.pricing_mode === 'free' || deliveryCharge === 0) {
         const promoLabel = isFreeDeliveryOfferActive && selectedZone.free_delivery_label ? ` (${selectedZone.free_delivery_label})` : ''
         message += `   Delivery Fee: FREE Delivery${promoLabel}\n`
@@ -178,14 +184,14 @@ export default function ClientDetails({
       }
     }
     
-    message += `\n💳 Total Amount: ${totalPriceBdt.toLocaleString('en-BD')} BDT`
+    message += `\nTotal Amount: ${totalPriceBdt.toLocaleString('en-BD')} BDT`
     if (currency !== 'BDT') {
       message += ` (~ ${convertCurrency(totalPriceBdt, currency, rates)} ${currency})\n`
     } else {
       message += `\n`
     }
     
-    message += `\n🔗 Link: ${productUrl}\n\nPlease confirm availability and delivery timeframe. Thank you!`
+    message += `\nLink: ${productUrl}\n\nPlease confirm availability and delivery timeframe. Thank you!`
     
     return `${baseUrl}?text=${encodeURIComponent(message)}`
   }
@@ -388,8 +394,12 @@ export default function ClientDetails({
 
                       <div className="text-right">
                         {isQuotation ? (
-                          <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                            Quotation Required
+                          <span className="text-xs font-semibold text-amber-900 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200 inline-block max-w-[200px] sm:max-w-none text-right">
+                            {zone.code === 'outside_dhaka' || zone.label.toLowerCase().includes('outside dhaka')
+                              ? 'As per Sundarban Courier / S.A. Paribahan charges'
+                              : zone.code === 'international' || zone.label.toLowerCase().includes('worldwide') || zone.label.toLowerCase().includes('outside bangladesh')
+                              ? 'As per mailing address'
+                              : 'As per courier quotation'}
                           </span>
                         ) : isFree ? (
                           <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200">
@@ -424,8 +434,14 @@ export default function ClientDetails({
               </p>
             </div>
             {isQuotationDelivery && (
-              <p className="text-xs text-amber-600 font-medium mt-1">
-                * Final delivery charge will be confirmed over WhatsApp based on your destination address.
+              <p className="text-xs text-amber-700 font-medium mt-1">
+                * Delivery charge will be confirmed {
+                  selectedZone?.code === 'outside_dhaka' || selectedZone?.label.toLowerCase().includes('outside dhaka')
+                    ? 'as per Sundarban Courier / S.A. Paribahan charges'
+                    : selectedZone?.code === 'international' || selectedZone?.label.toLowerCase().includes('worldwide') || selectedZone?.label.toLowerCase().includes('outside bangladesh')
+                    ? 'as per mailing address'
+                    : 'as per courier quotation'
+                }.
               </p>
             )}
             {currency !== 'BDT' && (
