@@ -195,6 +195,7 @@ export async function createAdminAccount(prevState: any, formData: FormData) {
 
     // 2. Parse & Validate Form Inputs
     const newEmail = (formData.get('email') as string)?.trim().toLowerCase()
+    const newPassword = (formData.get('new_password') as string)?.trim()
     const fullName = (formData.get('full_name') as string)?.trim() || null
     const username = (formData.get('username') as string)?.trim().toLowerCase() || null
     const phone = (formData.get('phone') as string)?.trim() || null
@@ -203,6 +204,10 @@ export async function createAdminAccount(prevState: any, formData: FormData) {
 
     if (!newEmail || !newEmail.includes('@')) {
       return { success: false, error: 'A valid email address is required.' }
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, error: 'A password of at least 6 characters is required for the new administrator.' }
     }
 
     if (!superAdminPassword) {
@@ -262,17 +267,18 @@ export async function createAdminAccount(prevState: any, formData: FormData) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
 
     let createdAuthUserId: string | null = null
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://kazicanvasgallery.com'
 
     if (serviceRoleKey && supabaseUrl) {
       const { createClient: createAdminServiceClient } = await import('@supabase/supabase-js')
       const adminServiceClient = createAdminServiceClient(supabaseUrl, serviceRoleKey)
 
-      // Send official Supabase Auth Invitation Email (Never reveals or generates plaintext passwords)
-      const { data: inviteData, error: inviteError } =
-        await adminServiceClient.auth.admin.inviteUserByEmail(newEmail, {
-          redirectTo: `${siteUrl}/admin/login?setup=true`,
-          data: {
+      // Create new user directly with the Super Admin's specified password and mark email confirmed
+      const { data: createData, error: createError } =
+        await adminServiceClient.auth.admin.createUser({
+          email: newEmail,
+          password: newPassword,
+          email_confirm: true,
+          user_metadata: {
             full_name: fullName,
             username,
             phone,
@@ -280,14 +286,14 @@ export async function createAdminAccount(prevState: any, formData: FormData) {
           },
         })
 
-      if (inviteError) {
+      if (createError) {
         return {
           success: false,
-          error: `Failed to provision user in Supabase Auth: ${inviteError.message}`,
+          error: `Failed to provision user in Supabase Auth: ${createError.message}`,
         }
       }
 
-      createdAuthUserId = inviteData.user?.id || null
+      createdAuthUserId = createData.user?.id || null
     }
 
     // 6. Record Non-Sensitive Profile in public.admin_users
@@ -321,6 +327,7 @@ export async function createAdminAccount(prevState: any, formData: FormData) {
       }
     } else {
       // If service role key is not configured in current environment, send password reset trigger
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://kazicanvasgallery.com'
       const { error: resetErr } = await supabase.auth.resetPasswordForEmail(newEmail, {
         redirectTo: `${siteUrl}/admin/login?setup=true`,
       })
