@@ -3,6 +3,22 @@ import { cookies } from 'next/headers'
 import { Suspense } from 'react'
 import CustomerGallerySection from '@/components/CustomerGallerySection'
 
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Art Collection & Catalog | Kazi Canvas Gallery',
+  description: 'Browse our complete collection of handmade oil and acrylic paintings on canvas. Discover authentic, original contemporary art with custom framing options.',
+  alternates: {
+    canonical: 'https://kazicanvasgallery.com/gallery',
+  },
+  openGraph: {
+    title: 'Art Collection & Catalog | Kazi Canvas Gallery',
+    description: 'Browse our complete collection of handmade oil and acrylic paintings on canvas.',
+    url: 'https://kazicanvasgallery.com/gallery',
+    type: 'website',
+  },
+}
+
 export const revalidate = 0 // Instant updates from database
 
 export default async function GalleryPage() {
