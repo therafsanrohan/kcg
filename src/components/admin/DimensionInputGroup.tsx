@@ -149,7 +149,6 @@ export default function DimensionInputGroup({
             }}
             placeholder="24"
             className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm text-gray-900 bg-white focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
-            required
           />
         </div>
 
@@ -171,7 +170,6 @@ export default function DimensionInputGroup({
             }}
             placeholder="36"
             className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm text-gray-900 bg-white focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
-            required
           />
         </div>
 

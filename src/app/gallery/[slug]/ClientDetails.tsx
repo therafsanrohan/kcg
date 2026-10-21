@@ -163,7 +163,7 @@ export default function ClientDetails({
       message += `🖼️ Framing: ${selectedFrame.frame_name} (${frameSizeStr})\n`
       message += `   Frame Cost: +${framePrice.toLocaleString('en-BD')} BDT\n`
     } else {
-      message += `🖼️ Framing: Canvas Only (Unframed)\n`
+      message += `🖼️ Framing: Wooden fabric Canvas\n`
     }
 
     if (selectedZone) {
@@ -311,7 +311,7 @@ export default function ClientDetails({
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <input type="radio" name="frame" value="none" checked={selectedFrameId === 'none'} onChange={() => setSelectedFrameId('none')} className="h-4 w-4 text-black focus:ring-black border-gray-300" />
-                  <span className="ml-3 font-medium text-gray-900 text-sm">Canvas Only (Unframed)</span>
+                  <span className="ml-3 font-medium text-gray-900 text-sm">Wooden fabric Canvas</span>
                 </div>
                 <span className="text-[11px] font-mono text-gray-400 uppercase">Included</span>
               </div>
@@ -380,6 +380,9 @@ export default function ClientDetails({
                             )}
                           </div>
                           <span className="block text-xs text-gray-500">{zone.estimated_delivery_time || 'Standard Delivery'}</span>
+                          {zone.code === 'inside_dhaka' && (
+                            <span className="block text-xs text-gray-500 font-medium mt-0.5">Delivery by personal agent</span>
+                          )}
                         </div>
                       </div>
 

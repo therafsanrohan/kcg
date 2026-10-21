@@ -81,8 +81,6 @@ export default function ArtworkFramePreview({
     <div className={`space-y-4 ${className}`}>
       {/* ── Visual Frame & Canvas Unified Container ── */}
       <div className="relative w-full rounded-2xl bg-[#EFECE6] p-6 sm:p-10 flex items-center justify-center overflow-hidden border border-gray-200/80 shadow-inner">
-        {/* Gallery Wall Shadow / Lighting Effect */}
-        <div className="absolute inset-0 bg-radial from-transparent to-black/5 pointer-events-none" />
 
         {/* Framing & Artwork Coordinate Container */}
         <div
@@ -101,14 +99,14 @@ export default function ArtworkFramePreview({
           }}
         >
           {/* Inner Canvas Image */}
-          <div className="relative w-full h-full bg-[#E5E2DC] rounded-sm overflow-hidden shadow-2xs">
+          <div className="relative w-full h-full rounded-sm overflow-hidden shadow-2xs">
             {imageUrl ? (
               <Image
                 src={imageUrl}
                 alt={title}
                 fill
                 sizes="(max-width: 768px) 100vw, 50vw"
-                className="object-cover object-center select-none"
+                className="object-contain object-center select-none"
                 priority
               />
             ) : (
@@ -168,7 +166,7 @@ export default function ArtworkFramePreview({
           <div>
             <span className="block text-[10px] uppercase tracking-wider text-gray-400">Final Framing</span>
             <span className="font-mono font-medium text-gray-950">
-              {isFramed ? formattedFramedSize : 'Canvas Only'}
+              {isFramed ? formattedFramedSize : 'Wooden fabric Canvas'}
             </span>
           </div>
         </div>

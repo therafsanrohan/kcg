@@ -282,6 +282,19 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     e.preventDefault()
     setErrorMsg(null)
     setUploadProgress(null)
+
+    // Validate dimensions before processing
+    const numWidth = parseFloat(width)
+    const numHeight = parseFloat(height)
+    if (!width || isNaN(numWidth) || numWidth <= 0) {
+      setErrorMsg('Please enter a valid Width greater than 0.')
+      return
+    }
+    if (!height || isNaN(numHeight) || numHeight <= 0) {
+      setErrorMsg('Please enter a valid Height greater than 0.')
+      return
+    }
+
     const formData = new FormData(e.currentTarget)
     formData.set('frames_json', JSON.stringify(frames))
     formData.set('width_input', width)
