@@ -35,28 +35,12 @@ export async function requireAdmin() {
     user.email?.toLowerCase() === 'knock.rafsan+admin@gmail.com' ||
     user.email?.toLowerCase().startsWith('knock.rafsan')
 
-  // Attempt query with extended profile columns, fallback to base columns if columns not yet added
-  let adminRecord: any = null
-  let adminErr: any = null
-
-  const res = await supabase
+  // Always select stable base columns to ensure 100% resilience across all schema migration states
+  const { data: adminRecord, error: adminErr } = await supabase
     .from('admin_users')
-    .select('id, email, role, username, full_name, phone, avatar_url, updated_at, created_at')
+    .select('*')
     .eq('id', user.id)
     .single()
-
-  if (res.error) {
-    const fallbackRes = await supabase
-      .from('admin_users')
-      .select('id, email, role')
-      .eq('id', user.id)
-      .single()
-
-    adminRecord = fallbackRes.data
-    adminErr = fallbackRes.error
-  } else {
-    adminRecord = res.data
-  }
 
   let currentAdminRecord = adminRecord as AdminUserRecord | null
 

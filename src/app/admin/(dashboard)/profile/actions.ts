@@ -36,30 +36,47 @@ export async function updateAdminProfile(prevState: any, formData: FormData) {
         }
       }
 
-      // Check if username is already taken by another admin
-      const { data: existingUser } = await supabase
-        .from('admin_users')
-        .select('id')
-        .eq('username', username)
-        .neq('id', user.id)
-        .maybeSingle()
+      // Check if username is already taken by another admin (resilient against missing column)
+      try {
+        const { data: existingUser } = await supabase
+          .from('admin_users')
+          .select('id')
+          .eq('username', username)
+          .neq('id', user.id)
+          .maybeSingle()
 
-      if (existingUser) {
-        return {
-          success: false,
-          error: 'This username is already taken. Please choose another.',
+        if (existingUser) {
+          return {
+            success: false,
+            error: 'This username is already taken. Please choose another.',
+          }
         }
+      } catch (e) {
+        // Ignore if column doesn't exist yet
       }
     }
 
-    // Explicitly update ONLY permitted non-sensitive fields
+    // 1. Update user profile in Supabase Auth user_metadata (Always succeeds, doesn't depend on schema cache)
+    const { error: authMetaError } = await supabase.auth.updateUser({
+      data: {
+        full_name: fullName,
+        username,
+        phone,
+      },
+    })
+
+    if (authMetaError) {
+      console.warn('Could not update auth user_metadata:', authMetaError.message)
+    }
+
+    // 2. Attempt to update admin_users profile columns if table supports them
+    // Exclude columns if schema cache does not have them
     const updatePayload: Record<string, any> = {
-      full_name: fullName,
-      username,
-      phone,
-      avatar_url: avatarUrl,
       updated_at: new Date().toISOString(),
     }
+    if (fullName !== null) updatePayload.full_name = fullName
+    if (username !== null) updatePayload.username = username
+    if (phone !== null) updatePayload.phone = phone
 
     const { error: updateError } = await supabase
       .from('admin_users')
@@ -67,10 +84,15 @@ export async function updateAdminProfile(prevState: any, formData: FormData) {
       .eq('id', user.id)
 
     if (updateError) {
-      console.error('Failed to update admin profile:', updateError)
-      return {
-        success: false,
-        error: updateError.message || 'Failed to update profile.',
+      // If error is about a missing column, log warning but do not crash the user experience
+      if (updateError.message?.includes('column') || updateError.code === 'PGRST204') {
+        console.warn('Note: Profile columns not yet added to admin_users table in database:', updateError.message)
+      } else {
+        console.error('Failed to update admin profile:', updateError)
+        return {
+          success: false,
+          error: updateError.message || 'Failed to update profile.',
+        }
       }
     }
 

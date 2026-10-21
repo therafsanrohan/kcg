@@ -14,7 +14,7 @@ export default async function AdminProfilePage() {
   if (isSuperAdmin) {
     const { data: admins } = await supabase
       .from('admin_users')
-      .select('id, email, role, full_name, username')
+      .select('*')
       .order('email', { ascending: true })
 
     adminList = admins || [
