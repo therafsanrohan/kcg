@@ -2,10 +2,11 @@
 
 import { useState, useTransition, useMemo, useCallback } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Pencil, Trash2, Eye, EyeOff, Search, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Eye, EyeOff, Search, X, Star, Sparkles, ArrowUpRight } from 'lucide-react'
 import AddArtworkModal from '@/components/admin/AddArtworkModal'
-import { deletePainting, togglePublishPainting } from '@/app/admin/(dashboard)/paintings/actions'
+import { deletePainting, togglePublishPainting, toggleFeaturedPainting } from '@/app/admin/(dashboard)/paintings/actions'
 import { getPaintingImageUrl } from '@/utils/image'
 import { useAdminFeedback } from '@/components/admin/AdminFeedbackProvider'
 
@@ -32,8 +33,10 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
   const [searchQuery, setSearchQuery] = useState('')
   const [isDeleting, startDeleteTransition] = useTransition()
   const [isToggling, startToggleTransition] = useTransition()
+  const [isFeaturing, startFeaturingTransition] = useTransition()
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [featuringId, setFeaturingId] = useState<string | null>(null)
 
   const handleOpenAdd = () => {
     setEditingPainting(null)
@@ -94,6 +97,29 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
     })
   }
 
+  const handleToggleFeatured = (id: string, currentValue: boolean, title: string) => {
+    setFeaturingId(id)
+    startFeaturingTransition(async () => {
+      const res = await toggleFeaturedPainting(id, currentValue)
+      setFeaturingId(null)
+      if (res?.success) {
+        toast(
+          !currentValue
+            ? `"${title}" is now set as the Homepage Exhibition Spotlight!`
+            : `"${title}" removed from homepage spotlight.`,
+          'success'
+        )
+        router.refresh()
+      } else {
+        toast(res?.error || 'Failed to update featured spotlight.', 'error')
+      }
+    })
+  }
+
+  const currentFeatured = useMemo(() => {
+    return initialPaintings.find((p) => p.is_featured) || null
+  }, [initialPaintings])
+
   // Client-side search filter
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase().trim()
@@ -151,6 +177,47 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
         </div>
       </div>
 
+      {/* ── Homepage Exhibition Spotlight Card ── */}
+      <div className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-50 via-orange-50/30 to-amber-50/60 border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-amber-500 text-white shadow-xs shrink-0">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-amber-900 flex items-center gap-1.5">
+              <span>Homepage Exhibition Spotlight</span>
+              {currentFeatured && (
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
+              )}
+            </div>
+            {currentFeatured ? (
+              <div className="font-semibold text-gray-950 text-sm mt-0.5">
+                {currentFeatured.title}{' '}
+                <span className="text-xs text-gray-600 font-normal">
+                  ({currentFeatured.exact_medium}
+                  {currentFeatured.display_size ? ` · ${currentFeatured.display_size}` : ''})
+                </span>
+              </div>
+            ) : (
+              <div className="text-xs text-amber-800 font-light mt-0.5">
+                No specific artwork is marked as Spotlight. Homepage currently defaults to newest artwork. Click &ldquo;Set Spotlight&rdquo; on any artwork below to feature it.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {currentFeatured && (
+          <Link
+            href="/"
+            target="_blank"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-gray-900 text-xs font-semibold border border-amber-200 hover:border-black transition-all shrink-0 self-start sm:self-auto shadow-2xs"
+          >
+            <span>View on Homepage</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </Link>
+        )}
+      </div>
+
       {/* ── Search bar ── */}
       <div className="mb-5 relative">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
@@ -192,6 +259,9 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
                 <th className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-gray-500">
                   Visible
                 </th>
+                <th className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                  Spotlight
+                </th>
                 <th className="py-3.5 pr-6 pl-4 text-right text-[11px] font-bold uppercase tracking-wider text-gray-500">
                   Actions
                 </th>
@@ -215,8 +285,10 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
 
                   const status = painting.availability_status ?? 'available'
                   const isPublished = painting.is_published ?? false
+                  const isFeatured = painting.is_featured ?? false
                   const isThisDeleting = deletingId === painting.id
                   const isThisToggling = togglingId === painting.id
+                  const isThisFeaturing = featuringId === painting.id
 
                   return (
                     <tr
@@ -329,6 +401,34 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
                         </button>
                       </td>
 
+                      {/* Spotlight / Featured toggle */}
+                      <td className="py-4 px-4">
+                        <button
+                          type="button"
+                          disabled={isThisFeaturing || isFeaturing}
+                          onClick={() => handleToggleFeatured(painting.id, isFeatured, painting.title)}
+                          title={
+                            isFeatured
+                              ? 'Currently Featured Spotlight on Homepage. Click to unfeature.'
+                              : 'Set this artwork as the Featured Spotlight on Homepage'
+                          }
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer shadow-2xs ${
+                            isFeatured
+                              ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200 shadow-xs'
+                              : 'bg-white text-gray-500 border border-gray-200 hover:border-amber-400 hover:text-amber-800 hover:bg-amber-50/50'
+                          } ${isThisFeaturing ? 'opacity-50 animate-pulse' : ''}`}
+                        >
+                          <Star
+                            className={`h-3.5 w-3.5 ${
+                              isFeatured
+                                ? 'fill-amber-500 text-amber-600'
+                                : 'text-gray-400'
+                            }`}
+                          />
+                          <span>{isFeatured ? 'Spotlight' : 'Set Spotlight'}</span>
+                        </button>
+                      </td>
+
                       {/* Actions */}
                       <td className="py-4 pr-6 pl-4 text-right">
                         <div className="inline-flex items-center gap-2">
@@ -382,7 +482,7 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
                 })
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-20 text-center">
+                  <td colSpan={7} className="py-20 text-center">
                     {searchQuery ? (
                       <>
                         <p className="text-lg font-sans font-bold text-gray-800 mb-1">

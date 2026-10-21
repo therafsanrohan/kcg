@@ -58,6 +58,49 @@ export async function togglePublishPainting(id: string, currentValue: boolean) {
 }
 
 // ─────────────────────────────────────────────
+// TOGGLE FEATURED PAINTING (HOMEPAGE EXHIBITION SPOTLIGHT)
+// ─────────────────────────────────────────────
+export async function toggleFeaturedPainting(id: string, currentValue: boolean) {
+  try {
+    const { supabase } = await requireAdmin()
+
+    const newValue = !currentValue
+
+    // When setting an artwork as featured, un-feature all other artworks
+    // so this chosen artwork becomes the primary exhibition spotlight on the homepage
+    if (newValue === true) {
+      await supabase
+        .from('paintings')
+        .update({ is_featured: false })
+        .neq('id', id)
+    }
+
+    const { error } = await supabase
+      .from('paintings')
+      .update({ is_featured: newValue, updated_at: new Date().toISOString() })
+      .eq('id', id)
+
+    if (error) throw error
+
+    revalidatePath('/')
+    revalidatePath('/gallery')
+    revalidatePath('/admin')
+    revalidatePath('/admin/paintings')
+
+    return {
+      success: true,
+      isFeatured: newValue,
+      message: newValue
+        ? 'Artwork is now featured on the homepage exhibition spotlight!'
+        : 'Artwork unfeatured from homepage spotlight.',
+    }
+  } catch (err: any) {
+    console.error('Toggle featured error:', err)
+    return { success: false, error: err.message || 'Unauthorized action.' }
+  }
+}
+
+// ─────────────────────────────────────────────
 // DELETE PAINTING
 // ─────────────────────────────────────────────
 export async function deletePainting(id: string) {
@@ -147,6 +190,15 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
     }
 
     let paintingId = id
+
+    // If making this artwork featured, un-feature all other paintings
+    if (is_featured) {
+      if (id) {
+        await supabase.from('paintings').update({ is_featured: false }).neq('id', id)
+      } else {
+        await supabase.from('paintings').update({ is_featured: false })
+      }
+    }
 
     if (id) {
       // ── UPDATE ──
