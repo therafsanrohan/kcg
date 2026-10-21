@@ -249,39 +249,39 @@ export default function ImageCropperModal({
   // Calculate container display box style based on activeAspectRatio
   const containerStyle: React.CSSProperties = {
     aspectRatio: `${activeAspectRatio}`,
-    maxHeight: '340px',
+    maxHeight: 'min(38vh, 320px)',
     maxWidth: '100%',
-    width: activeAspectRatio >= 1 ? '340px' : `${Math.round(340 * activeAspectRatio)}px`,
+    width: activeAspectRatio >= 1 ? 'min(100%, 360px)' : `min(100%, calc(min(38vh, 320px) * ${activeAspectRatio}))`,
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fade-in">
-      <div className="bg-white rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-2 sm:p-4 animate-fade-in overflow-y-auto">
+      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col my-auto max-h-[96vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div className="px-5 py-3 sm:px-6 sm:py-3.5 border-b border-gray-100 flex items-center justify-between shrink-0">
           <div>
-            <h3 className="font-sans font-bold text-lg text-gray-950">Crop & Position Artwork</h3>
-            <p className="text-xs text-gray-500 font-light">
+            <h3 className="font-sans font-bold text-base sm:text-lg text-gray-950">Crop & Position Artwork</h3>
+            <p className="text-[11px] sm:text-xs text-gray-500 font-light">
               Multi-Orientation Aspect Ratio: {aspectPreset.toUpperCase()} ({activeAspectRatio.toFixed(2)})
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:text-black hover:bg-gray-200 transition-colors"
+            className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:text-black hover:bg-gray-200 transition-colors"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4 sm:h-5 sm:w-5" />
           </button>
         </div>
 
         {/* Orientation Aspect Ratio Tabs */}
-        <div className="px-6 pt-3 pb-2 bg-gray-50 border-b border-gray-100 flex items-center gap-1.5 overflow-x-auto">
+        <div className="px-5 pt-2 pb-2 sm:px-6 sm:pt-2.5 sm:pb-2 bg-gray-50 border-b border-gray-100 flex items-center gap-1.5 overflow-x-auto shrink-0">
           {(['original', 'portrait', 'landscape', 'square', 'custom'] as CropperAspectRatioPreset[]).map((preset) => (
             <button
               key={preset}
               type="button"
               onClick={() => handlePresetSelect(preset)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all ${
+              className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold capitalize whitespace-nowrap transition-all ${
                 aspectPreset === preset
                   ? 'bg-black text-white shadow-xs'
                   : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-400'
@@ -293,7 +293,7 @@ export default function ImageCropperModal({
         </div>
 
         {/* Viewport Canvas */}
-        <div className="p-6 flex-1 flex items-center justify-center bg-gray-950 overflow-hidden min-h-[360px]">
+        <div className="p-4 sm:p-5 flex-1 min-h-0 flex items-center justify-center bg-gray-950 overflow-hidden">
           <div
             ref={containerRef}
             onMouseDown={handleMouseDown}
@@ -340,13 +340,13 @@ export default function ImageCropperModal({
         </div>
 
         {/* Controls */}
-        <div className="p-6 space-y-4 bg-white border-t border-gray-100">
+        <div className="p-4 sm:p-5 space-y-3 sm:space-y-4 bg-white border-t border-gray-100 shrink-0">
           {/* Mode Switcher */}
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex items-center justify-center gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => setMode('fill')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition-all ${
                 mode === 'fill' ? 'bg-black text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -356,7 +356,7 @@ export default function ImageCropperModal({
             <button
               type="button"
               onClick={() => setMode('fit')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-xs font-bold transition-all ${
                 mode === 'fit' ? 'bg-black text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -366,8 +366,8 @@ export default function ImageCropperModal({
           </div>
 
           {/* Zoom Slider */}
-          <div className="flex items-center gap-3">
-            <ZoomOut className="h-4 w-4 text-gray-400" />
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <ZoomOut className="h-4 w-4 text-gray-400 shrink-0" />
             <input
               type="range"
               min="1"
@@ -377,19 +377,19 @@ export default function ImageCropperModal({
               onChange={(e) => setZoom(parseFloat(e.target.value))}
               className="w-full accent-black cursor-pointer"
             />
-            <ZoomIn className="h-4 w-4 text-gray-400" />
-            <span className="text-xs font-mono font-bold text-gray-700 w-10 text-right">
+            <ZoomIn className="h-4 w-4 text-gray-400 shrink-0" />
+            <span className="text-xs font-mono font-bold text-gray-700 w-10 text-right shrink-0">
               {Math.round(zoom * 100)}%
             </span>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between pt-1 sm:pt-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={handleRotate}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 <RotateCw className="h-3.5 w-3.5" />
                 Rotate 90°
@@ -397,7 +397,7 @@ export default function ImageCropperModal({
               <button
                 type="button"
                 onClick={handleReset}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 Reset
@@ -408,7 +408,7 @@ export default function ImageCropperModal({
               type="button"
               disabled={isProcessing}
               onClick={generateCrop}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-black text-white text-xs font-bold shadow-md hover:bg-gray-800 disabled:opacity-50 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 sm:gap-2 px-5 py-2 sm:px-6 sm:py-2.5 rounded-xl bg-black text-white text-xs font-bold shadow-md hover:bg-gray-800 disabled:opacity-50 transition-all cursor-pointer"
             >
               <Check className="h-4 w-4" />
               {isProcessing ? 'Processing...' : 'Apply Crop'}
