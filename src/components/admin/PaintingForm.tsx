@@ -102,14 +102,7 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
         price_bdt: f.price_bdt || 0,
       }))
     }
-    return [
-      {
-        id: 'frame-default',
-        frame_name: 'Natural oak',
-        outer_size: '27 × 39 in',
-        price_bdt: 0,
-      },
-    ]
+    return []
   })
 
   // Multi-Image State for Artwork

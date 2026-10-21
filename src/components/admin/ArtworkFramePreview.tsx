@@ -58,48 +58,21 @@ export default function ArtworkFramePreview({
   const formattedArtSize = formatDimensions(widthMm, heightMm, displayUnit)
   const formattedFramedSize = formatDimensions(framedWidthMm, framedHeightMm, displayUnit)
 
-  // Color & texture style mapping based on frame name
-  const frameName = selectedFrame?.frame_name?.toLowerCase() || ''
-  let frameBorderColor = '#2B231D' // deep dark walnut / shadowbox
-  let frameBg = '#3D312A'
-
-  if (frameName.includes('oak') || frameName.includes('teak') || frameName.includes('wood')) {
-    frameBorderColor = '#C19A6B' // natural oak / warm teak
-    frameBg = '#D2B48C'
-  } else if (frameName.includes('gold') || frameName.includes('champagne')) {
-    frameBorderColor = '#D4AF37' // luxury gold
-    frameBg = '#E6CA65'
-  } else if (frameName.includes('white')) {
-    frameBorderColor = '#ECEAE4' // gallery minimalist white
-    frameBg = '#F8F7F4'
-  } else if (frameName.includes('charcoal') || frameName.includes('black')) {
-    frameBorderColor = '#1A1A1A' // contemporary matte black
-    frameBg = '#222222'
-  }
-
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* ── Visual Frame & Canvas Unified Container ── */}
-      <div className="relative w-full rounded-2xl bg-[#EFECE6] p-6 sm:p-10 flex items-center justify-center overflow-hidden border border-gray-200/80 shadow-inner">
+      {/* ── Visual Canvas Container ── */}
+      <div className="relative w-full rounded-2xl bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100 shadow-sm">
 
-        {/* Framing & Artwork Coordinate Container */}
+        {/* Artwork Canvas Container */}
         <div
           className="relative transition-all duration-300 w-full flex items-center justify-center"
           style={{
             aspectRatio: `${containerAspect}`,
             maxWidth: containerAspect >= 1 ? '100%' : `${Math.min(540, Math.round(520 * containerAspect))}px`,
-            padding: isFramed ? '16px' : '0px',
-            backgroundColor: isFramed ? frameBg : 'transparent',
-            borderColor: isFramed ? frameBorderColor : 'transparent',
-            borderWidth: isFramed ? '6px' : '0px',
-            borderStyle: isFramed ? 'solid' : 'none',
-            boxShadow: isFramed
-              ? '0 20px 40px -15px rgba(0,0,0,0.35), 0 0 10px rgba(0,0,0,0.1) inset'
-              : '0 15px 30px -10px rgba(0,0,0,0.2)',
           }}
         >
           {/* Inner Canvas Image */}
-          <div className="relative w-full h-full rounded-sm overflow-hidden shadow-2xs">
+          <div className="relative w-full h-full overflow-hidden">
             {imageUrl ? (
               <Image
                 src={imageUrl}
@@ -125,7 +98,7 @@ export default function ArtworkFramePreview({
         <div className="absolute bottom-3 left-3 bg-black/80 backdrop-blur-md text-white text-[10px] font-mono px-2.5 py-1 rounded-md shadow-xs flex items-center gap-1.5">
           <Sparkles className="w-3 h-3 text-amber-300" />
           <span>
-            {isFramed ? `Framed: ${formattedFramedSize}` : `Artwork: ${formattedArtSize}`}
+            Artwork: {formattedArtSize}
           </span>
         </div>
       </div>
