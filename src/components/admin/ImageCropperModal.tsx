@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { X, ZoomIn, ZoomOut, RotateCw, Maximize2, Minimize2, Check, RefreshCw } from 'lucide-react'
 
 export type CropperAspectRatioPreset = 'original' | 'portrait' | 'landscape' | 'square' | 'custom'
@@ -27,6 +28,7 @@ export default function ImageCropperModal({
   defaultAspectRatio,
   defaultOrientation,
 }: ImageCropperModalProps) {
+  const [mounted, setMounted] = useState(false)
   const [zoom, setZoom] = useState(initialCrop?.zoom ?? 1)
   const [rotation, setRotation] = useState(initialCrop?.rotation ?? 0)
   const [offset, setOffset] = useState({ x: initialCrop?.x ?? 0, y: initialCrop?.y ?? 0 })
@@ -34,6 +36,10 @@ export default function ImageCropperModal({
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [isProcessing, setIsProcessing] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Ratio preset selection
   const [aspectPreset, setAspectPreset] = useState<CropperAspectRatioPreset>(() => {
@@ -244,25 +250,40 @@ export default function ImageCropperModal({
     }
   }, [imageRef, activeAspectRatio, offset, zoom, rotation, mode, onCropComplete, onClose])
 
-  if (!isOpen) return null
+  useEffect(() => {
+    if (isOpen) {
+      const prevOverflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = prevOverflow
+      }
+    }
+  }, [isOpen])
+
+  if (!isOpen || !mounted) return null
 
   // Calculate container display box style based on activeAspectRatio
   const containerStyle: React.CSSProperties = {
     aspectRatio: `${activeAspectRatio}`,
-    maxHeight: 'min(38vh, 320px)',
+    maxHeight: 'min(30vh, 260px)',
     maxWidth: '100%',
-    width: activeAspectRatio >= 1 ? 'min(100%, 360px)' : `min(100%, calc(min(38vh, 320px) * ${activeAspectRatio}))`,
+    width: activeAspectRatio >= 1 ? 'min(100%, 320px)' : `min(100%, calc(min(30vh, 260px) * ${activeAspectRatio}))`,
   }
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-2 sm:p-4 animate-fade-in overflow-y-auto"
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 backdrop-blur-md p-3 sm:p-4 animate-fade-in overflow-y-auto"
+      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
       onClick={(e) => {
         e.stopPropagation()
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col my-auto max-h-[96vh]">
+      <div 
+        className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full shadow-2xl flex flex-col my-auto overflow-hidden"
+        style={{ maxHeight: 'min(92vh, 680px)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="px-5 py-3 sm:px-6 sm:py-3.5 border-b border-gray-100 flex items-center justify-between shrink-0">
           <div>
@@ -422,6 +443,7 @@ export default function ImageCropperModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

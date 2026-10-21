@@ -18,6 +18,10 @@ export interface FrameRow {
 }
 
 export const FRAME_PRESET_OPTIONS = [
+  'Double- Bit frame (White)',
+  'Double- Bit frame (Black)',
+  'Single- Bit frame (White)',
+  'Single- Bit frame (Black)',
   'Double-Bit frame (White)',
   'Double-Bit frame (Black)',
   'Double-Bit frame (Natural Wood)',
@@ -650,21 +654,39 @@ export default function AddArtworkModal({
                 <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={() => handleAddPresetFrame('Double-Bit frame (White)')}
-                    className="h-7 px-2.5 rounded-md border border-gray-300 bg-white hover:bg-black hover:text-white hover:border-black text-[11px] font-bold text-gray-800 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                    title="Quick add Double-Bit frame (White)"
+                    onClick={() => handleAddPresetFrame('Double- Bit frame (White)')}
+                    className="h-7 px-2 rounded-md border border-gray-300 bg-white hover:bg-black hover:text-white hover:border-black text-[11px] font-bold text-gray-800 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                    title="Quick add Double- Bit frame (White)"
                   >
                     <Plus className="h-3 w-3" />
-                    <span>+ Double-Bit (White)</span>
+                    <span>+ Double- Bit (White)</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleAddPresetFrame('Double-Bit frame (Black)')}
-                    className="h-7 px-2.5 rounded-md border border-gray-300 bg-white hover:bg-black hover:text-white hover:border-black text-[11px] font-bold text-gray-800 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                    title="Quick add Double-Bit frame (Black)"
+                    onClick={() => handleAddPresetFrame('Double- Bit frame (Black)')}
+                    className="h-7 px-2 rounded-md border border-gray-300 bg-white hover:bg-black hover:text-white hover:border-black text-[11px] font-bold text-gray-800 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                    title="Quick add Double- Bit frame (Black)"
                   >
                     <Plus className="h-3 w-3" />
-                    <span>+ Double-Bit (Black)</span>
+                    <span>+ Double- Bit (Black)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddPresetFrame('Single- Bit frame (White)')}
+                    className="h-7 px-2 rounded-md border border-gray-300 bg-white hover:bg-black hover:text-white hover:border-black text-[11px] font-bold text-gray-800 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                    title="Quick add Single- Bit frame (White)"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>+ Single- Bit (White)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddPresetFrame('Single- Bit frame (Black)')}
+                    className="h-7 px-2 rounded-md border border-gray-300 bg-white hover:bg-black hover:text-white hover:border-black text-[11px] font-bold text-gray-800 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                    title="Quick add Single- Bit frame (Black)"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>+ Single- Bit (Black)</span>
                   </button>
                   <button
                     type="button"
@@ -681,22 +703,36 @@ export default function AddArtworkModal({
                 {frames.length === 0 ? (
                   <div className="text-center py-4 border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
                     <p className="text-xs text-gray-500 font-medium">
-                      No frame options added yet.
+                      No frame options added yet. Click a quick preset below:
                     </p>
-                    <div className="flex items-center justify-center gap-2 mt-2">
+                    <div className="flex flex-wrap items-center justify-center gap-2 mt-2.5">
                       <button
                         type="button"
-                        onClick={() => handleAddPresetFrame('Double-Bit frame (White)')}
+                        onClick={() => handleAddPresetFrame('Double- Bit frame (White)')}
                         className="px-2.5 py-1 text-xs font-semibold bg-white border border-gray-300 rounded hover:border-black transition-colors"
                       >
-                        + Double-Bit (White)
+                        + Double- Bit (White)
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleAddPresetFrame('Double-Bit frame (Black)')}
+                        onClick={() => handleAddPresetFrame('Double- Bit frame (Black)')}
                         className="px-2.5 py-1 text-xs font-semibold bg-white border border-gray-300 rounded hover:border-black transition-colors"
                       >
-                        + Double-Bit (Black)
+                        + Double- Bit (Black)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAddPresetFrame('Single- Bit frame (White)')}
+                        className="px-2.5 py-1 text-xs font-semibold bg-white border border-gray-300 rounded hover:border-black transition-colors"
+                      >
+                        + Single- Bit (White)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAddPresetFrame('Single- Bit frame (Black)')}
+                        className="px-2.5 py-1 text-xs font-semibold bg-white border border-gray-300 rounded hover:border-black transition-colors"
+                      >
+                        + Single- Bit (Black)
                       </button>
                     </div>
                   </div>
@@ -737,9 +773,11 @@ export default function AddArtworkModal({
                             className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none font-medium cursor-pointer"
                           >
                             <option value="">-- Choose Frame Preset --</option>
-                            <optgroup label="Double-Bit Frames (Most Popular)">
-                              <option value="Double-Bit frame (White)">Double-Bit frame (White)</option>
-                              <option value="Double-Bit frame (Black)">Double-Bit frame (Black)</option>
+                            <optgroup label="Bit Frames (Most Popular)">
+                              <option value="Double- Bit frame (White)">Double- Bit frame (White)</option>
+                              <option value="Double- Bit frame (Black)">Double- Bit frame (Black)</option>
+                              <option value="Single- Bit frame (White)">Single- Bit frame (White)</option>
+                              <option value="Single- Bit frame (Black)">Single- Bit frame (Black)</option>
                               <option value="Double-Bit frame (Natural Wood)">Double-Bit frame (Natural Wood)</option>
                               <option value="Double-Bit frame (Gold)">Double-Bit frame (Gold)</option>
                             </optgroup>
