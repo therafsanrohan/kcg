@@ -14,6 +14,7 @@ import { getPaintingImageUrl, getResponsiveSrcSet } from '@/utils/image'
 import { Truck, ShieldCheck, ShoppingBag, Ruler, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import ArtworkFramePreview from '@/components/admin/ArtworkFramePreview'
 import CustomSelect from '@/components/ui/CustomSelect'
+import WhatsAppIcon from '@/components/ui/WhatsAppIcon'
 
 interface PaintingData {
   id: string
@@ -180,62 +181,76 @@ export default function ClientDetails({
   const generateWhatsAppLink = () => {
     const cleanNumber = whatsappNumber.replace(/[^0-9]/g, '')
     const baseUrl = `https://wa.me/${cleanNumber}`
-    const productUrl = isMounted && typeof window !== 'undefined' && window.location.origin
-      ? `${window.location.origin}/gallery/${painting.slug}`
-      : `https://kazicanvasgallery.com/gallery/${painting.slug}`
+
+    // Production URL safeguard (never send localhost:3000 to customers)
+    const isLocalhost =
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    const siteOrigin =
+      isLocalhost || typeof window === 'undefined' ? 'https://kazicanvasgallery.com' : window.location.origin
+    const productUrl = `${siteOrigin}/gallery/${painting.slug}`
     
     // Compute comprehensive size description for message
     const sizeDescription = formattedArtworkSizeIn !== formattedArtworkSizeFt
       ? `${formattedArtworkSizeIn} (${formattedArtworkSizeFt})`
       : formattedArtworkSize
     
-    let message = `Hello Kazi Canvas Gallery,\n\nI would like to purchase this artwork.\n\n`
-    message += `Painting: ${painting.title}\n`
-    message += `Ref ID: ${painting.id}\n`
-    message += `Medium: ${painting.exact_medium}\n`
-    message += `Size: ${sizeDescription}\n`
+    // Format framing line
+    const framingLine = selectedFrame
+      ? `${selectedFrame.frame_name} (+${framePrice.toLocaleString('en-BD')} BDT)`
+      : 'Wooden fabric Canvas'
 
-    if (hasDiscount) {
-      message += `Original Price: ${basePrice.toLocaleString('en-BD')} BDT\n`
-      message += `Offer Price: ${discountPrice.toLocaleString('en-BD')} BDT (${painting.offer_badge || 'Discount Offer'})\n`
-    } else {
-      message += `Artwork Price: ${basePrice.toLocaleString('en-BD')} BDT\n`
-    }
-    
-    if (selectedFrame) {
-      const frameSizeStr = getFrameDisplayDimensions(selectedFrame, displayUnit)
-      message += `Framing: ${selectedFrame.frame_name} (${frameSizeStr})\n`
-      message += `   Frame Cost: +${framePrice.toLocaleString('en-BD')} BDT\n`
-    } else {
-      message += `Framing: Wooden fabric Canvas\n`
-    }
-
+    // Format delivery fee line
+    let deliveryFeeText = ''
     if (selectedZone) {
-      message += `Delivery Zone: ${selectedZone.label}\n`
       if (isQuotationDelivery) {
         if (selectedZone.code === 'outside_dhaka' || selectedZone.label.toLowerCase().includes('outside dhaka')) {
-          message += `   Delivery Fee: As per Sundarban Courier / S.A. Paribahan charges\n`
-        } else if (selectedZone.code === 'international' || selectedZone.label.toLowerCase().includes('worldwide') || selectedZone.label.toLowerCase().includes('outside bangladesh')) {
-          message += `   Delivery Fee: As per mailing address\n`
+          deliveryFeeText = 'As per Sundarban Courier / S.A. Paribahan charges'
+        } else if (
+          selectedZone.code === 'international' ||
+          selectedZone.label.toLowerCase().includes('worldwide') ||
+          selectedZone.label.toLowerCase().includes('outside bangladesh')
+        ) {
+          deliveryFeeText = 'As per mailing address'
         } else {
-          message += `   Delivery Fee: As per courier quotation\n`
+          deliveryFeeText = 'As per courier quotation'
         }
       } else if (isFreeDeliveryOfferActive || selectedZone.pricing_mode === 'free' || deliveryCharge === 0) {
-        const promoLabel = isFreeDeliveryOfferActive && selectedZone.free_delivery_label ? ` (${selectedZone.free_delivery_label})` : ''
-        message += `   Delivery Fee: FREE Delivery${promoLabel}\n`
+        deliveryFeeText = 'FREE Delivery'
       } else {
-        message += `   Delivery Fee: +${deliveryCharge.toLocaleString('en-BD')} BDT\n`
+        deliveryFeeText = `+${deliveryCharge.toLocaleString('en-BD')} BDT`
       }
     }
-    
-    message += `\nTotal Amount: ${totalPriceBdt.toLocaleString('en-BD')} BDT`
-    if (currency !== 'BDT') {
-      message += ` (~ ${convertCurrency(totalPriceBdt, currency, rates)} ${currency})\n`
+
+    const shortRefId = painting.id ? `#${painting.id.slice(0, 8).toUpperCase()}` : ''
+
+    let message = `Hello Kazi Canvas Gallery,\n\nI would like to acquire this artwork:\n\n`
+    message += `*Artwork:* ${painting.title}\n`
+    message += `*Medium:* ${painting.exact_medium || painting.painting_type || 'Oil on canvas'}\n`
+    message += `*Size:* ${sizeDescription}\n`
+
+    if (hasDiscount) {
+      message += `*Artwork Price:* ${discountPrice.toLocaleString('en-BD')} BDT (${painting.offer_badge || 'Discount Offer'})\n`
     } else {
-      message += `\n`
+      message += `*Artwork Price:* ${basePrice.toLocaleString('en-BD')} BDT\n`
     }
     
-    message += `\nLink: ${productUrl}\n\nPlease confirm availability and delivery timeframe. Thank you!`
+    message += `*Framing:* ${framingLine}\n`
+
+    if (selectedZone) {
+      message += `*Delivery Zone:* ${selectedZone.label} (${deliveryFeeText})\n`
+    }
+    
+    message += `\n*Total Amount:* ${totalPriceBdt.toLocaleString('en-BD')} BDT`
+    if (currency !== 'BDT') {
+      message += ` (~ ${convertCurrency(totalPriceBdt, currency, rates)} ${currency})`
+    }
+    
+    message += `\n\n*Artwork Link:* ${productUrl}`
+    if (shortRefId) {
+      message += `\n*Ref:* ${shortRefId}`
+    }
+    message += `\n\nPlease confirm availability and delivery timeframe. Thank you!`
     
     return `${baseUrl}?text=${encodeURIComponent(message)}`
   }
@@ -544,7 +559,7 @@ export default function ClientDetails({
               }}
               className="flex w-full items-center justify-center gap-2.5 rounded-md bg-[#1A1A1A] px-8 py-4 text-xs uppercase tracking-[0.18em] font-semibold text-white shadow-sm hover:bg-black transition-colors focus:outline-none cursor-pointer"
             >
-              <ShoppingBag className="h-4 w-4 fill-white stroke-none" />
+              <WhatsAppIcon className="h-4 w-4 fill-white flex-shrink-0" />
               <span>Inquire & Acquire via WhatsApp</span>
             </button>
           ) : (

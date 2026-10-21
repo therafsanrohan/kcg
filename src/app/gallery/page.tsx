@@ -37,7 +37,7 @@ export default async function GalleryPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <div className="bg-white min-h-screen pt-8">
+    <div className="bg-[#FAF9F5] min-h-screen pt-8">
       <Suspense fallback={null}>
         <CustomerGallerySection paintings={paintings || []} />
       </Suspense>

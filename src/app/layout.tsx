@@ -37,7 +37,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       lang="en"
       className="h-full antialiased"
     >
-      <body className="min-h-screen flex flex-col font-sans bg-[#FBFBFA] text-[#1A1A1A] selection:bg-[#EAE8E3]">
+      <body className="min-h-screen flex flex-col font-sans bg-[#FAF9F5] text-[#1A1A1A] selection:bg-[#EAE8E3]">
+        <div className="gallery-grain-overlay" aria-hidden="true" />
         <Navbar whatsappNumber={whatsappNumber} />
         <main className="flex-1">
           {children}

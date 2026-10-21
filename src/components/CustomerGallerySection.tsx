@@ -195,7 +195,7 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
 
         {/* Pinterest-Inspired Responsive Masonry Layout */}
         <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 sm:gap-8 [column-fill:_balance]">
-          {filteredPaintings.map((painting) => {
+          {filteredPaintings.map((painting, index) => {
             const hasDiscount = Boolean(painting.discount_price_bdt && Number(painting.discount_price_bdt) > 0)
             const effectivePrice = hasDiscount ? Number(painting.discount_price_bdt) : Number(painting.base_price_bdt)
 
@@ -211,6 +211,7 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
 
             const artAspect = getArtworkAspectRatio(painting)
             const sizeString = getDisplayDimensions(painting)
+            const serialNumber = String(index + 1).padStart(2, '0')
 
             return (
               <div
@@ -219,7 +220,7 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
               >
                 <div className="relative flex flex-col">
                   {/* Artwork Image Box with Multi-Image Preview Slider */}
-                  <div className="relative w-full overflow-hidden rounded-2xl border border-gray-200/70 shadow-2xs transition-all duration-500 ease-out group-hover:shadow-md bg-gray-50">
+                  <div className="relative w-full overflow-hidden rounded-2xl border border-gray-200/70 shadow-2xs transition-all duration-500 ease-out group-hover:shadow-md bg-[#F4F3EE]">
                     <ArtworkImageSlider
                       images={painting.painting_images || []}
                       title={painting.title}
@@ -228,10 +229,16 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
                       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1440px) 33vw, 25vw"
                     >
                       {/* Curated Offer Badge (Top-Left) */}
-                      {hasDiscount && (
+                      {hasDiscount ? (
                         <div className="absolute top-3 left-3 z-20 pointer-events-none">
                           <span className="bg-[#1A1A1A] text-white font-mono text-[9px] uppercase tracking-wider px-2.5 py-1 rounded-sm shadow-xs">
                             {painting.offer_badge || 'OFFER'}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none opacity-85 group-hover:opacity-100 transition-opacity">
+                          <span className="bg-black/55 text-white/95 backdrop-blur-md font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full shadow-2xs">
+                            No. {serialNumber}
                           </span>
                         </div>
                       )}
@@ -252,11 +259,23 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
                     </ArtworkImageSlider>
                   </div>
 
-                  {/* Artwork Details Directly Below: Name, Size/Medium, Price */}
+                  {/* Artwork Details Directly Below: Serial, Name, Size/Medium, Price */}
                   <Link
                     href={`/gallery/${painting.slug}`}
                     className="mt-3.5 block focus:outline-none focus-visible:ring-1 focus-visible:ring-black rounded-sm"
                   >
+                    {/* Catalog Serial Number & Type */}
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="font-mono text-[10px] sm:text-[11px] font-medium text-gray-400 tracking-widest uppercase">
+                        No. {serialNumber}
+                      </span>
+                      {painting.painting_type && (
+                        <span className="font-mono text-[9px] uppercase tracking-wider text-gray-400">
+                          {painting.painting_type}
+                        </span>
+                      )}
+                    </div>
+
                     {/* Primary: Artwork Name */}
                     <h3 className="font-editorial text-2xl font-normal text-gray-950 group-hover:text-gray-700 transition-colors leading-snug break-words">
                       {painting.title}

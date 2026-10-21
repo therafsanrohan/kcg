@@ -53,7 +53,7 @@ export default async function AboutPage() {
       : null)
 
   return (
-    <div className="bg-[#FBFBFA] min-h-[calc(100vh-140px)]">
+    <div className="bg-[#FAF9F5] min-h-[calc(100vh-140px)]">
       {/* ── Breadcrumb / Header Eyebrow ── */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12">
         <nav aria-label="Breadcrumb" className="text-xs font-mono uppercase tracking-[0.2em] text-gray-400">

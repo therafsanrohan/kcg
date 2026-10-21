@@ -155,7 +155,7 @@ export default async function PaintingDetailsPage({ params }: { params: Promise<
   }
 
   return (
-    <div className="bg-white py-12 sm:py-20 font-sans">
+    <div className="bg-[#FAF9F5] py-12 sm:py-20 font-sans">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { Menu, X, MessageCircle, ChevronDown } from 'lucide-react'
 import { SUPPORTED_CURRENCIES, Currency } from '@/utils/currency-shared'
+import WhatsAppIcon from '@/components/ui/WhatsAppIcon'
 
 function NavLinks() {
   const pathname = usePathname()
@@ -97,7 +98,7 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 transition-all duration-300">
+    <header className="sticky top-0 z-50 bg-[#FAF9F5]/90 backdrop-blur-md border-b border-gray-200/60 transition-all duration-300">
       <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 h-16 sm:h-20" aria-label="Global">
         
         {/* Left: Brand Title */}
@@ -152,7 +153,7 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
             rel="noopener noreferrer"
             className="hidden sm:inline-flex h-9 sm:h-10 px-3.5 sm:px-4 rounded-md bg-[#1A1A1A] text-white text-xs font-medium tracking-wide items-center gap-2 hover:bg-black transition-colors whitespace-nowrap"
           >
-            <MessageCircle className="h-3.5 w-3.5 fill-white stroke-none" />
+            <WhatsAppIcon className="h-3.5 w-3.5 fill-white flex-shrink-0" />
             <span>Inquire via WhatsApp</span>
           </a>
 
@@ -289,7 +290,7 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center justify-center gap-2.5 w-full py-4 px-6 rounded-md bg-[#1A1A1A] text-white text-xs sm:text-sm uppercase tracking-[0.2em] font-semibold hover:bg-black transition-colors shadow-sm"
               >
-                <MessageCircle className="h-4 w-4 fill-white stroke-none" />
+                <WhatsAppIcon className="h-4 w-4 fill-white flex-shrink-0" />
                 <span>Chat with Artist via WhatsApp</span>
               </a>
 

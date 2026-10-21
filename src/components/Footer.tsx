@@ -2,9 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import WhatsAppIcon from '@/components/ui/WhatsAppIcon'
 
 export default function Footer({ whatsappNumber }: { whatsappNumber?: string }) {
   const pathname = usePathname()
+  const currentYear = new Date().getFullYear()
 
   // Do not render customer footer on admin pages or dedicated invoice document pages
   if (pathname?.startsWith('/admin') || pathname?.startsWith('/invoice')) {
@@ -31,16 +33,17 @@ export default function Footer({ whatsappNumber }: { whatsappNumber?: string }) 
               href={`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-500 hover:text-black transition-colors"
+              className="inline-flex items-center gap-1.5 text-gray-500 hover:text-black transition-colors"
             >
-              Contact &bull; WhatsApp
+              <WhatsAppIcon className="h-3.5 w-3.5 fill-current" />
+              <span>Contact via WhatsApp</span>
             </a>
           )}
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-500 font-normal">
           <p>
-            &copy; {new Date().getFullYear()} Kazi Canvas Gallery. All rights reserved.
+            &copy; 2018–{currentYear} Kazi Canvas Gallery. All rights reserved.
           </p>
 
           <p>

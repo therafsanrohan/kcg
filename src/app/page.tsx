@@ -50,7 +50,7 @@ export default async function Home() {
     : null
 
   return (
-    <div className="bg-white text-gray-950 font-sans">
+    <div className="bg-[#FAF9F5] text-gray-950 font-sans">
       
       {/* ── 1. Hero Section ── */}
       <section className="pt-10 sm:pt-16 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
@@ -127,9 +127,9 @@ export default async function Home() {
       </Suspense>
 
       {/* ── 4. Compact Our Story Section ── */}
-      <section className="border-t border-gray-200/80 bg-white py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8">
+      <section className="border-t border-gray-200/80 bg-[#FAF9F5] py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="rounded-2xl sm:rounded-3xl border border-gray-200/70 bg-[#FAF9F5] p-6 sm:p-10 lg:p-12 overflow-hidden shadow-2xs">
+          <div className="rounded-2xl sm:rounded-3xl border border-gray-200/80 bg-white/60 p-6 sm:p-10 lg:p-12 overflow-hidden shadow-2xs">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
               
               {/* Text content */}
