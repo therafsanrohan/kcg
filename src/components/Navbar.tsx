@@ -15,6 +15,7 @@ function NavLinks() {
   const isAllActive = pathname === '/gallery' && !currentType
   const isOilActive = pathname === '/gallery' && currentType === 'oil'
   const isAcrylicActive = pathname === '/gallery' && currentType === 'acrylic'
+  const isAboutActive = pathname === '/about'
 
   return (
     <div className="hidden lg:flex items-center gap-x-8 xl:gap-x-10">
@@ -41,6 +42,14 @@ function NavLinks() {
         }`}
       >
         Acrylic
+      </Link>
+      <Link
+        href="/about"
+        className={`text-xs uppercase tracking-[0.18em] transition-colors hover:text-black whitespace-nowrap pb-1 ${
+          isAboutActive ? 'text-black font-semibold border-b border-black' : 'text-gray-500 font-medium'
+        }`}
+      >
+        Our Story
       </Link>
     </div>
   )
@@ -255,6 +264,16 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
                     Acrylic on Canvas
                   </Link>
                 </div>
+
+                <Link 
+                  href="/about" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block text-2xl sm:text-3xl tracking-tight transition-colors ${
+                    pathname === '/about' ? 'text-black font-semibold' : 'text-gray-600 hover:text-black font-light'
+                  }`}
+                >
+                  Our Story
+                </Link>
               </div>
             </div>
 
