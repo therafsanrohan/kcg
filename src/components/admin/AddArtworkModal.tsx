@@ -17,6 +17,29 @@ export interface FrameRow {
   price_bdt: number | string
 }
 
+export const FRAME_PRESET_OPTIONS = [
+  'Double-Bit frame (White)',
+  'Double-Bit frame (Black)',
+  'Double-Bit frame (Natural Wood)',
+  'Double-Bit frame (Gold)',
+  'Minimalist Floating Frame (Black)',
+  'Minimalist Floating Frame (White)',
+  'Minimalist Floating Frame (Natural Oak)',
+  'Raw Teakwood Floating Frame',
+  'Champagne Gold Floating Frame',
+  'Matte Black Shadowbox',
+  'Natural Oak Shadowbox',
+  'Classic Gilded Gold Frame',
+]
+
+export function calculateSuggestedOuterSize(wStr: string, hStr: string, u: MeasurementUnit = 'in'): string {
+  const w = parseFloat(wStr) || 0
+  const h = parseFloat(hStr) || 0
+  if (w <= 0 || h <= 0) return ''
+  const extra = u === 'in' ? 6 : u === 'cm' ? 15 : 150
+  return `${Math.round(w + extra)} × ${Math.round(h + extra)} ${u}`
+}
+
 interface AddArtworkModalProps {
   isOpen: boolean
   onClose: (didSave?: boolean) => void
@@ -164,11 +187,28 @@ export default function AddArtworkModal({
   }
 
   const handleAddFrame = useCallback(() => {
+    const suggestedSize = calculateSuggestedOuterSize(width, height, unit)
     setFrames((prev) => [
       ...prev,
-      { id: Math.random().toString(36), frame_name: '', outer_size: '', price_bdt: 0 },
+      { id: Math.random().toString(36), frame_name: '', outer_size: suggestedSize, price_bdt: 2700 },
     ])
-  }, [])
+  }, [width, height, unit])
+
+  const handleAddPresetFrame = useCallback(
+    (presetName: string, defaultPrice: number = 2700) => {
+      const suggestedSize = calculateSuggestedOuterSize(width, height, unit)
+      setFrames((prev) => [
+        ...prev,
+        {
+          id: Math.random().toString(36),
+          frame_name: presetName,
+          outer_size: suggestedSize,
+          price_bdt: defaultPrice,
+        },
+      ])
+    },
+    [width, height, unit]
+  )
 
   const handleRemoveFrame = useCallback((id: string) => {
     setFrames((prev) => prev.filter((f) => f.id !== id))
@@ -210,6 +250,7 @@ export default function AddArtworkModal({
     }
 
     if (newItems.length > 0) {
+      const targetIndex = artworkImages.length
       setArtworkImages((prev) => {
         const combined = [...prev, ...newItems]
         if (!combined.some((img) => img.isPrimary)) {
@@ -218,13 +259,11 @@ export default function AddArtworkModal({
         return combined
       })
 
-      // If this was the first image added, automatically prompt cropper
-      if (artworkImages.length === 0 && newItems[0].file) {
-        setImageSrcToCrop(newItems[0].previewUrl)
-        activeCropIndexRef.current = 0
-        setActiveCropIndex(0)
-        setCropModalOpen(true)
-      }
+      // WHENEVER ANY image is added, INSTANTLY open the cropper on this image!
+      activeCropIndexRef.current = targetIndex
+      setActiveCropIndex(targetIndex)
+      setImageSrcToCrop(newItems[0].previewUrl)
+      setCropModalOpen(true)
     }
 
     e.target.value = ''
@@ -598,86 +637,199 @@ export default function AddArtworkModal({
             </div>
 
             {/* Frame Options */}
-            <div className="border border-gray-200 rounded-xl overflow-hidden">
-              <div className="bg-gray-50/80 px-4 py-3 flex items-center justify-between border-b border-gray-200">
+            <div className="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+              <div className="bg-gray-50/80 px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b border-gray-200">
                 <div>
-                  <span className="text-[11px] font-bold tracking-widest uppercase text-gray-700">
+                  <span className="text-[11px] font-bold tracking-widest uppercase text-gray-800">
                     Frame Options
                   </span>
                   <p className="text-[11px] text-gray-500 mt-0.5 font-light">
-                    Add framing options with price
+                    Select popular frame presets or add custom framing
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAddFrame}
-                  className="h-8 px-3 rounded-lg border border-gray-300 bg-white text-xs font-semibold text-gray-800 flex items-center gap-1.5 hover:border-gray-500 hover:bg-gray-50 transition-all"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add frame
-                </button>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleAddPresetFrame('Double-Bit frame (White)')}
+                    className="h-7 px-2.5 rounded-md border border-gray-300 bg-white hover:bg-black hover:text-white hover:border-black text-[11px] font-bold text-gray-800 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                    title="Quick add Double-Bit frame (White)"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>+ Double-Bit (White)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddPresetFrame('Double-Bit frame (Black)')}
+                    className="h-7 px-2.5 rounded-md border border-gray-300 bg-white hover:bg-black hover:text-white hover:border-black text-[11px] font-bold text-gray-800 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                    title="Quick add Double-Bit frame (Black)"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>+ Double-Bit (Black)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddFrame}
+                    className="h-7 px-2.5 rounded-md border border-gray-300 bg-white hover:bg-gray-100 text-[11px] font-semibold text-gray-700 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>+ Custom Frame</span>
+                  </button>
+                </div>
               </div>
 
               <div className="p-4 space-y-3">
                 {frames.length === 0 ? (
-                  <p className="text-xs text-gray-400 text-center py-2 font-light italic">
-                    No frames added yet. Click &quot;Add frame&quot; to add one.
-                  </p>
+                  <div className="text-center py-4 border border-dashed border-gray-200 rounded-lg bg-gray-50/50">
+                    <p className="text-xs text-gray-500 font-medium">
+                      No frame options added yet.
+                    </p>
+                    <div className="flex items-center justify-center gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAddPresetFrame('Double-Bit frame (White)')}
+                        className="px-2.5 py-1 text-xs font-semibold bg-white border border-gray-300 rounded hover:border-black transition-colors"
+                      >
+                        + Double-Bit (White)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAddPresetFrame('Double-Bit frame (Black)')}
+                        className="px-2.5 py-1 text-xs font-semibold bg-white border border-gray-300 rounded hover:border-black transition-colors"
+                      >
+                        + Double-Bit (Black)
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   frames.map((frame) => (
                     <div
                       key={frame.id}
-                      className="grid grid-cols-[1fr_120px_100px_36px] gap-2 items-end"
+                      className="p-3 bg-gray-50/70 rounded-xl border border-gray-200/80 space-y-2"
                     >
-                      <div>
-                        <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
-                          Frame Finish
-                        </label>
-                        <input
-                          type="text"
-                          value={frame.frame_name}
-                          onChange={(e) =>
-                            handleFrameChange(frame.id, 'frame_name', e.target.value)
-                          }
-                          placeholder="Natural oak"
-                          className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_130px_110px_36px] gap-2.5 items-end">
+                        {/* Frame Finish with Dropdown */}
+                        <div>
+                          <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
+                            Frame Finish
+                          </label>
+                          <select
+                            value={
+                              FRAME_PRESET_OPTIONS.includes(frame.frame_name)
+                                ? frame.frame_name
+                                : frame.frame_name
+                                ? 'custom'
+                                : ''
+                            }
+                            onChange={(e) => {
+                              const val = e.target.value
+                              if (val === 'custom') {
+                                if (FRAME_PRESET_OPTIONS.includes(frame.frame_name)) {
+                                  handleFrameChange(frame.id, 'frame_name', '')
+                                }
+                              } else {
+                                handleFrameChange(frame.id, 'frame_name', val)
+                                if (!frame.outer_size && width && height) {
+                                  const suggested = calculateSuggestedOuterSize(width, height, unit)
+                                  if (suggested) handleFrameChange(frame.id, 'outer_size', suggested)
+                                }
+                              }
+                            }}
+                            className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none font-medium cursor-pointer"
+                          >
+                            <option value="">-- Choose Frame Preset --</option>
+                            <optgroup label="Double-Bit Frames (Most Popular)">
+                              <option value="Double-Bit frame (White)">Double-Bit frame (White)</option>
+                              <option value="Double-Bit frame (Black)">Double-Bit frame (Black)</option>
+                              <option value="Double-Bit frame (Natural Wood)">Double-Bit frame (Natural Wood)</option>
+                              <option value="Double-Bit frame (Gold)">Double-Bit frame (Gold)</option>
+                            </optgroup>
+                            <optgroup label="Floating Frames">
+                              <option value="Minimalist Floating Frame (Black)">Minimalist Floating Frame (Black)</option>
+                              <option value="Minimalist Floating Frame (White)">Minimalist Floating Frame (White)</option>
+                              <option value="Minimalist Floating Frame (Natural Oak)">Minimalist Floating Frame (Natural Oak)</option>
+                              <option value="Raw Teakwood Floating Frame">Raw Teakwood Floating Frame</option>
+                              <option value="Champagne Gold Floating Frame">Champagne Gold Floating Frame</option>
+                            </optgroup>
+                            <optgroup label="Shadowbox & Gallery">
+                              <option value="Matte Black Shadowbox">Matte Black Shadowbox</option>
+                              <option value="Natural Oak Shadowbox">Natural Oak Shadowbox</option>
+                              <option value="Classic Gilded Gold Frame">Classic Gilded Gold Frame</option>
+                            </optgroup>
+                            <option value="custom">✏️ Custom / Type by Hand...</option>
+                          </select>
+                        </div>
+
+                        {/* Outer Size */}
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600">
+                              Size
+                            </label>
+                            {(!frame.outer_size || frame.outer_size.trim() === '') && width && height && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const suggested = calculateSuggestedOuterSize(width, height, unit)
+                                  if (suggested) handleFrameChange(frame.id, 'outer_size', suggested)
+                                }}
+                                className="text-[9px] text-blue-600 hover:underline cursor-pointer"
+                              >
+                                Auto-calc
+                              </button>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            value={frame.outer_size}
+                            onChange={(e) =>
+                              handleFrameChange(frame.id, 'outer_size', e.target.value)
+                            }
+                            placeholder="30 × 42 in"
+                            className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none font-medium"
+                          />
+                        </div>
+
+                        {/* Price BDT */}
+                        <div>
+                          <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
+                            Price BDT
+                          </label>
+                          <input
+                            type="number"
+                            value={frame.price_bdt}
+                            onChange={(e) =>
+                              handleFrameChange(frame.id, 'price_bdt', e.target.value)
+                            }
+                            placeholder="2700"
+                            className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none font-medium"
+                          />
+                        </div>
+
+                        {/* Delete Frame */}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFrame(frame.id)}
+                          className="h-8 w-8 sm:w-9 rounded-md border border-gray-200 flex items-center justify-center text-gray-400 hover:text-red-600 hover:border-red-200 bg-white transition-all cursor-pointer mb-0.5"
+                          title="Remove frame"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       </div>
-                      <div>
-                        <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
-                          Size
-                        </label>
-                        <input
-                          type="text"
-                          value={frame.outer_size}
-                          onChange={(e) =>
-                            handleFrameChange(frame.id, 'outer_size', e.target.value)
-                          }
-                          placeholder="27 × 39 in"
-                          className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600 mb-1">
-                          Price BDT
-                        </label>
-                        <input
-                          type="number"
-                          value={frame.price_bdt}
-                          onChange={(e) =>
-                            handleFrameChange(frame.id, 'price_bdt', e.target.value)
-                          }
-                          placeholder="0"
-                          className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFrame(frame.id)}
-                        className="h-8 w-9 rounded-md border border-gray-200 flex items-center justify-center text-gray-400 hover:text-red-600 hover:border-red-200 bg-white transition-all"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+
+                      {/* Custom Name input if 'custom' is selected or frame name isn't in presets */}
+                      {(!FRAME_PRESET_OPTIONS.includes(frame.frame_name) || frame.frame_name === '') && (
+                        <div className="pt-1">
+                          <input
+                            type="text"
+                            value={frame.frame_name}
+                            onChange={(e) =>
+                              handleFrameChange(frame.id, 'frame_name', e.target.value)
+                            }
+                            placeholder="Type custom frame finish name (e.g. Italian Walnut Baroque)"
+                            className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none"
+                          />
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
@@ -1009,6 +1161,7 @@ export default function AddArtworkModal({
       {/* Multi-Orientation Aspect Ratio Image Cropper Modal */}
       {cropModalOpen && imageSrcToCrop && (
         <ImageCropperModal
+          key={`${imageSrcToCrop}-${activeCropIndexRef.current ?? 'crop'}`}
           isOpen={cropModalOpen}
           imageSrc={imageSrcToCrop}
           defaultOrientation={orientation}
