@@ -210,11 +210,51 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
         return combined
       })
       const targetIndex = artworkImages.length
-      // WHENEVER ANY image is added, INSTANTLY open the cropper on this image!
-      activeCropIndexRef.current = targetIndex
-      setActiveCropIndex(targetIndex)
-      setImageSrcToCrop(newItems[0].previewUrl)
-      setCropModalOpen(true)
+      const primaryUrl = newItems[0].previewUrl
+
+      // Pre-capture orientation: auto-detect natural image dimensions (portrait vs landscape)
+      const preImg = new window.Image()
+      preImg.onload = () => {
+        const nw = preImg.naturalWidth
+        const nh = preImg.naturalHeight
+        if (nw > 0 && nh > 0) {
+          const ratio = nw / nh
+          const isSq = Math.abs(ratio - 1) <= 0.08
+          const isLand = ratio > 1.05
+          const detectedOrient: ArtworkOrientation = isSq ? 'square' : isLand ? 'landscape' : 'portrait'
+          
+          setOrientation(detectedOrient)
+
+          // Auto-adjust width & height dimensions to match detected orientation
+          const curW = parseFloat(width) || 0
+          const curH = parseFloat(height) || 0
+          if (isLand && curW < curH) {
+            setWidth(String(curH))
+            setHeight(String(curW))
+            setDisplaySize(`${curH} × ${curW} ${unit}`)
+          } else if (!isLand && !isSq && curW > curH) {
+            setWidth(String(curH))
+            setHeight(String(curW))
+            setDisplaySize(`${curH} × ${curW} ${unit}`)
+          } else if (isSq && curW !== curH) {
+            const sqDim = Math.round((curW + curH) / 2) || 24
+            setWidth(String(sqDim))
+            setHeight(String(sqDim))
+            setDisplaySize(`${sqDim} × ${sqDim} ${unit}`)
+          }
+        }
+        activeCropIndexRef.current = targetIndex
+        setActiveCropIndex(targetIndex)
+        setImageSrcToCrop(primaryUrl)
+        setCropModalOpen(true)
+      }
+      preImg.onerror = () => {
+        activeCropIndexRef.current = targetIndex
+        setActiveCropIndex(targetIndex)
+        setImageSrcToCrop(primaryUrl)
+        setCropModalOpen(true)
+      }
+      preImg.src = primaryUrl
     }
 
     e.target.value = ''
@@ -270,7 +310,12 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     }
   }
 
-  const handleCropComplete = (blob: Blob) => {
+  const handleCropComplete = (
+    blob: Blob,
+    cropData?: {
+      orientation?: ArtworkOrientation
+    }
+  ) => {
     const cropIdx = activeCropIndexRef.current ?? activeCropIndex
     if (cropIdx !== null) {
       const croppedUrl = URL.createObjectURL(blob)
@@ -282,6 +327,27 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
         )
       )
     }
+
+    if (cropData?.orientation && cropData.orientation !== orientation) {
+      setOrientation(cropData.orientation)
+      const curW = parseFloat(width) || 0
+      const curH = parseFloat(height) || 0
+      if (cropData.orientation === 'landscape' && curW < curH) {
+        setWidth(String(curH))
+        setHeight(String(curW))
+        setDisplaySize(`${curH} × ${curW} ${unit}`)
+      } else if (cropData.orientation === 'portrait' && curW > curH) {
+        setWidth(String(curH))
+        setHeight(String(curW))
+        setDisplaySize(`${curH} × ${curW} ${unit}`)
+      } else if (cropData.orientation === 'square' && curW !== curH) {
+        const sqDim = Math.round((curW + curH) / 2) || 24
+        setWidth(String(sqDim))
+        setHeight(String(sqDim))
+        setDisplaySize(`${sqDim} × ${sqDim} ${unit}`)
+      }
+    }
+
     setCropModalOpen(false)
     setActiveCropIndex(null)
     activeCropIndexRef.current = null

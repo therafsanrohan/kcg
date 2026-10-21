@@ -12,7 +12,15 @@ interface ImageCropperModalProps {
   onClose: () => void
   onCropComplete: (
     croppedBlob: Blob,
-    cropData: { x: number; y: number; zoom: number; rotation: number; mode: 'fill' | 'fit'; aspectRatio: number }
+    cropData: {
+      x: number
+      y: number
+      zoom: number
+      rotation: number
+      mode: 'fill' | 'fit'
+      aspectRatio: number
+      orientation?: 'portrait' | 'landscape' | 'square' | 'custom'
+    }
   ) => void
   initialCrop?: { x: number; y: number; zoom: number; rotation: number; mode: 'fill' | 'fit'; aspectRatio?: number }
   defaultAspectRatio?: number
@@ -71,6 +79,17 @@ export default function ImageCropperModal({
     }
   }, [initialCrop, imageSrc, isOpen])
 
+  // Sync with defaultOrientation if prop changes
+  useEffect(() => {
+    if (defaultOrientation && !initialCrop) {
+      setAspectPreset(defaultOrientation)
+      if (defaultOrientation === 'portrait') setActiveAspectRatio(0.8)
+      else if (defaultOrientation === 'landscape') setActiveAspectRatio(1.25)
+      else if (defaultOrientation === 'square') setActiveAspectRatio(1.0)
+      else if (defaultOrientation === 'custom' && defaultAspectRatio) setActiveAspectRatio(defaultAspectRatio)
+    }
+  }, [defaultOrientation, defaultAspectRatio, isOpen, initialCrop])
+
   const [naturalAspect, setNaturalAspect] = useState<number>(1)
 
   const handleImageLoad = () => {
@@ -80,7 +99,20 @@ export default function ImageCropperModal({
       if (nw > 0 && nh > 0) {
         const nat = nw / nh
         setNaturalAspect(nat)
-        if (aspectPreset === 'original') {
+
+        // Automatically capture whether image is portrait, landscape, or square!
+        if (!initialCrop) {
+          if (Math.abs(nat - 1) <= 0.08) {
+            setAspectPreset('square')
+            setActiveAspectRatio(1.0)
+          } else if (nat > 1.05) {
+            setAspectPreset('landscape')
+            setActiveAspectRatio(1.25)
+          } else {
+            setAspectPreset('portrait')
+            setActiveAspectRatio(0.8)
+          }
+        } else if (aspectPreset === 'original') {
           setActiveAspectRatio(nat)
         }
       }
@@ -237,6 +269,14 @@ export default function ImageCropperModal({
               rotation,
               mode,
               aspectRatio: activeAspectRatio,
+              orientation:
+                aspectPreset === 'portrait'
+                  ? 'portrait'
+                  : aspectPreset === 'landscape'
+                  ? 'landscape'
+                  : aspectPreset === 'square'
+                  ? 'square'
+                  : 'custom',
             })
             onClose()
           }
@@ -248,7 +288,7 @@ export default function ImageCropperModal({
       console.error('Cropping error:', err)
       setIsProcessing(false)
     }
-  }, [imageRef, activeAspectRatio, offset, zoom, rotation, mode, onCropComplete, onClose])
+  }, [imageRef, activeAspectRatio, aspectPreset, offset, zoom, rotation, mode, onCropComplete, onClose])
 
   useEffect(() => {
     if (isOpen) {
