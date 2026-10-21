@@ -8,14 +8,21 @@ export async function saveAdvancedImagesAction(paintingId: string, advancedImage
     const { supabase } = await requireAdmin()
 
     if (advancedImages.length > 0) {
-      // Soft delete old images by archiving them (instead of hard delete)
+      // 1. Demote and archive all existing images for this painting so no duplicate primary_image remains
       await supabase
         .from('painting_images')
-        .update({ archived_at: new Date().toISOString() })
+        .update({
+          archived_at: new Date().toISOString(),
+          primary_image: false,
+          is_main: false,
+        })
         .eq('painting_id', paintingId)
-        .is('archived_at', null)
 
-      const imageRecords = advancedImages.map((img) => {
+      // 2. Ensure strictly ONE primary image in the incoming batch
+      const primaryIdx = advancedImages.findIndex((img) => img.isPrimary)
+      const targetPrimaryIdx = primaryIdx >= 0 ? primaryIdx : 0
+
+      const imageRecords = advancedImages.map((img, idx) => {
         const deliverableKey =
           img.storageKey ||
           img.displayKey ||
@@ -24,15 +31,17 @@ export async function saveAdvancedImagesAction(paintingId: string, advancedImage
           img.thumbnailKey ||
           img.originalKey
 
+        const isPrimary = idx === targetPrimaryIdx
+
         return {
           painting_id: paintingId,
           storage_key: deliverableKey,
           processed_key: deliverableKey,
           thumbnail_key: img.thumbnailKey || deliverableKey,
           responsive_urls: img.responsiveUrls || {},
-          is_main: Boolean(img.isPrimary),
-          primary_image: Boolean(img.isPrimary),
-          sort_order: Number(img.sortOrder) || 1,
+          is_main: isPrimary,
+          primary_image: isPrimary,
+          sort_order: Number(img.sortOrder) || (idx + 1),
           mime_type: img.mimeType || 'image/webp',
           file_format: img.mimeType?.split('/')[1] || 'webp',
           processing_status: 'completed',
