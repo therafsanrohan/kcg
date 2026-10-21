@@ -206,7 +206,6 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
                 : `${convertCurrency(effectivePrice, currency, rates)} ${currency}`
 
             const artAspect = getArtworkAspectRatio(painting)
-            const isStandardPortrait = Math.abs(artAspect - 0.8) < 0.08
 
             return (
               <div
@@ -215,18 +214,17 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
               >
                 {/* Artwork Image Box */}
                 <div
-                  className="relative w-full aspect-[4/5] overflow-hidden bg-[#F2F0EB] border border-gray-200/60 shadow-2xs transition-all duration-700 ease-out group-hover:shadow-md flex items-center justify-center"
+                  className="relative w-full overflow-hidden rounded-xl border border-gray-200/60 shadow-2xs transition-all duration-700 ease-out group-hover:shadow-md"
+                  style={{
+                    aspectRatio: `${artAspect > 0 ? artAspect : 0.8}`,
+                  }}
                 >
                   <Image
                     src={imageUrl}
                     alt={painting.title}
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className={`${
-                      isStandardPortrait
-                        ? 'object-cover object-center'
-                        : 'object-contain object-center p-2'
-                    } transition-transform duration-700 ease-out group-hover:scale-[1.02]`}
+                    className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02]"
                   />
 
                   {/* Curated Offer Badge (Top-Left) */}

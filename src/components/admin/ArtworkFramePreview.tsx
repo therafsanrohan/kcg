@@ -61,41 +61,33 @@ export default function ArtworkFramePreview({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* ── Visual Canvas Container ── */}
-      <div className="relative w-full rounded-2xl bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100 shadow-sm">
-
-        {/* Artwork Canvas Container */}
-        <div
-          className="relative transition-all duration-300 w-full flex items-center justify-center"
-          style={{
-            aspectRatio: `${containerAspect}`,
-            maxWidth: containerAspect >= 1 ? '100%' : `${Math.min(540, Math.round(520 * containerAspect))}px`,
-          }}
-        >
-          {/* Inner Canvas Image */}
-          <div className="relative w-full h-full overflow-hidden">
-            {imageUrl ? (
-              <Image
-                src={imageUrl}
-                alt={title}
-                fill
-                sizes="(max-width: 768px) 100vw, 50vw"
-                className="object-contain object-center select-none"
-                priority
-              />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-gray-400">
-                <Ruler className="w-8 h-8 mb-2 stroke-1" />
-                <span className="text-xs uppercase tracking-wider font-semibold">
-                  Artwork Canvas
-                </span>
-                <span className="text-[11px] mt-1">{formattedArtSize}</span>
-              </div>
-            )}
+      <div
+        className="relative w-full rounded-2xl overflow-hidden border border-gray-200/80 shadow-md select-none"
+        style={{
+          aspectRatio: `${containerAspect}`,
+        }}
+      >
+        {imageUrl ? (
+          <Image
+            src={imageUrl}
+            alt={title}
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="object-cover object-center select-none"
+            priority
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center p-6 text-center text-gray-400 bg-gray-50">
+            <Ruler className="w-8 h-8 mb-2 stroke-1" />
+            <span className="text-xs uppercase tracking-wider font-semibold">
+              Artwork Canvas
+            </span>
+            <span className="text-[11px] mt-1">{formattedArtSize}</span>
           </div>
-        </div>
+        )}
 
         {/* Live Dimension Overlay Badge */}
-        <div className="absolute bottom-3 left-3 bg-black/80 backdrop-blur-md text-white text-[10px] font-mono px-2.5 py-1 rounded-md shadow-xs flex items-center gap-1.5">
+        <div className="absolute bottom-3 left-3 bg-black/80 backdrop-blur-md text-white text-[10px] font-mono px-2.5 py-1 rounded-md shadow-xs flex items-center gap-1.5 z-20">
           <Sparkles className="w-3 h-3 text-amber-300" />
           <span>
             Artwork: {formattedArtSize}
