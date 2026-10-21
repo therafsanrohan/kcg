@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import { Plus, X, Crop, Trash2, ImageIcon } from 'lucide-react'
 import Image from 'next/image'
 import { savePainting } from '@/app/admin/(dashboard)/paintings/actions'
@@ -130,6 +130,7 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
   })
 
   const [activeCropIndex, setActiveCropIndex] = useState<number | null>(null)
+  const activeCropIndexRef = useRef<number | null>(null)
   const [cropModalOpen, setCropModalOpen] = useState(false)
   const [imageSrcToCrop, setImageSrcToCrop] = useState<string | null>(null)
 
@@ -196,6 +197,7 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
       // Open cropper immediately for the first newly added image if it's the cover
       if (artworkImages.length === 0 && newItems[0].file) {
         setImageSrcToCrop(newItems[0].previewUrl)
+        activeCropIndexRef.current = 0
         setActiveCropIndex(0)
         setCropModalOpen(true)
       }
@@ -231,9 +233,11 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     const target = artworkImages[index]
     if (!target) return
 
+    activeCropIndexRef.current = index
+    setActiveCropIndex(index)
+
     if (target.file || target.croppedBlob) {
       setImageSrcToCrop(target.previewUrl)
-      setActiveCropIndex(index)
       setCropModalOpen(true)
     } else if (target.storageKey) {
       // Existing saved image from Supabase
@@ -243,7 +247,6 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
         const blob = await res.blob()
         const objUrl = URL.createObjectURL(blob)
         setImageSrcToCrop(objUrl)
-        setActiveCropIndex(index)
         setCropModalOpen(true)
       } catch (err: any) {
         setErrorMsg('Could not load current image for recropping: ' + err.message)
@@ -254,20 +257,20 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
   }
 
   const handleCropComplete = (blob: Blob) => {
-    if (activeCropIndex !== null && artworkImages[activeCropIndex]) {
+    const cropIdx = activeCropIndexRef.current ?? activeCropIndex
+    if (cropIdx !== null) {
       const croppedUrl = URL.createObjectURL(blob)
-      setArtworkImages((prev) => {
-        const copy = [...prev]
-        copy[activeCropIndex] = {
-          ...copy[activeCropIndex],
-          croppedBlob: blob,
-          previewUrl: croppedUrl,
-        }
-        return copy
-      })
+      setArtworkImages((prev) =>
+        prev.map((item, idx) =>
+          idx === cropIdx
+            ? { ...item, croppedBlob: blob, previewUrl: croppedUrl }
+            : item
+        )
+      )
     }
     setCropModalOpen(false)
     setActiveCropIndex(null)
+    activeCropIndexRef.current = null
     setImageSrcToCrop(null)
   }
 
@@ -410,6 +413,9 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
 
 
   const isEditMode = Boolean(painting?.id)
+  const primaryImageIndex = artworkImages.findIndex((img) => img.isPrimary)
+  const actualPrimaryIndex = primaryImageIndex >= 0 ? primaryImageIndex : 0
+  const primaryImage = artworkImages[actualPrimaryIndex]
 
   return (
     <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-200">
@@ -630,24 +636,30 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
           />
         </div>
 
-        {/* Artwork Images (Up to 5) */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
+        {/* Artwork Images & Crop Setup (Up to 4, min 1 mandatory) */}
+        <div className="border border-gray-200/90 rounded-2xl p-4 sm:p-5 bg-white space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1 border-b border-gray-100">
             <div>
-              <label className="block text-[11px] font-bold tracking-wider uppercase text-gray-800">
-                ARTWORK IMAGES ({artworkImages.length}/4) — {orientation.toUpperCase()} RATIO (MUST HAVE AT LEAST 1)
-              </label>
+              <div className="flex items-center gap-2">
+                <label className="block text-[11px] font-bold tracking-wider uppercase text-gray-900">
+                  ARTWORK IMAGES & CROP SETUP ({artworkImages.length}/4)
+                </label>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-red-100 text-red-700">
+                  1 Mandatory
+                </span>
+              </div>
               <p className="text-xs text-gray-500 font-light mt-0.5">
-                Upload up to 4 photos. 1 image is strictly mandatory. Choose cover, adjust crop, and save.
+                Upload 1 to 4 photos. Set your cover photo and click Crop to adjust its framing ratio.
               </p>
             </div>
+
             {artworkImages.length < 4 && (
               <label
                 htmlFor="artwork_images_input"
-                className="cursor-pointer bg-black text-white text-xs font-semibold px-3 py-1.5 rounded-md hover:bg-gray-800 transition-colors shadow-2xs flex items-center gap-1.5"
+                className="cursor-pointer bg-black hover:bg-gray-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-2xs flex items-center justify-center gap-1.5 shrink-0"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Add Photos</span>
+                <span>Add Photos ({artworkImages.length}/4)</span>
               </label>
             )}
             <input
@@ -660,115 +672,190 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
             />
           </div>
 
-          {/* Images Grid */}
-          {artworkImages.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 mt-3">
-              {artworkImages.map((img, idx) => (
-                <div
-                  key={img.id}
-                  className={`group relative flex flex-col rounded-xl border overflow-hidden bg-white shadow-2xs transition-all ${
-                    img.isPrimary
-                      ? 'border-black ring-2 ring-black/10'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  {/* Thumbnail Container */}
-                  <div className="relative aspect-[4/5] w-full bg-gray-100 overflow-hidden flex items-center justify-center">
+          {/* If images exist: Prominent Cover Image Showcase & Recrop Card */}
+          {artworkImages.length > 0 && primaryImage ? (
+            <div className="space-y-4">
+              {/* Primary Cover Image Showcase */}
+              <div className="bg-gray-50 border border-gray-200/80 rounded-xl p-4 sm:p-5 shadow-2xs">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5">
+                  {/* Image Preview Box */}
+                  <div className="relative w-36 sm:w-44 aspect-[4/5] bg-white rounded-lg border border-gray-200 overflow-hidden shadow-xs shrink-0 flex items-center justify-center">
                     <Image
-                      src={img.previewUrl}
-                      alt={`Artwork photo ${idx + 1}`}
+                      src={primaryImage.previewUrl}
+                      alt="Cover photo preview"
                       fill
                       className="object-contain p-1"
-                      sizes="(max-width: 640px) 50vw, 20vw"
-                      unoptimized={img.previewUrl.startsWith('blob:')}
+                      sizes="176px"
+                      unoptimized={primaryImage.previewUrl.startsWith('blob:')}
                     />
-
-                    {/* Primary Badge */}
-                    {img.isPrimary ? (
-                      <span className="absolute top-2 left-2 bg-black text-white text-[10px] font-bold tracking-wide uppercase px-2 py-0.5 rounded shadow-sm">
-                        Cover
+                    <span className="absolute top-2 left-2 bg-black text-white text-[9px] font-bold tracking-wide uppercase px-1.5 py-0.5 rounded shadow-sm">
+                      Cover
+                    </span>
+                    {primaryImage.croppedBlob && (
+                      <span className="absolute bottom-2 left-2 bg-emerald-600 text-white text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shadow-xs">
+                        ✓ Cropped
                       </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleSetPrimary(idx)}
-                        className="absolute top-2 left-2 bg-black/60 hover:bg-black text-white text-[10px] font-semibold px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        Make Cover
-                      </button>
                     )}
+                  </div>
 
-                    {/* Top Right Actions */}
-                    <div className="absolute top-2 right-2 flex items-center gap-1">
+                  {/* Primary Image Info & Prominent Crop Button */}
+                  <div className="flex-1 flex flex-col justify-between self-stretch text-center sm:text-left">
+                    <div>
+                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
+                        <span className="text-xs font-bold uppercase tracking-wider text-gray-900">
+                          Primary Cover Photo
+                        </span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-gray-200 text-gray-800">
+                          {orientation.toUpperCase()} RATIO ({displaySize})
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-600 font-light leading-relaxed mb-3">
+                        This cover photo represents the artwork in the gallery catalog and homepage. Click the button below to crop, rotate, or fit the framing.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
+                      {/* Dedicated, prominent Crop button */}
                       <button
                         type="button"
-                        onClick={() => handleStartCrop(idx)}
-                        className="h-6 w-6 rounded bg-white/90 hover:bg-white text-gray-700 shadow-sm flex items-center justify-center transition-transform hover:scale-105"
-                        title="Crop / adjust"
+                        onClick={() => handleStartCrop(actualPrimaryIndex)}
+                        className="px-4 py-2 rounded-lg bg-black hover:bg-gray-800 text-white text-xs font-bold tracking-wide flex items-center gap-2 transition-all shadow-xs cursor-pointer"
                       >
-                        <Crop className="w-3.5 h-3.5" />
+                        <Crop className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Crop / Adjust Cover Photo</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveImage(idx)}
-                        className="h-6 w-6 rounded bg-white/90 hover:bg-red-50 text-red-600 shadow-sm flex items-center justify-center transition-transform hover:scale-105"
-                        title="Remove image"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                      {artworkImages.length < 4 && (
+                        <label
+                          htmlFor="artwork_images_input"
+                          className="px-3 py-2 rounded-lg border border-gray-300 hover:border-black bg-white hover:bg-gray-50 text-gray-800 text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add More Photos</span>
+                        </label>
+                      )}
                     </div>
                   </div>
-
-                  {/* Caption & Status */}
-                  <div className="p-2 bg-gray-50/60 border-t border-gray-100 flex items-center justify-between text-[11px]">
-                    <span className="text-gray-500 font-medium">#{idx + 1}</span>
-                    {img.croppedBlob ? (
-                      <span className="text-emerald-700 font-semibold text-[10px]">Cropped</span>
-                    ) : img.file ? (
-                      <span className="text-blue-700 font-semibold text-[10px]">New</span>
-                    ) : (
-                      <span className="text-gray-400 text-[10px]">Saved</span>
-                    )}
-                  </div>
                 </div>
-              ))}
+              </div>
 
-              {/* Upload Placeholder if under limit */}
-              {artworkImages.length < 5 && (
-                <label
-                  htmlFor="artwork_images_input"
-                  className="aspect-[4/5] border-2 border-dashed border-gray-300 hover:border-gray-400 rounded-xl flex flex-col items-center justify-center p-3 text-center cursor-pointer bg-gray-50/50 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="h-9 w-9 rounded-full bg-white shadow-2xs border border-gray-200 flex items-center justify-center mb-1 text-gray-500">
-                    <Plus className="w-4 h-4" />
-                  </div>
-                  <span className="text-xs font-semibold text-gray-700">Add Image</span>
-                  <span className="text-[10px] text-gray-400 mt-0.5 font-light">Up to 5 images</span>
-                </label>
-              )}
+              {/* All Photos Strip / Gallery (1 to 4) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold tracking-wider uppercase text-gray-600">
+                    All Photos ({artworkImages.length} of 4)
+                  </span>
+                  <span className="text-[11px] text-gray-400 font-light">
+                    Click "Crop" to adjust each photo individually
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {artworkImages.map((img, idx) => (
+                    <div
+                      key={img.id}
+                      className={`relative flex flex-col rounded-xl border overflow-hidden bg-white shadow-2xs transition-all ${
+                        img.isPrimary
+                          ? 'border-black ring-2 ring-black/10'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      {/* Thumbnail */}
+                      <div className="relative aspect-[4/5] w-full bg-gray-100 overflow-hidden flex items-center justify-center">
+                        <Image
+                          src={img.previewUrl}
+                          alt={`Artwork photo ${idx + 1}`}
+                          fill
+                          className="object-contain p-1"
+                          sizes="(max-width: 640px) 50vw, 25vw"
+                          unoptimized={img.previewUrl.startsWith('blob:')}
+                        />
+                        {img.isPrimary ? (
+                          <span className="absolute top-2 left-2 bg-black text-white text-[9px] font-bold tracking-wide uppercase px-1.5 py-0.5 rounded shadow-sm">
+                            Cover
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSetPrimary(idx)}
+                            className="absolute top-2 left-2 bg-white/95 hover:bg-black hover:text-white text-gray-800 text-[9px] font-semibold px-1.5 py-0.5 rounded shadow-sm cursor-pointer transition-colors"
+                          >
+                            Set Cover
+                          </button>
+                        )}
+                        {img.croppedBlob && (
+                          <span className="absolute bottom-2 left-2 bg-emerald-600 text-white text-[8px] font-bold uppercase px-1 py-0.5 rounded shadow-xs">
+                            ✓ Cropped
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Footer Controls - Always Visible */}
+                      <div className="p-2 border-t border-gray-100 flex items-center justify-between gap-1 bg-gray-50/70">
+                        <span className="text-[10px] font-mono text-gray-500">
+                          #{idx + 1}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleStartCrop(idx)}
+                            className="text-[11px] font-semibold text-gray-700 hover:text-black bg-white hover:bg-gray-100 border border-gray-200 rounded px-2 py-0.5 flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Crop photo"
+                          >
+                            <Crop className="w-3 h-3 text-gray-600" />
+                            <span>Crop</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveImage(idx)}
+                            className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors cursor-pointer"
+                            title="Remove photo"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add Slot */}
+                  {artworkImages.length < 4 && (
+                    <label
+                      htmlFor="artwork_images_input"
+                      className="aspect-[4/5] rounded-xl border-2 border-dashed border-gray-200 hover:border-black bg-gray-50/50 hover:bg-gray-50 flex flex-col items-center justify-center p-3 text-center cursor-pointer transition-colors"
+                    >
+                      <Plus className="w-5 h-5 text-gray-400 mb-1" />
+                      <span className="text-xs font-semibold text-gray-700">Add Photo</span>
+                      <span className="text-[10px] text-gray-400 font-light mt-0.5">
+                        {4 - artworkImages.length} slot{4 - artworkImages.length > 1 ? 's' : ''} left
+                      </span>
+                    </label>
+                  )}
+                </div>
+              </div>
             </div>
           ) : (
-            /* Empty State */
+            /* Empty state: Dropzone */
             <label
               htmlFor="artwork_images_input"
-              className="mt-2 block border-2 border-dashed border-gray-300 hover:border-gray-400 rounded-xl p-8 text-center cursor-pointer bg-gray-50/50 hover:bg-gray-50 transition-colors"
+              className="border-2 border-dashed border-gray-300 hover:border-black rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-colors bg-gray-50/50 hover:bg-gray-50 text-center"
             >
-              <div className="mx-auto h-12 w-12 rounded-full bg-white shadow-2xs border border-gray-200 flex items-center justify-center mb-3 text-gray-500">
-                <ImageIcon className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                <ImageIcon className="w-6 h-6 text-gray-500" />
               </div>
-              <p className="text-sm font-semibold text-gray-900">Click to upload artwork photos</p>
-              <p className="text-xs text-gray-500 font-light mt-1">
-                Select 1 to 5 images. High resolution PNG, JPG or WebP up to 5 MB each.
+              <p className="text-sm font-bold text-gray-900">
+                Click to select artwork photos
               </p>
-              <span className="inline-block mt-3 px-4 py-1.5 rounded-md bg-black text-white text-xs font-semibold shadow-2xs">
-                Select Photos
-              </span>
+              <p className="text-xs text-red-600 font-semibold mt-1">
+                * At least 1 photo is mandatory (up to 4 photos max)
+              </p>
+              <p className="text-[11px] text-gray-500 font-light mt-1 max-w-sm">
+                Image cropper will open automatically to crop your photo to the {orientation.toUpperCase()} ratio ({displaySize}).
+              </p>
+              <div className="mt-4 px-4 py-2 bg-black text-white text-xs font-semibold rounded-lg shadow-xs hover:bg-gray-800 transition-colors">
+                Choose Artwork Image
+              </div>
             </label>
           )}
-
-          <p className="mt-2 text-[11px] text-gray-400 font-light">
-            JPG, PNG or WebP, up to 5 MB each. Supports Portrait, Landscape, Square and Custom ratios.
-          </p>
         </div>
 
         {/* Action Buttons */}

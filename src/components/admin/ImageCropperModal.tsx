@@ -255,7 +255,13 @@ export default function ImageCropperModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-2 sm:p-4 animate-fade-in overflow-y-auto">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-2 sm:p-4 animate-fade-in overflow-y-auto"
+      onClick={(e) => {
+        e.stopPropagation()
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="bg-white rounded-2xl sm:rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col my-auto max-h-[96vh]">
         {/* Header */}
         <div className="px-5 py-3 sm:px-6 sm:py-3.5 border-b border-gray-100 flex items-center justify-between shrink-0">
