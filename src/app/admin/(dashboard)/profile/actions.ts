@@ -196,6 +196,7 @@ export async function createAdminAccount(prevState: any, formData: FormData) {
     // 2. Parse & Validate Form Inputs
     const newEmail = (formData.get('email') as string)?.trim().toLowerCase()
     const newPassword = (formData.get('new_password') as string)?.trim()
+    const confirmPassword = (formData.get('confirm_password') as string)?.trim()
     const fullName = (formData.get('full_name') as string)?.trim() || null
     const username = (formData.get('username') as string)?.trim().toLowerCase() || null
     const phone = (formData.get('phone') as string)?.trim() || null
@@ -208,6 +209,10 @@ export async function createAdminAccount(prevState: any, formData: FormData) {
 
     if (!newPassword || newPassword.length < 6) {
       return { success: false, error: 'A password of at least 6 characters is required for the new administrator.' }
+    }
+
+    if (newPassword !== confirmPassword) {
+      return { success: false, error: 'The new administrator passwords do not match. Please verify and re-type.' }
     }
 
     if (!superAdminPassword) {

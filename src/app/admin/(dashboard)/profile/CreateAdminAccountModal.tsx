@@ -169,28 +169,49 @@ export default function CreateAdminAccountModal() {
                   </div>
                 </div>
 
-                {/* Password to assign for the new Administrator */}
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="new_password"
-                    className="text-xs font-semibold uppercase tracking-wider text-gray-700 flex items-center gap-1.5"
-                  >
-                    <Lock className="w-3.5 h-3.5 text-gray-400" />
-                    Assign Login Password for New Admin *
-                  </label>
-                  <input
-                    id="new_password"
-                    name="new_password"
-                    type="password"
-                    required
-                    minLength={6}
-                    placeholder="Enter login password (minimum 6 characters)"
-                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all"
-                  />
-                  <p className="text-[11px] text-gray-400 font-light">
-                    The new administrator will use this password to log in directly at /admin/login.
-                  </p>
+                {/* Password & Confirm Password for the new Administrator */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="new_password"
+                      className="text-xs font-semibold uppercase tracking-wider text-gray-700 flex items-center gap-1.5"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-gray-400" />
+                      Login Password *
+                    </label>
+                    <input
+                      id="new_password"
+                      name="new_password"
+                      type="password"
+                      required
+                      minLength={6}
+                      placeholder="Min 6 characters"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="confirm_password"
+                      className="text-xs font-semibold uppercase tracking-wider text-gray-700 flex items-center gap-1.5"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-gray-400" />
+                      Confirm Password *
+                    </label>
+                    <input
+                      id="confirm_password"
+                      name="confirm_password"
+                      type="password"
+                      required
+                      minLength={6}
+                      placeholder="Re-type password"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition-all"
+                    />
+                  </div>
                 </div>
+                <p className="text-[11px] text-gray-400 font-light">
+                  The new administrator will use this password to log in directly at /admin/login.
+                </p>
               </div>
 
               {/* 2. Reauthentication Barrier: Current Super Admin Password */}
