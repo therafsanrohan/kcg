@@ -1,5 +1,5 @@
 import Image from 'next/image'
-import { QrCode, ShieldCheck } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
 
 interface InvoiceVerificationQRProps {
   qrDataUrl: string

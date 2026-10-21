@@ -8,6 +8,7 @@ import {
   sendAdminInvoiceMessage,
   markConversationReadAction,
 } from '@/app/invoice/conversation-actions'
+import { createClient } from '@/utils/supabase/client'
 
 interface AdminInvoiceConversationProps {
   invoiceId: string
@@ -49,7 +50,6 @@ export default function AdminInvoiceConversation({
     // Realtime channel subscription
     let channel: any = null
     try {
-      const { createClient } = require('@/utils/supabase/client')
       const supabase = createClient()
       channel = supabase
         .channel(`admin-invoice-${invoiceId}`)
@@ -87,7 +87,6 @@ export default function AdminInvoiceConversation({
       clearInterval(interval)
       if (channel) {
         try {
-          const { createClient } = require('@/utils/supabase/client')
           const supabase = createClient()
           supabase.removeChannel(channel)
         } catch {}

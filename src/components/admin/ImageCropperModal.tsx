@@ -247,7 +247,7 @@ export default function ImageCropperModal({
   if (!isOpen) return null
 
   // Calculate container display box style based on activeAspectRatio
-  let containerStyle: React.CSSProperties = {
+  const containerStyle: React.CSSProperties = {
     aspectRatio: `${activeAspectRatio}`,
     maxHeight: '340px',
     maxWidth: '100%',

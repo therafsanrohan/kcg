@@ -120,7 +120,7 @@ export default function DeliverySettingsForm({ zones }: DeliverySettingsFormProp
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-gray-700 mb-1">
-                  Campaign Label (e.g. "Eid Special")
+                  Campaign Label (e.g. &quot;Eid Special&quot;)
                 </label>
                 <input
                   type="text"

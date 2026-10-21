@@ -7,6 +7,7 @@ import {
   getPublicInvoiceMessages,
   sendCustomerInvoiceMessage,
 } from '@/app/invoice/conversation-actions'
+import { createClient } from '@/utils/supabase/client'
 
 interface PublicInvoiceConversationProps {
   shareToken: string
@@ -45,7 +46,6 @@ export default function PublicInvoiceConversation({
     // Realtime subscription via Supabase Client
     let channel: any = null
     try {
-      const { createClient } = require('@/utils/supabase/client')
       const supabase = createClient()
       channel = supabase
         .channel(`public-invoice-${shareToken}`)
@@ -77,7 +77,6 @@ export default function PublicInvoiceConversation({
       clearInterval(interval)
       if (channel) {
         try {
-          const { createClient } = require('@/utils/supabase/client')
           const supabase = createClient()
           supabase.removeChannel(channel)
         } catch {}
