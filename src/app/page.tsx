@@ -19,7 +19,7 @@ export default async function Home() {
     .select(`
       id, title, slug, base_price_bdt, discount_price_bdt, offer_badge, exact_medium, painting_type,
       display_size, width, height, availability_status, is_featured, created_at,
-      painting_images(storage_key, is_main),
+      painting_images(storage_key, thumbnail_key, responsive_urls, is_main),
       frame_options(id, frame_name, outer_size, price_bdt, is_active)
     `)
     .eq('is_published', true)

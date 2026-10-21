@@ -265,13 +265,67 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
     const advancedImagesRaw = formData.get('advanced_images_json') as string
     const uploadedImageRaw = formData.get('uploaded_image_json') as string
 
-    if (uploadedImageRaw && paintingId) {
+    if (advancedImagesRaw && paintingId) {
+      try {
+        const advancedImages: Array<{
+          id: string
+          originalKey: string
+          thumbnailKey: string
+          responsiveUrls: any
+          isPrimary: boolean
+          sortOrder: number
+          mimeType: string
+        }> = JSON.parse(advancedImagesRaw)
+        
+        if (advancedImages.length > 0) {
+          // Soft delete old images by archiving them (instead of hard delete)
+          await supabase
+            .from('painting_images')
+            .update({ archived_at: new Date().toISOString() })
+            .eq('painting_id', paintingId)
+            .is('archived_at', null)
+
+          const imageRecords = advancedImages.map((img) => {
+            const deliverableKey =
+              img.responsiveUrls?.['1600'] ||
+              img.responsiveUrls?.['1000'] ||
+              img.responsiveUrls?.['960'] ||
+              img.thumbnailKey ||
+              img.originalKey
+
+            return {
+              painting_id: paintingId,
+              storage_key: deliverableKey,
+              processed_key: deliverableKey,
+              thumbnail_key: img.thumbnailKey || deliverableKey,
+              responsive_urls: img.responsiveUrls || {},
+              is_main: Boolean(img.isPrimary),
+              primary_image: Boolean(img.isPrimary),
+              sort_order: Number(img.sortOrder) || 1,
+              mime_type: img.mimeType || 'image/webp',
+              file_format: img.mimeType?.split('/')[1] || 'webp',
+              processing_status: 'completed',
+            }
+          })
+
+          const { error: imgInsertErr } = await supabase.from('painting_images').insert(imageRecords)
+          if (imgInsertErr) {
+            console.error('Error inserting advanced images:', imgInsertErr)
+            throw new Error(`Failed to save images: ${imgInsertErr.message}`)
+          }
+        }
+      } catch (e: any) {
+        console.error('Error parsing advanced images JSON:', e)
+        throw e
+      }
+    } else if (uploadedImageRaw && paintingId) {
       try {
         const uploadedImg = JSON.parse(uploadedImageRaw)
         const primaryStorageKey =
           uploadedImg.displayKey ||
           uploadedImg.storageKey ||
           uploadedImg.responsiveUrls?.['1600'] ||
+          uploadedImg.responsiveUrls?.['1000'] ||
           uploadedImg.thumbnailKey
 
         if (uploadedImg && primaryStorageKey) {
@@ -308,59 +362,6 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
         }
       } catch (e: any) {
         console.error('Error handling uploaded_image_json:', e)
-        throw e
-      }
-    } else if (advancedImagesRaw && paintingId) {
-      try {
-        const advancedImages: Array<{
-          id: string
-          originalKey: string
-          thumbnailKey: string
-          responsiveUrls: any
-          isPrimary: boolean
-          sortOrder: number
-          mimeType: string
-        }> = JSON.parse(advancedImagesRaw)
-        
-        if (advancedImages.length > 0) {
-          // Soft delete old images by archiving them (instead of hard delete)
-          await supabase
-            .from('painting_images')
-            .update({ archived_at: new Date().toISOString() })
-            .eq('painting_id', paintingId)
-            .is('archived_at', null)
-
-          const imageRecords = advancedImages.map((img) => {
-            const deliverableKey =
-              img.responsiveUrls?.['1600'] ||
-              img.responsiveUrls?.['960'] ||
-              img.responsiveUrls?.['2560'] ||
-              img.thumbnailKey ||
-              img.originalKey
-
-            return {
-              painting_id: paintingId,
-              storage_key: deliverableKey,
-              processed_key: deliverableKey,
-              thumbnail_key: img.thumbnailKey || deliverableKey,
-              responsive_urls: img.responsiveUrls || {},
-              is_main: Boolean(img.isPrimary),
-              primary_image: Boolean(img.isPrimary),
-              sort_order: Number(img.sortOrder) || 1,
-              mime_type: img.mimeType || 'image/webp',
-              file_format: img.mimeType?.split('/')[1] || 'webp',
-              processing_status: 'completed',
-            }
-          })
-
-          const { error: imgInsertErr } = await supabase.from('painting_images').insert(imageRecords)
-          if (imgInsertErr) {
-            console.error('Error inserting advanced images:', imgInsertErr)
-            throw new Error(`Failed to save images: ${imgInsertErr.message}`)
-          }
-        }
-      } catch (e: any) {
-        console.error('Error parsing advanced images JSON:', e)
         throw e
       }
     } else {

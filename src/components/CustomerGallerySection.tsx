@@ -190,7 +190,15 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
             const mainImage =
               painting.painting_images?.find((img: any) => img.is_main) ||
               painting.painting_images?.[0]
-            const imageUrl = getPaintingImageUrl(mainImage?.storage_key)
+            
+            // Prefer 1000w gallery variant or thumbnail over 1600w detail image for card display
+            const cardKey =
+              mainImage?.responsive_urls?.['1000'] ||
+              mainImage?.responsive_urls?.['400'] ||
+              mainImage?.thumbnail_key ||
+              mainImage?.storage_key
+
+            const imageUrl = getPaintingImageUrl(cardKey)
 
             const hasDiscount = Boolean(painting.discount_price_bdt && Number(painting.discount_price_bdt) > 0)
             const effectivePrice = hasDiscount ? Number(painting.discount_price_bdt) : Number(painting.base_price_bdt)
@@ -223,7 +231,8 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
                     src={imageUrl}
                     alt={painting.title}
                     fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    loading="lazy"
                     className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02]"
                   />
 

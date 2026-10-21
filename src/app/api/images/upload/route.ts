@@ -166,79 +166,78 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 8. Generate Responsive High-Quality Variants (Preserving Composition & Aspect Ratio)
-    // SIZES: 480w, 960w, 1600w, 2560w
-    const SIZES = [
-      { suffix: '480w', width: 480 },
-      { suffix: '960w', width: 960 },
-      { suffix: '1600w', width: 1600 },
-      { suffix: '2560w', width: 2560 },
+    // 8. Generate Responsive WebP Artwork Variants (Preserving Composition, Aspect Ratio & Transparency)
+    // Target variants:
+    // - Thumbnail: max dimension 400px (target ~100–250 KB, quality 82)
+    // - Gallery display: max dimension 1000px (target ~200–450 KB, quality 85)
+    // - Artwork detail: max dimension 1600px (target ~300–700 KB, quality 86)
+    const VARIANTS = [
+      { key: '400', suffix: 'thumb', maxDim: 400, quality: 82 },
+      { key: '1000', suffix: '1000w', maxDim: 1000, quality: 85 },
+      { key: '1600', suffix: '1600w', maxDim: 1600, quality: 86 },
     ]
 
     const responsiveUrls: Record<string, string> = {}
-    const fileExt = isPrimary ? 'avif' : 'webp'
-    const mimeType = isPrimary ? 'image/avif' : 'image/webp'
+    let thumbnailKey = ''
+    let detailKey = ''
+    let galleryKey = ''
 
-    // Generate delivery variants with sharp (strips unnecessary EXIF while preserving visual clarity)
-    const uploadPromises = SIZES.map(async (size) => {
+    // Generate delivery variants with sharp (strips unnecessary EXIF while preserving visual fidelity & alpha channel)
+    for (const variant of VARIANTS) {
       const optimizedBuffer = await sharpInstance
         .clone()
-        .resize({ width: size.width, withoutEnlargement: true })
-        .toFormat(fileExt, { quality: 85 })
+        .resize({
+          width: variant.maxDim,
+          height: variant.maxDim,
+          fit: 'inside', // Preserves exact aspect ratio, never stretches or crops
+          withoutEnlargement: true, // Never upscales smaller images
+        })
+        .webp({
+          quality: variant.quality,
+          effort: 4, // High compression efficiency without excessive latency
+          alphaQuality: 90, // Preserve transparent backgrounds if source has alpha
+        })
         .toBuffer()
 
-      const sizeKey = `${paintingId}/${uniqueBase}_${size.suffix}.${fileExt}`
+      const variantKey = `${paintingId}/${uniqueBase}_${variant.suffix}.webp`
 
       const { error: uploadError } = await supabase.storage
         .from('paintings_optimized')
-        .upload(sizeKey, optimizedBuffer, {
-          contentType: mimeType,
+        .upload(variantKey, optimizedBuffer, {
+          contentType: 'image/webp',
           upsert: true,
           cacheControl: '31536000',
         })
 
-      if (!uploadError) {
-        responsiveUrls[size.width] = sizeKey
+      if (uploadError) {
+        console.error(`Failed to upload ${variant.suffix} WebP variant:`, uploadError)
+      } else {
+        responsiveUrls[variant.key] = variantKey
+        if (variant.suffix === 'thumb') {
+          thumbnailKey = variantKey
+        } else if (variant.suffix === '1000w') {
+          galleryKey = variantKey
+        } else if (variant.suffix === '1600w') {
+          detailKey = variantKey
+        }
       }
-    })
+    }
 
-    // Generate Thumbnail (240w, preserving aspect ratio)
-    const thumbBuffer = await sharpInstance
-      .clone()
-      .resize({ width: 240, withoutEnlargement: true })
-      .toFormat('webp', { quality: 80 })
-      .toBuffer()
-
-    const thumbnailKey = `${paintingId}/${uniqueBase}_thumb.webp`
-    await supabase.storage
-      .from('paintings_optimized')
-      .upload(thumbnailKey, thumbBuffer, {
-        contentType: 'image/webp',
-        upsert: true,
-        cacheControl: '31536000',
-      })
-
-    await Promise.all(uploadPromises)
-
-    // Choose the best optimized variant for direct web display in paintings_optimized bucket
-    const displayKey =
-      responsiveUrls['1600'] ||
-      responsiveUrls['960'] ||
-      responsiveUrls['2560'] ||
-      responsiveUrls['480'] ||
-      thumbnailKey
+    // Direct web display key: prioritize 1600w detail, fallback to 1000w or thumb
+    const displayKey = detailKey || galleryKey || thumbnailKey || masterStorageKey
 
     return NextResponse.json({
       success: true,
       data: {
-        storageKey: displayKey, // Direct web deliverable in paintings_optimized
-        masterStorageKey,       // High-res master in paintings_master
+        storageKey: displayKey, // Direct high-detail web deliverable in paintings_optimized
+        masterStorageKey,       // High-res archival master in paintings_master
         displayKey,
-        thumbnailKey,
+        galleryKey: galleryKey || displayKey,
+        thumbnailKey: thumbnailKey || displayKey,
         responsiveUrls,
         isPrimary,
         sortOrder,
-        mimeType,
+        mimeType: 'image/webp',
         width: metadata.width,
         height: metadata.height,
         fileSize: file.size,
