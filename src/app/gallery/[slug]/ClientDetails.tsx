@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { FrameOption, DeliveryZone } from '@/types'
 import { SUPPORTED_CURRENCIES, Currency, convertCurrency } from '@/utils/currency-shared'
 import {
@@ -11,7 +11,7 @@ import {
 } from '@/utils/measurements'
 import Image from 'next/image'
 import { getPaintingImageUrl, getResponsiveSrcSet } from '@/utils/image'
-import { Truck, ShieldCheck, ShoppingBag, Ruler, Check } from 'lucide-react'
+import { Truck, ShieldCheck, ShoppingBag, Ruler, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import ArtworkFramePreview from '@/components/admin/ArtworkFramePreview'
 import CustomSelect from '@/components/ui/CustomSelect'
 
@@ -90,6 +90,50 @@ export default function ClientDetails({
     setCurrency(c)
     localStorage.setItem('preferredCurrency', c)
     window.dispatchEvent(new Event('preferredCurrencyChanged'))
+  }
+
+  // Multi-image slider navigation
+  const touchStartX = useRef<number | null>(null)
+  const touchStartY = useRef<number | null>(null)
+  const isSwiping = useRef(false)
+
+  const goToPrevImage = () => {
+    if (!images || images.length <= 1) return
+    setActiveImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1))
+  }
+
+  const goToNextImage = () => {
+    if (!images || images.length <= 1) return
+    setActiveImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1))
+  }
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!images || images.length <= 1) return
+    touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
+    isSwiping.current = false
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!images || images.length <= 1 || touchStartX.current === null || touchStartY.current === null) return
+    const diffX = touchStartX.current - e.touches[0].clientX
+    const diffY = touchStartY.current - e.touches[0].clientY
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 10) {
+      isSwiping.current = true
+    }
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!images || images.length <= 1 || touchStartX.current === null) return
+    const currentX = e.changedTouches[0].clientX
+    const diffX = touchStartX.current - currentX
+    if (isSwiping.current && Math.abs(diffX) >= 35) {
+      if (diffX > 0) goToNextImage()
+      else goToPrevImage()
+    }
+    touchStartX.current = null
+    touchStartY.current = null
+    isSwiping.current = false
   }
 
   const selectedFrame = frames?.find(f => f.id === selectedFrameId)
@@ -238,15 +282,54 @@ export default function ClientDetails({
           </div>
         )}
 
-        {/* Unified Artwork & Frame Live Preview Canvas */}
-        <ArtworkFramePreview
-          imageUrl={activeImageUrl}
-          title={painting.title}
-          widthMm={widthMm}
-          heightMm={heightMm}
-          selectedFrame={selectedFrame}
-          displayUnit={displayUnit}
-        />
+        {/* Unified Artwork & Frame Live Preview Canvas with Swipe & Navigation */}
+        <div
+          className="relative group/detail-slider"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <ArtworkFramePreview
+            imageUrl={activeImageUrl}
+            title={painting.title}
+            widthMm={widthMm}
+            heightMm={heightMm}
+            selectedFrame={selectedFrame}
+            displayUnit={displayUnit}
+          />
+
+          {/* Slider Prev / Next Controls for Multi-Image Artworks */}
+          {images && images.length > 1 && (
+            <>
+              {/* Counter Badge */}
+              <div className="absolute top-3.5 right-3.5 z-20 pointer-events-none">
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-mono font-medium tracking-wider bg-black/60 text-white/95 backdrop-blur-md shadow-2xs">
+                  {activeImageIndex + 1} / {images.length}
+                </span>
+              </div>
+
+              {/* Prev Button */}
+              <button
+                type="button"
+                onClick={goToPrevImage}
+                aria-label="Previous artwork image"
+                className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white/90 text-gray-900 border border-black/5 shadow-md backdrop-blur-md flex items-center justify-center opacity-80 sm:opacity-0 sm:group-hover/detail-slider:opacity-100 hover:bg-white hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer focus:opacity-100"
+              >
+                <ChevronLeft className="h-5 w-5 stroke-[2.2]" />
+              </button>
+
+              {/* Next Button */}
+              <button
+                type="button"
+                onClick={goToNextImage}
+                aria-label="Next artwork image"
+                className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-white/90 text-gray-900 border border-black/5 shadow-md backdrop-blur-md flex items-center justify-center opacity-80 sm:opacity-0 sm:group-hover/detail-slider:opacity-100 hover:bg-white hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer focus:opacity-100"
+              >
+                <ChevronRight className="h-5 w-5 stroke-[2.2]" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* RIGHT COL: Painting info & interactivity */}

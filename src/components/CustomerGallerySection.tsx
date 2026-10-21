@@ -2,12 +2,11 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import Image from 'next/image'
 import Link from 'next/link'
-import { Search, ArrowUpRight, ChevronDown } from 'lucide-react'
-import { getPaintingImageUrl } from '@/utils/image'
+import { Search, ArrowUpRight, ChevronDown, X } from 'lucide-react'
 import { Currency, convertCurrency, FALLBACK_RATES } from '@/utils/currency-shared'
 import { getDisplayDimensions, getArtworkAspectRatio } from '@/utils/measurements'
+import ArtworkImageSlider from '@/components/ArtworkImageSlider'
 
 interface CustomerGallerySectionProps {
   paintings: any[]
@@ -117,8 +116,18 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by title, medium, palette..."
-              className="w-full h-11 pl-10 pr-4 rounded-md bg-white border border-gray-200 text-xs sm:text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all shadow-2xs"
+              className="w-full h-11 pl-10 pr-10 rounded-md bg-white border border-gray-200 text-xs sm:text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all shadow-2xs"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
+                aria-label="Clear search query"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Sort Dropdown */}
@@ -184,22 +193,9 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
 
         </div>
 
-        {/* Artwork Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
-          {filteredPaintings.map((painting, idx) => {
-            const mainImage =
-              painting.painting_images?.find((img: any) => img.is_main) ||
-              painting.painting_images?.[0]
-            
-            // Prefer 1000w gallery variant or thumbnail over 1600w detail image for card display
-            const cardKey =
-              mainImage?.responsive_urls?.['1000'] ||
-              mainImage?.responsive_urls?.['400'] ||
-              mainImage?.thumbnail_key ||
-              mainImage?.storage_key
-
-            const imageUrl = getPaintingImageUrl(cardKey)
-
+        {/* Pinterest-Inspired Responsive Masonry Layout */}
+        <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 sm:gap-8 [column-fill:_balance]">
+          {filteredPaintings.map((painting) => {
             const hasDiscount = Boolean(painting.discount_price_bdt && Number(painting.discount_price_bdt) > 0)
             const effectivePrice = hasDiscount ? Number(painting.discount_price_bdt) : Number(painting.base_price_bdt)
 
@@ -214,86 +210,84 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
                 : `${convertCurrency(effectivePrice, currency, rates)} ${currency}`
 
             const artAspect = getArtworkAspectRatio(painting)
+            const sizeString = getDisplayDimensions(painting)
 
             return (
               <div
                 key={painting.id}
-                className="group relative flex flex-col cursor-pointer"
+                className="break-inside-avoid inline-block w-full mb-8 sm:mb-10 group"
               >
-                {/* Artwork Image Box */}
-                <div
-                  className="relative w-full overflow-hidden rounded-xl border border-gray-200/60 shadow-2xs transition-all duration-700 ease-out group-hover:shadow-md"
-                  style={{
-                    aspectRatio: `${artAspect > 0 ? artAspect : 0.8}`,
-                  }}
-                >
-                  <Image
-                    src={imageUrl}
-                    alt={painting.title}
-                    fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                    loading="lazy"
-                    className="object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.02]"
-                  />
+                <div className="relative flex flex-col">
+                  {/* Artwork Image Box with Multi-Image Preview Slider */}
+                  <div className="relative w-full overflow-hidden rounded-2xl border border-gray-200/70 shadow-2xs transition-all duration-500 ease-out group-hover:shadow-md bg-gray-50">
+                    <ArtworkImageSlider
+                      images={painting.painting_images || []}
+                      title={painting.title}
+                      href={`/gallery/${painting.slug}`}
+                      aspectRatio={artAspect}
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1440px) 33vw, 25vw"
+                    >
+                      {/* Curated Offer Badge (Top-Left) */}
+                      {hasDiscount && (
+                        <div className="absolute top-3 left-3 z-20 pointer-events-none">
+                          <span className="bg-[#1A1A1A] text-white font-mono text-[9px] uppercase tracking-wider px-2.5 py-1 rounded-sm shadow-xs">
+                            {painting.offer_badge || 'OFFER'}
+                          </span>
+                        </div>
+                      )}
 
-                  {/* Curated Offer Badge (Top-Left) */}
-                  {hasDiscount && (
-                    <div className="absolute top-3 left-3 z-20">
-                      <span className="bg-[#1A1A1A] text-white font-mono text-[9px] uppercase tracking-wider px-2.5 py-1 rounded-sm shadow-xs">
-                        {painting.offer_badge || 'OFFER'}
-                      </span>
-                    </div>
-                  )}
+                      {/* Circular Arrow Button (Top-Right hover indicator) */}
+                      <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                        <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-white/95 text-black flex items-center justify-center shadow-md">
+                          <ArrowUpRight className="h-4 w-4 stroke-[2]" />
+                        </div>
+                      </div>
 
-                  {/* Circular Arrow Button (Top-Right) */}
-                  <div className="absolute top-3 right-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="h-9 w-9 rounded-full bg-white/95 text-black flex items-center justify-center shadow-md">
-                      <ArrowUpRight className="h-4 w-4 stroke-[2]" />
-                    </div>
+                      {/* Availability Badge */}
+                      {painting.availability_status && painting.availability_status !== 'available' && (
+                        <div className="absolute bottom-3 left-3 bg-black/85 text-white px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider rounded-sm z-20 pointer-events-none">
+                          {painting.availability_status}
+                        </div>
+                      )}
+                    </ArtworkImageSlider>
                   </div>
 
-                  {/* Availability Badge */}
-                  {painting.availability_status && painting.availability_status !== 'available' && (
-                    <div className="absolute bottom-3 left-3 bg-black/85 text-white px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider rounded-sm z-20">
-                      {painting.availability_status}
-                    </div>
-                  )}
-                </div>
-
-                {/* Artwork Details Below: Editorial Typography */}
-                <div className="mt-4 space-y-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <h3 className="font-editorial text-2xl font-normal text-gray-950 group-hover:text-gray-700 transition-colors line-clamp-1">
+                  {/* Artwork Details Directly Below: Name, Size/Medium, Price */}
+                  <Link
+                    href={`/gallery/${painting.slug}`}
+                    className="mt-3.5 block focus:outline-none focus-visible:ring-1 focus-visible:ring-black rounded-sm"
+                  >
+                    {/* Primary: Artwork Name */}
+                    <h3 className="font-editorial text-2xl font-normal text-gray-950 group-hover:text-gray-700 transition-colors leading-snug break-words">
                       {painting.title}
                     </h3>
-                  </div>
 
-                  <p className="text-xs text-gray-500 font-light">
-                    {painting.exact_medium} &bull; {getDisplayDimensions(painting)}
-                  </p>
+                    {/* Secondary: Medium & Size */}
+                    {(painting.exact_medium || sizeString) && (
+                      <p className="text-xs text-gray-500 font-light mt-1">
+                        {[painting.exact_medium, sizeString].filter(Boolean).join(' • ')}
+                      </p>
+                    )}
 
-                  <div className="pt-1 flex items-baseline gap-2 font-mono text-sm">
-                    {hasDiscount ? (
-                      <>
-                        <span className="text-xs text-gray-400 line-through">
-                          {originalPriceDisplay}
-                        </span>
+                    {/* Primary/Prominent: Price */}
+                    <div className="mt-1.5 flex items-baseline gap-2 font-mono text-sm">
+                      {hasDiscount ? (
+                        <>
+                          <span className="text-xs text-gray-400 line-through">
+                            {originalPriceDisplay}
+                          </span>
+                          <span className="font-medium text-gray-950">
+                            {effectivePriceDisplay}
+                          </span>
+                        </>
+                      ) : (
                         <span className="font-medium text-gray-950">
                           {effectivePriceDisplay}
                         </span>
-                      </>
-                    ) : (
-                      <span className="font-medium text-gray-950">
-                        {effectivePriceDisplay}
-                      </span>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  </Link>
                 </div>
-
-                {/* Clickable Overlay Link */}
-                <Link href={`/gallery/${painting.slug}`} className="absolute inset-0 z-30">
-                  <span className="sr-only">View {painting.title}</span>
-                </Link>
               </div>
             )
           })}
