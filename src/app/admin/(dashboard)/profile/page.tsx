@@ -1,6 +1,7 @@
 import { requireAdmin } from '@/utils/supabase/admin-auth'
 import AdminProfileForm from './AdminProfileForm'
 import SuperAdminPasswordManager from './SuperAdminPasswordManager'
+import CreateAdminAccountModal from './CreateAdminAccountModal'
 
 export const revalidate = 0
 
@@ -31,16 +32,20 @@ export default async function AdminProfilePage() {
   return (
     <div className="space-y-10">
       {/* Page Header */}
-      <div className="pb-8 border-b border-gray-200/70">
-        <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
-          ACCOUNT MANAGEMENT
-        </span>
-        <h2 className="font-sans text-4xl sm:text-5xl font-bold text-gray-950 mt-1 leading-tight">
-          Admin Profile
-        </h2>
-        <p className="mt-2 text-sm sm:text-base text-gray-500 font-light">
-          Manage your administrator profile details and account settings.
-        </p>
+      <div className="pb-8 border-b border-gray-200/70 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400">
+            ACCOUNT MANAGEMENT
+          </span>
+          <h2 className="font-sans text-4xl sm:text-5xl font-bold text-gray-950 mt-1 leading-tight">
+            Admin Profile
+          </h2>
+          <p className="mt-2 text-sm sm:text-base text-gray-500 font-light">
+            Manage your administrator profile details and account settings.
+          </p>
+        </div>
+
+        {isSuperAdmin && <CreateAdminAccountModal />}
       </div>
 
       {/* Admin Profile Form */}
