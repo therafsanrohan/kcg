@@ -2,12 +2,37 @@
 
 import { requireAdmin } from '@/utils/supabase/admin-auth'
 import { revalidatePath } from 'next/cache'
+import { createClient } from '@supabase/supabase-js'
 
 export interface ProfileUpdatePayload {
   full_name?: string
   username?: string
   phone?: string
   avatar_url?: string
+}
+
+/**
+ * Returns a privileged Supabase client using SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY.
+ * Used exclusively on the server side for Super Admin administrative user provisioning and management.
+ */
+function getAdminServiceClient() {
+  const serviceRoleKey =
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+
+  if (!serviceRoleKey || !supabaseUrl) {
+    return null
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
 }
 
 /**
@@ -24,7 +49,6 @@ export async function updateAdminProfile(prevState: any, formData: FormData) {
     const fullName = (formData.get('full_name') as string)?.trim() || null
     const username = (formData.get('username') as string)?.trim().toLowerCase() || null
     const phone = (formData.get('phone') as string)?.trim() || null
-    const avatarUrl = (formData.get('avatar_url') as string)?.trim() || null
 
     // Validate username format if provided (alphanumeric, underscores, 3-30 chars)
     if (username) {
@@ -36,7 +60,7 @@ export async function updateAdminProfile(prevState: any, formData: FormData) {
         }
       }
 
-      // Check if username is already taken by another admin (resilient against missing column)
+      // Check if username is already taken by another admin
       try {
         const { data: existingUser } = await supabase
           .from('admin_users')
@@ -52,11 +76,11 @@ export async function updateAdminProfile(prevState: any, formData: FormData) {
           }
         }
       } catch (e) {
-        // Ignore if column doesn't exist yet
+        // Ignore column check error if table not yet migrated
       }
     }
 
-    // 1. Update user profile in Supabase Auth user_metadata (Always succeeds, doesn't depend on schema cache)
+    // 1. Update user profile in Supabase Auth user_metadata
     const { error: authMetaError } = await supabase.auth.updateUser({
       data: {
         full_name: fullName,
@@ -69,8 +93,7 @@ export async function updateAdminProfile(prevState: any, formData: FormData) {
       console.warn('Could not update auth user_metadata:', authMetaError.message)
     }
 
-    // 2. Attempt to update admin_users profile columns if table supports them
-    // Exclude columns if schema cache does not have them
+    // 2. Update admin_users profile columns
     const updatePayload: Record<string, any> = {
       updated_at: new Date().toISOString(),
     }
@@ -84,7 +107,6 @@ export async function updateAdminProfile(prevState: any, formData: FormData) {
       .eq('id', user.id)
 
     if (updateError) {
-      // If error is about a missing column, log warning but do not crash the user experience
       if (updateError.message?.includes('column') || updateError.code === 'PGRST204') {
         console.warn('Note: Profile columns not yet added to admin_users table in database:', updateError.message)
       } else {
@@ -143,7 +165,6 @@ export async function sendAdminPasswordReset(targetAdminId: string) {
     }
 
     // 3. Initiate official Supabase Auth Password Reset Email
-    // Never reveals or transmits passwords; utilizes cryptographic Supabase reset tokens
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://kazicanvasgallery.com'
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(targetAdmin.email, {
       redirectTo: `${siteUrl}/admin/login?reset=true`,
@@ -178,8 +199,8 @@ export async function sendAdminPasswordReset(targetAdminId: string) {
  * 1. Server-side Super Admin role verification.
  * 2. Reauthentication: Verifies Super Admin's current password via Supabase Auth without logging or storing it.
  * 3. Prohibits duplicate emails or invalid roles.
- * 4. Dispatches an authorized password setup / invite email through Supabase Auth.
- * 5. Safely handles rollback if public profile creation fails.
+ * 4. Creates user in Supabase Auth via Admin Service Client with email confirmed.
+ * 5. Inserts profile record into public.admin_users.
  */
 export async function createAdminAccount(prevState: any, formData: FormData) {
   try {
@@ -238,8 +259,6 @@ export async function createAdminAccount(prevState: any, formData: FormData) {
     }
 
     // 3. Super Admin Reauthentication: Verify Super Admin's Identity
-    // Uses official Supabase Auth signInWithPassword to verify caller's password.
-    // Password is NEVER logged, stored, or saved.
     const { error: reauthError } = await supabase.auth.signInWithPassword({
       email: user.email!,
       password: superAdminPassword,
@@ -267,78 +286,67 @@ export async function createAdminAccount(prevState: any, formData: FormData) {
     }
 
     // 5. Secure Account Provisioning via Supabase Admin API
-    // Utilize SUPABASE_SERVICE_ROLE_KEY exclusively on the server side
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+    const adminServiceClient = getAdminServiceClient()
 
-    let createdAuthUserId: string | null = null
-
-    if (serviceRoleKey && supabaseUrl) {
-      const { createClient: createAdminServiceClient } = await import('@supabase/supabase-js')
-      const adminServiceClient = createAdminServiceClient(supabaseUrl, serviceRoleKey)
-
-      // Create new user directly with the Super Admin's specified password and mark email confirmed
-      const { data: createData, error: createError } =
-        await adminServiceClient.auth.admin.createUser({
-          email: newEmail,
-          password: newPassword,
-          email_confirm: true,
-          user_metadata: {
-            full_name: fullName,
-            username,
-            phone,
-            role,
-          },
-        })
-
-      if (createError) {
-        return {
-          success: false,
-          error: `Failed to provision user in Supabase Auth: ${createError.message}`,
-        }
+    if (!adminServiceClient) {
+      return {
+        success: false,
+        error:
+          'Server configuration notice: SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY is required on the server to provision administrator accounts directly in Supabase. Please configure this key in your server environment variables.',
       }
-
-      createdAuthUserId = createData.user?.id || null
     }
 
-    // 6. Record Non-Sensitive Profile in public.admin_users
-    if (createdAuthUserId) {
-      const profilePayload: Record<string, any> = {
-        id: createdAuthUserId,
+    // Create user in Supabase Auth with email confirmed so they can log in immediately
+    const { data: createData, error: createError } =
+      await adminServiceClient.auth.admin.createUser({
         email: newEmail,
-        role,
-        full_name: fullName,
-        username,
-        phone,
-        updated_at: new Date().toISOString(),
-      }
-
-      const { error: insertProfileErr } = await supabase
-        .from('admin_users')
-        .insert(profilePayload)
-
-      if (insertProfileErr) {
-        console.error('Failed to insert admin_users profile record:', insertProfileErr)
-        // If profile creation failed, remove orphan auth user to avoid inconsistent state
-        if (serviceRoleKey && supabaseUrl) {
-          const { createClient: createAdminServiceClient } = await import('@supabase/supabase-js')
-          const adminServiceClient = createAdminServiceClient(supabaseUrl, serviceRoleKey)
-          await adminServiceClient.auth.admin.deleteUser(createdAuthUserId)
-        }
-        return {
-          success: false,
-          error: `Database profile creation failed: ${insertProfileErr.message}`,
-        }
-      }
-    } else {
-      // If service role key is not configured in current environment, send password reset trigger
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://kazicanvasgallery.com'
-      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(newEmail, {
-        redirectTo: `${siteUrl}/admin/login?setup=true`,
+        password: newPassword,
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName,
+          username,
+          phone,
+          role,
+        },
       })
 
-      if (resetErr) {
-        console.warn('Password reset trigger note:', resetErr.message)
+    if (createError) {
+      return {
+        success: false,
+        error: `Failed to create user in Supabase Auth: ${createError.message}`,
+      }
+    }
+
+    const createdAuthUserId = createData.user?.id
+    if (!createdAuthUserId) {
+      return {
+        success: false,
+        error: 'Failed to retrieve the new administrator ID from Supabase Auth.',
+      }
+    }
+
+    // 6. Record Profile in public.admin_users using admin service client
+    const profilePayload: Record<string, any> = {
+      id: createdAuthUserId,
+      email: newEmail,
+      role,
+      full_name: fullName,
+      username,
+      phone,
+      updated_at: new Date().toISOString(),
+    }
+
+    const { error: insertProfileErr } = await adminServiceClient
+      .from('admin_users')
+      .upsert(profilePayload, { onConflict: 'id' })
+
+    if (insertProfileErr) {
+      console.error('Failed to insert admin_users profile record:', insertProfileErr)
+      // Rollback orphan auth user to avoid inconsistent state
+      await adminServiceClient.auth.admin.deleteUser(createdAuthUserId)
+      return {
+        success: false,
+        error: `Database profile creation failed: ${insertProfileErr.message}`,
       }
     }
 
@@ -348,13 +356,307 @@ export async function createAdminAccount(prevState: any, formData: FormData) {
 
     return {
       success: true,
-      message: `Administrator account for "${newEmail}" has been created successfully! A secure invitation has been dispatched.`,
+      message: `Administrator account for "${newEmail}" has been created successfully! They can now log in at /admin/login.`,
     }
   } catch (err: any) {
     console.error('createAdminAccount error:', err)
     return {
       success: false,
       error: err.message || 'An unexpected error occurred during account creation.',
+    }
+  }
+}
+
+/**
+ * Super Admin privilege action: Updates another administrator's profile details & role.
+ */
+export async function updateAdminProfileBySuperAdmin(prevState: any, formData: FormData) {
+  try {
+    const { supabase, user, adminRecord } = await requireAdmin()
+
+    if (adminRecord.role !== 'superadmin') {
+      return {
+        success: false,
+        error: 'Forbidden: Only a Super Admin can manage administrator accounts.',
+      }
+    }
+
+    const targetAdminId = (formData.get('target_admin_id') as string)?.trim()
+    const fullName = (formData.get('full_name') as string)?.trim() || null
+    const username = (formData.get('username') as string)?.trim().toLowerCase() || null
+    const phone = (formData.get('phone') as string)?.trim() || null
+    const role = (formData.get('role') as string)?.trim().toLowerCase() || 'admin'
+
+    if (!targetAdminId) {
+      return { success: false, error: 'Target administrator ID is missing.' }
+    }
+
+    if (role !== 'admin' && role !== 'superadmin') {
+      return { success: false, error: 'Invalid role specified.' }
+    }
+
+    // Prevent demoting oneself if no other superadmin exists
+    if (targetAdminId === user.id && role !== 'superadmin') {
+      const { data: superAdmins } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('role', 'superadmin')
+
+      if (!superAdmins || superAdmins.length <= 1) {
+        return {
+          success: false,
+          error: 'Security barrier: Cannot demote the primary Super Admin when no other Super Admin exists.',
+        }
+      }
+    }
+
+    // Validate username syntax if provided
+    if (username) {
+      const usernameRegex = /^[a-z0-9_]{3,30}$/
+      if (!usernameRegex.test(username)) {
+        return {
+          success: false,
+          error: 'Username must be 3-30 characters long and contain only letters, numbers, or underscores.',
+        }
+      }
+
+      const { data: existingUser } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('username', username)
+        .neq('id', targetAdminId)
+        .maybeSingle()
+
+      if (existingUser) {
+        return {
+          success: false,
+          error: 'This username is already taken by another administrator.',
+        }
+      }
+    }
+
+    const adminServiceClient = getAdminServiceClient()
+    const dbClient = adminServiceClient || supabase
+
+    // 1. Update public.admin_users
+    const updatePayload: Record<string, any> = {
+      full_name: fullName,
+      username,
+      phone,
+      role,
+      updated_at: new Date().toISOString(),
+    }
+
+    const { error: updateErr } = await dbClient
+      .from('admin_users')
+      .update(updatePayload)
+      .eq('id', targetAdminId)
+
+    if (updateErr) {
+      console.error('Failed to update admin profile:', updateErr)
+      return {
+        success: false,
+        error: `Database update failed: ${updateErr.message}`,
+      }
+    }
+
+    // 2. Also update auth user metadata if service client available
+    if (adminServiceClient) {
+      await adminServiceClient.auth.admin.updateUserById(targetAdminId, {
+        user_metadata: {
+          full_name: fullName,
+          username,
+          phone,
+          role,
+        },
+      })
+    }
+
+    console.log(`[Security Audit] Super Admin updated profile for admin ${targetAdminId}`)
+
+    revalidatePath('/admin/profile')
+    return {
+      success: true,
+      message: 'Administrator profile has been updated successfully.',
+    }
+  } catch (err: any) {
+    console.error('updateAdminProfileBySuperAdmin error:', err)
+    return {
+      success: false,
+      error: err.message || 'An unexpected error occurred while updating admin profile.',
+    }
+  }
+}
+
+/**
+ * Super Admin privilege action: Directly sets a new password for an administrator.
+ * Requires reauthentication with the Super Admin's current password.
+ */
+export async function setAdminPasswordBySuperAdmin(prevState: any, formData: FormData) {
+  try {
+    const { supabase, user, adminRecord } = await requireAdmin()
+
+    if (adminRecord.role !== 'superadmin') {
+      return {
+        success: false,
+        error: 'Forbidden: Only a Super Admin can set administrator passwords.',
+      }
+    }
+
+    const targetAdminId = (formData.get('target_admin_id') as string)?.trim()
+    const newPassword = (formData.get('new_password') as string)?.trim()
+    const confirmPassword = (formData.get('confirm_password') as string)?.trim()
+    const superAdminPassword = formData.get('super_admin_password') as string
+
+    if (!targetAdminId) {
+      return { success: false, error: 'Target administrator ID is missing.' }
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, error: 'A password of at least 6 characters is required.' }
+    }
+
+    if (newPassword !== confirmPassword) {
+      return { success: false, error: 'The new passwords do not match. Please re-enter.' }
+    }
+
+    if (!superAdminPassword) {
+      return { success: false, error: 'Please enter your Super Admin password to authorize this change.' }
+    }
+
+    // Reauthenticate Super Admin
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email: user.email!,
+      password: superAdminPassword,
+    })
+
+    if (reauthError) {
+      return {
+        success: false,
+        error: 'Identity verification failed: Incorrect Super Admin password.',
+      }
+    }
+
+    const adminServiceClient = getAdminServiceClient()
+    if (!adminServiceClient) {
+      return {
+        success: false,
+        error: 'Server configuration notice: SUPABASE_SECRET_KEY is required to set user passwords directly.',
+      }
+    }
+
+    const { error: updateAuthErr } = await adminServiceClient.auth.admin.updateUserById(
+      targetAdminId,
+      { password: newPassword }
+    )
+
+    if (updateAuthErr) {
+      return {
+        success: false,
+        error: `Failed to set new password: ${updateAuthErr.message}`,
+      }
+    }
+
+    console.log(`[Security Audit] Super Admin set new password for admin ${targetAdminId}`)
+
+    revalidatePath('/admin/profile')
+    return {
+      success: true,
+      message: 'New password has been set successfully for this administrator.',
+    }
+  } catch (err: any) {
+    console.error('setAdminPasswordBySuperAdmin error:', err)
+    return {
+      success: false,
+      error: err.message || 'An unexpected error occurred.',
+    }
+  }
+}
+
+/**
+ * Super Admin privilege action: Permanently deletes/revokes an administrator account.
+ * Requires reauthentication with the Super Admin's current password.
+ * Super Admins cannot delete their own account.
+ */
+export async function deleteAdminAccount(prevState: any, formData: FormData) {
+  try {
+    const { supabase, user, adminRecord } = await requireAdmin()
+
+    if (adminRecord.role !== 'superadmin') {
+      return {
+        success: false,
+        error: 'Forbidden: Only a Super Admin can remove administrator accounts.',
+      }
+    }
+
+    const targetAdminId = (formData.get('target_admin_id') as string)?.trim()
+    const superAdminPassword = formData.get('super_admin_password') as string
+
+    if (!targetAdminId) {
+      return { success: false, error: 'Target administrator ID is missing.' }
+    }
+
+    if (targetAdminId === user.id) {
+      return {
+        success: false,
+        error: 'Security barrier: You cannot delete your own Super Admin account.',
+      }
+    }
+
+    if (!superAdminPassword) {
+      return { success: false, error: 'Please enter your Super Admin password to authorize deletion.' }
+    }
+
+    // Reauthenticate Super Admin
+    const { error: reauthError } = await supabase.auth.signInWithPassword({
+      email: user.email!,
+      password: superAdminPassword,
+    })
+
+    if (reauthError) {
+      return {
+        success: false,
+        error: 'Identity verification failed: Incorrect Super Admin password.',
+      }
+    }
+
+    const adminServiceClient = getAdminServiceClient()
+    const dbClient = adminServiceClient || supabase
+
+    // 1. Delete from public.admin_users
+    const { error: deleteDbErr } = await dbClient
+      .from('admin_users')
+      .delete()
+      .eq('id', targetAdminId)
+
+    if (deleteDbErr) {
+      console.error('Failed to remove admin from database:', deleteDbErr)
+      return {
+        success: false,
+        error: `Database removal failed: ${deleteDbErr.message}`,
+      }
+    }
+
+    // 2. Delete from Supabase Auth if service client is available
+    if (adminServiceClient) {
+      const { error: deleteAuthErr } = await adminServiceClient.auth.admin.deleteUser(targetAdminId)
+      if (deleteAuthErr) {
+        console.warn('Note: Could not delete user from auth.users:', deleteAuthErr.message)
+      }
+    }
+
+    console.log(`[Security Audit] Super Admin deleted admin account ${targetAdminId}`)
+
+    revalidatePath('/admin/profile')
+    return {
+      success: true,
+      message: 'Administrator account has been permanently removed.',
+    }
+  } catch (err: any) {
+    console.error('deleteAdminAccount error:', err)
+    return {
+      success: false,
+      error: err.message || 'An unexpected error occurred while deleting administrator account.',
     }
   }
 }

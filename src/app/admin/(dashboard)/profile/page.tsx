@@ -1,6 +1,6 @@
 import { requireAdmin } from '@/utils/supabase/admin-auth'
 import AdminProfileForm from './AdminProfileForm'
-import SuperAdminPasswordManager from './SuperAdminPasswordManager'
+import AdminDirectoryManager from './AdminDirectoryManager'
 import CreateAdminAccountModal from './CreateAdminAccountModal'
 
 export const revalidate = 0
@@ -10,7 +10,7 @@ export default async function AdminProfilePage() {
 
   const isSuperAdmin = adminRecord.role === 'superadmin'
 
-  // If Super Admin, fetch list of admins for password management
+  // If Super Admin, fetch complete list of administrators for Directory & Management
   let adminList: any[] = []
   if (isSuperAdmin) {
     const { data: admins } = await supabase
@@ -18,19 +18,20 @@ export default async function AdminProfilePage() {
       .select('*')
       .order('email', { ascending: true })
 
-    adminList = admins || [
+    adminList = admins && admins.length > 0 ? admins : [
       {
         id: user.id,
         email: user.email,
         role: adminRecord.role,
         full_name: adminRecord.full_name,
         username: adminRecord.username,
+        phone: adminRecord.phone,
       },
     ]
   }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-12">
       {/* Page Header */}
       <div className="pb-8 border-b border-gray-200/70 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
@@ -41,20 +42,22 @@ export default async function AdminProfilePage() {
             Admin Profile
           </h2>
           <p className="mt-2 text-sm sm:text-base text-gray-500 font-light">
-            Manage your administrator profile details and account settings.
+            Manage your administrator profile details and personal account settings.
           </p>
         </div>
 
         {isSuperAdmin && <CreateAdminAccountModal />}
       </div>
 
-      {/* Admin Profile Form */}
-      <AdminProfileForm admin={adminRecord} />
+      {/* Admin's Own Profile Form */}
+      <section>
+        <AdminProfileForm admin={adminRecord} />
+      </section>
 
-      {/* Super Admin Privileged Password Management Section */}
+      {/* Super Admin Privilege: Administrator Directory & Management Hub */}
       {isSuperAdmin && (
-        <section className="pt-8 border-t border-gray-200">
-          <SuperAdminPasswordManager
+        <section className="pt-8 border-t border-gray-200/80">
+          <AdminDirectoryManager
             admins={adminList}
             currentUserId={user.id}
           />
