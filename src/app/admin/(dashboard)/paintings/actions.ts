@@ -243,13 +243,41 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
       }
     }
 
+    const catCode =
+      painting_type === 'acrylic'
+        ? 'ACR'
+        : painting_type === 'mixed'
+        ? 'MIX'
+        : painting_type === 'oil'
+        ? 'OIL'
+        : 'ART'
+
     if (id) {
       // ── UPDATE ──
+      // Check existing painting to dynamically sync category code in serial_number if category changed or was legacy
+      const { data: existingP } = await supabase
+        .from('paintings')
+        .select('serial_number, painting_type')
+        .eq('id', id)
+        .single()
+
+      let nextSerial = existingP?.serial_number
+      if (nextSerial) {
+        const numMatch = nextSerial.match(/\d+$/)
+        if (numMatch) {
+          const num = numMatch[0].padStart(4, '0')
+          if (existingP?.painting_type !== painting_type || nextSerial.match(/^KCG-\d+$/)) {
+            nextSerial = `KCG-${catCode}-${num}`
+          }
+        }
+      }
+
       const { error: updateErr } = await supabase
         .from('paintings')
         .update({
           title,
           painting_type,
+          serial_number: nextSerial,
           exact_medium,
           display_size,
           width,
@@ -272,12 +300,47 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
       if (updateErr) throw updateErr
     } else {
       // ── INSERT ──
+      // Proactively generate guaranteed category-coded serial number (e.g. KCG-OIL-0064)
+      let generatedSerial: string | null = null
+      try {
+        const { data: rpcSerial } = await supabase.rpc('generate_artwork_serial_number', {
+          p_type: painting_type || 'oil',
+        })
+        if (rpcSerial && typeof rpcSerial === 'string' && rpcSerial.includes(catCode)) {
+          generatedSerial = rpcSerial
+        }
+      } catch (err) {
+        console.warn('RPC serial generation notice:', err)
+      }
+
+      if (!generatedSerial) {
+        const { data: latestRows } = await supabase
+          .from('paintings')
+          .select('serial_number')
+          .not('serial_number', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(10)
+
+        let highestNum = 63
+        if (latestRows && latestRows.length > 0) {
+          for (const row of latestRows) {
+            const m = (row.serial_number || '').match(/\d+$/)
+            if (m) {
+              const val = parseInt(m[0], 10)
+              if (val > highestNum) highestNum = val
+            }
+          }
+        }
+        generatedSerial = `KCG-${catCode}-${String(highestNum + 1).padStart(4, '0')}`
+      }
+
       const slug = generateSlug(title)
       const { data: newPainting, error: insertErr } = await supabase
         .from('paintings')
         .insert({
           title,
           slug,
+          serial_number: generatedSerial,
           painting_type,
           exact_medium,
           display_size,

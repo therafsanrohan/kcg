@@ -36,9 +36,9 @@ export default function Footer({ whatsappNumber }: { whatsappNumber?: string }) 
               href={`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, '')}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-gray-500 hover:text-black transition-colors"
+              className="inline-flex items-center gap-1.5 text-gray-500 hover:text-[#25D366] transition-colors"
             >
-              <WhatsAppIcon className="h-3.5 w-3.5 fill-current" />
+              <WhatsAppIcon className="h-3.5 w-3.5 fill-[#25D366]" />
               <span>Contact via WhatsApp</span>
             </a>
           )}

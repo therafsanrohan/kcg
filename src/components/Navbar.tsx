@@ -157,7 +157,7 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
             href={`https://wa.me/${cleanNumber}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden sm:inline-flex h-9 sm:h-10 px-3.5 sm:px-4 rounded-md bg-[#1A1A1A] text-white text-xs font-medium tracking-wide items-center gap-2 hover:bg-black transition-colors whitespace-nowrap"
+            className="hidden sm:inline-flex h-9 sm:h-10 px-3.5 sm:px-4 rounded-md bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold tracking-wide items-center gap-2 shadow-xs hover:shadow-sm transition-all whitespace-nowrap active:scale-[0.99]"
           >
             <WhatsAppIcon className="h-3.5 w-3.5 fill-white flex-shrink-0" />
             <span>Inquire via WhatsApp</span>
@@ -302,7 +302,7 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2.5 w-full py-4 px-6 rounded-md bg-[#1A1A1A] text-white text-xs sm:text-sm uppercase tracking-[0.2em] font-semibold hover:bg-black transition-colors shadow-sm"
+                className="flex items-center justify-center gap-2.5 w-full py-4 px-6 rounded-md bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs sm:text-sm uppercase tracking-[0.2em] font-bold transition-all shadow-md active:scale-[0.99]"
               >
                 <WhatsAppIcon className="h-4 w-4 fill-white flex-shrink-0" />
                 <span>Chat with Artist via WhatsApp</span>

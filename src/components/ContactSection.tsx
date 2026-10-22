@@ -94,18 +94,18 @@ export default function ContactSection({ contact, className = '' }: ContactSecti
                 href={`https://wa.me/${cleanWhatsApp}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group flex items-center justify-between p-5 sm:p-6 rounded-2xl bg-white border border-gray-200 hover:border-black transition-all shadow-2xs hover:shadow-md cursor-pointer"
+                className="group flex items-center justify-between p-5 sm:p-6 rounded-2xl bg-white border border-gray-200 hover:border-[#25D366] transition-all shadow-2xs hover:shadow-md cursor-pointer"
               >
                 <div className="flex items-center gap-4 sm:gap-5">
-                  <div className="h-12 w-12 rounded-xl bg-[#25D366]/10 text-[#128C7E] flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-                    <WhatsAppIcon className="h-6 w-6 fill-[#128C7E]" />
+                  <div className="h-12 w-12 rounded-xl bg-[#25D366]/15 text-[#128C7E] flex items-center justify-center flex-shrink-0 group-hover:bg-[#25D366] group-hover:scale-105 transition-all">
+                    <WhatsAppIcon className="h-6 w-6 fill-[#128C7E] group-hover:fill-white transition-colors" />
                   </div>
                   <div>
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400 block mb-0.5">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#128C7E] font-semibold block mb-0.5">
                       Fastest Response &bull; WhatsApp
                     </span>
-                    <h3 className="text-base sm:text-lg font-medium text-gray-950 group-hover:text-black transition-colors">
-                      Inquire & Consult via WhatsApp
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-950 group-hover:text-[#128C7E] transition-colors">
+                      Inquire via WhatsApp
                     </h3>
                     <p className="text-xs text-gray-500 font-light mt-0.5 font-mono">
                       +{cleanWhatsApp}
@@ -113,7 +113,7 @@ export default function ContactSection({ contact, className = '' }: ContactSecti
                   </div>
                 </div>
 
-                <div className="h-9 w-9 rounded-full bg-stone-50 border border-gray-200 group-hover:bg-black group-hover:text-white group-hover:border-black flex items-center justify-center transition-colors flex-shrink-0">
+                <div className="h-9 w-9 rounded-full bg-[#25D366]/10 border border-[#25D366]/30 group-hover:bg-[#25D366] group-hover:text-white group-hover:border-[#25D366] text-[#128C7E] flex items-center justify-center transition-all flex-shrink-0">
                   <ArrowUpRight className="h-4 w-4" />
                 </div>
               </a>
