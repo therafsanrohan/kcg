@@ -149,16 +149,23 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
   }
 
   const handleAddPresetFrame = (presetName: string, defaultPrice: number = 2700) => {
-    const suggestedSize = calculateSuggestedOuterSize(width, height, unit)
-    setFrames((prev) => [
-      ...prev,
-      {
-        id: Math.random().toString(),
-        frame_name: presetName,
-        outer_size: suggestedSize,
-        price_bdt: defaultPrice,
-      },
-    ])
+    const canonical = presetName.replace(/^Double-\s*Bit/i, 'Double-Bit').replace(/^Single-\s*Bit/i, 'Single-Bit').trim()
+    setFrames((prev) => {
+      // Prevent duplicate frame names on the same artwork
+      if (prev.some((f) => f.frame_name.trim().toLowerCase() === canonical.toLowerCase())) {
+        return prev
+      }
+      const suggestedSize = calculateSuggestedOuterSize(width, height, unit)
+      return [
+        ...prev,
+        {
+          id: Math.random().toString(),
+          frame_name: canonical,
+          outer_size: suggestedSize,
+          price_bdt: defaultPrice,
+        },
+      ]
+    })
   }
 
   const handleRemoveFrame = (id: string) => {
@@ -643,39 +650,39 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
             <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => handleAddPresetFrame('Double- Bit frame (White)')}
+                onClick={() => handleAddPresetFrame('Double-Bit frame (White)')}
                 className="h-7 px-2 rounded-md border border-gray-300 bg-white hover:bg-black hover:text-white hover:border-black text-[11px] font-bold text-gray-800 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                title="Quick add Double- Bit frame (White)"
+                title="Quick add Double-Bit frame (White)"
               >
                 <Plus className="h-3 w-3" />
-                <span>+ Double- Bit (White)</span>
+                <span>+ Double-Bit (White)</span>
               </button>
               <button
                 type="button"
-                onClick={() => handleAddPresetFrame('Double- Bit frame (Black)')}
+                onClick={() => handleAddPresetFrame('Double-Bit frame (Black)')}
                 className="h-7 px-2 rounded-md border border-gray-300 bg-white hover:bg-black hover:text-white hover:border-black text-[11px] font-bold text-gray-800 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                title="Quick add Double- Bit frame (Black)"
+                title="Quick add Double-Bit frame (Black)"
               >
                 <Plus className="h-3 w-3" />
-                <span>+ Double- Bit (Black)</span>
+                <span>+ Double-Bit (Black)</span>
               </button>
               <button
                 type="button"
-                onClick={() => handleAddPresetFrame('Single- Bit frame (White)')}
+                onClick={() => handleAddPresetFrame('Single-Bit frame (White)')}
                 className="h-7 px-2 rounded-md border border-gray-300 bg-white hover:bg-black hover:text-white hover:border-black text-[11px] font-bold text-gray-800 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                title="Quick add Single- Bit frame (White)"
+                title="Quick add Single-Bit frame (White)"
               >
                 <Plus className="h-3 w-3" />
-                <span>+ Single- Bit (White)</span>
+                <span>+ Single-Bit (White)</span>
               </button>
               <button
                 type="button"
-                onClick={() => handleAddPresetFrame('Single- Bit frame (Black)')}
+                onClick={() => handleAddPresetFrame('Single-Bit frame (Black)')}
                 className="h-7 px-2 rounded-md border border-gray-300 bg-white hover:bg-black hover:text-white hover:border-black text-[11px] font-bold text-gray-800 flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                title="Quick add Single- Bit frame (Black)"
+                title="Quick add Single-Bit frame (Black)"
               >
                 <Plus className="h-3 w-3" />
-                <span>+ Single- Bit (Black)</span>
+                <span>+ Single-Bit (Black)</span>
               </button>
               <button
                 type="button"
@@ -697,31 +704,31 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
                 <div className="flex flex-wrap items-center justify-center gap-2 mt-2.5">
                   <button
                     type="button"
-                    onClick={() => handleAddPresetFrame('Double- Bit frame (White)')}
+                    onClick={() => handleAddPresetFrame('Double-Bit frame (White)')}
                     className="px-2.5 py-1 text-xs font-semibold bg-white border border-gray-300 rounded hover:border-black transition-colors"
                   >
-                    + Double- Bit (White)
+                    + Double-Bit (White)
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleAddPresetFrame('Double- Bit frame (Black)')}
+                    onClick={() => handleAddPresetFrame('Double-Bit frame (Black)')}
                     className="px-2.5 py-1 text-xs font-semibold bg-white border border-gray-300 rounded hover:border-black transition-colors"
                   >
-                    + Double- Bit (Black)
+                    + Double-Bit (Black)
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleAddPresetFrame('Single- Bit frame (White)')}
+                    onClick={() => handleAddPresetFrame('Single-Bit frame (White)')}
                     className="px-2.5 py-1 text-xs font-semibold bg-white border border-gray-300 rounded hover:border-black transition-colors"
                   >
-                    + Single- Bit (White)
+                    + Single-Bit (White)
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleAddPresetFrame('Single- Bit frame (Black)')}
+                    onClick={() => handleAddPresetFrame('Single-Bit frame (Black)')}
                     className="px-2.5 py-1 text-xs font-semibold bg-white border border-gray-300 rounded hover:border-black transition-colors"
                   >
-                    + Single- Bit (Black)
+                    + Single-Bit (Black)
                   </button>
                 </div>
               </div>
@@ -762,13 +769,11 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
                         className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none font-medium cursor-pointer"
                       >
                         <option value="">-- Choose Frame Preset --</option>
-                        <optgroup label="Bit Frames (Most Popular)">
-                          <option value="Double- Bit frame (White)">Double- Bit frame (White)</option>
-                          <option value="Double- Bit frame (Black)">Double- Bit frame (Black)</option>
-                          <option value="Single- Bit frame (White)">Single- Bit frame (White)</option>
-                          <option value="Single- Bit frame (Black)">Single- Bit frame (Black)</option>
-                          <option value="Double-Bit frame (Natural Wood)">Double-Bit frame (Natural Wood)</option>
-                          <option value="Double-Bit frame (Gold)">Double-Bit frame (Gold)</option>
+                        <optgroup label="Standard Frame Presets">
+                          <option value="Double-Bit frame (White)">Double-Bit frame (White)</option>
+                          <option value="Double-Bit frame (Black)">Double-Bit frame (Black)</option>
+                          <option value="Single-Bit frame (White)">Single-Bit frame (White)</option>
+                          <option value="Single-Bit frame (Black)">Single-Bit frame (Black)</option>
                         </optgroup>
                         <optgroup label="Floating Frames">
                           <option value="Minimalist Floating Frame (Black)">Minimalist Floating Frame (Black)</option>

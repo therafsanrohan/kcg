@@ -178,12 +178,21 @@ export default function ClientDetails({
   // Deduplicate frames by frame_name so identical options never repeat
   const displayedFrames = useMemo(() => {
     const seen = new Set<string>()
-    return (frames || []).filter((frame) => {
-      const key = (frame.frame_name || '').trim().toLowerCase()
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
+    return (frames || [])
+      .map((frame) => {
+        let name = (frame.frame_name || '').trim()
+        name = name.replace(/^Double\s*-\s*Bit\s+frame/i, 'Double-Bit frame')
+        name = name.replace(/^Single\s*-\s*Bit\s+frame/i, 'Single-Bit frame')
+        name = name.replace(/\(white\)/i, '(White)')
+        name = name.replace(/\(black\)/i, '(Black)')
+        return { ...frame, frame_name: name }
+      })
+      .filter((frame) => {
+        const key = (frame.frame_name || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
   }, [frames])
 
   const selectedFrame = displayedFrames.find(f => f.id === selectedFrameId)

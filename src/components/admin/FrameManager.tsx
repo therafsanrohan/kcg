@@ -22,9 +22,24 @@ export default function FrameManager({ paintingId, existingFrames = [] }: { pain
     setSaving(true)
     const formData = new FormData(e.currentTarget)
     
+    let frameName = (formData.get('frame_name') as string || '').trim()
+    frameName = frameName.replace(/^Double\s*-\s*Bit\s+frame/i, 'Double-Bit frame')
+    frameName = frameName.replace(/^Single\s*-\s*Bit\s+frame/i, 'Single-Bit frame')
+    frameName = frameName.replace(/\(white\)/i, '(White)')
+    frameName = frameName.replace(/\(black\)/i, '(Black)')
+
+    const isDup = frames.some(
+      (f) => f.frame_name.toLowerCase().replace(/[^a-z0-9]/g, '') === frameName.toLowerCase().replace(/[^a-z0-9]/g, '')
+    )
+    if (isDup) {
+      showMessage('This frame option already exists on this artwork.', 'error')
+      setSaving(false)
+      return
+    }
+
     const newFrame = {
       painting_id: paintingId,
-      frame_name: formData.get('frame_name') as string,
+      frame_name: frameName,
       outer_size: formData.get('outer_size') as string,
       price_bdt: Number(formData.get('price_bdt')),
       is_active: formData.get('is_active') === 'on',
@@ -107,6 +122,7 @@ export default function FrameManager({ paintingId, existingFrames = [] }: { pain
       {/* New Frame Form */}
       <FrameManagerNewForm
         paintingId={paintingId}
+        existingFrames={frames}
         saving={saving}
         setSaving={setSaving}
         onFrameAdded={(newFrame) => {
@@ -121,12 +137,14 @@ export default function FrameManager({ paintingId, existingFrames = [] }: { pain
 
 function FrameManagerNewForm({
   paintingId,
+  existingFrames = [],
   saving,
   setSaving,
   onFrameAdded,
   onError,
 }: {
   paintingId: string
+  existingFrames?: FrameOption[]
   saving: boolean
   setSaving: (v: boolean) => void
   onFrameAdded: (frame: FrameOption) => void
@@ -158,8 +176,22 @@ function FrameManagerNewForm({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!frameName.trim()) {
+    let cleanName = frameName.trim()
+    cleanName = cleanName.replace(/^Double\s*-\s*Bit\s+frame/i, 'Double-Bit frame')
+    cleanName = cleanName.replace(/^Single\s*-\s*Bit\s+frame/i, 'Single-Bit frame')
+    cleanName = cleanName.replace(/\(white\)/i, '(White)')
+    cleanName = cleanName.replace(/\(black\)/i, '(Black)')
+
+    if (!cleanName) {
       onError('Frame name is required')
+      return
+    }
+
+    const isDup = existingFrames.some(
+      (f) => f.frame_name.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanName.toLowerCase().replace(/[^a-z0-9]/g, '')
+    )
+    if (isDup) {
+      onError('This frame option already exists on this artwork.')
       return
     }
 
@@ -176,7 +208,7 @@ function FrameManagerNewForm({
 
       const newFrame = {
         painting_id: paintingId,
-        frame_name: frameName.trim(),
+        frame_name: cleanName,
         outer_size,
         outer_width_mm,
         outer_height_mm,

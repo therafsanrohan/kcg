@@ -330,9 +330,15 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
                 }
               }
 
+              let normalizedName = f.frame_name.trim()
+              normalizedName = normalizedName.replace(/^Double\s*-\s*Bit\s+frame/i, 'Double-Bit frame')
+              normalizedName = normalizedName.replace(/^Single\s*-\s*Bit\s+frame/i, 'Single-Bit frame')
+              normalizedName = normalizedName.replace(/\(white\)/i, '(White)')
+              normalizedName = normalizedName.replace(/\(black\)/i, '(Black)')
+
               return {
                 painting_id: paintingId,
-                frame_name: f.frame_name.trim(),
+                frame_name: normalizedName,
                 outer_size: f.outer_size || '',
                 outer_width_mm,
                 outer_height_mm,
@@ -344,7 +350,7 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
           // Deduplicate frame records so duplicate frame options can never be inserted
           const seen = new Set<string>()
           const deduplicatedRecords = frameRecords.filter(f => {
-            const key = f.frame_name.toLowerCase()
+            const key = f.frame_name.toLowerCase().replace(/[^a-z0-9]/g, '')
             if (seen.has(key)) return false
             seen.add(key)
             return true
