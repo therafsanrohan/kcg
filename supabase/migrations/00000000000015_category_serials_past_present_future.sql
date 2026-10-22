@@ -9,10 +9,13 @@ SELECT setval('public.artwork_serial_seq', (
   WHERE serial_number IS NOT NULL
 ), true);
 
--- 2. Drop legacy 0-argument function to eliminate signature confusion
-DROP FUNCTION IF EXISTS public.generate_artwork_serial_number();
+-- 2. Safely remove the default constraint first so Postgres allows replacing the function
+ALTER TABLE public.paintings ALTER COLUMN serial_number DROP DEFAULT;
 
--- 3. Category serial generator function with explicit category prefix (OIL, ACR, MIX, ART)
+-- 3. Drop legacy 0-argument function with CASCADE to cleanly resolve any legacy dependencies
+DROP FUNCTION IF EXISTS public.generate_artwork_serial_number() CASCADE;
+
+-- 4. Category serial generator function with explicit category prefix (OIL, ACR, MIX, ART)
 CREATE OR REPLACE FUNCTION public.generate_artwork_serial_number(p_type text DEFAULT 'oil')
 RETURNS text
 LANGUAGE plpgsql
@@ -34,7 +37,10 @@ BEGIN
 END;
 $$;
 
--- 4. Dynamic trigger function:
+-- 5. Re-attach the new category generator as default
+ALTER TABLE public.paintings ALTER COLUMN serial_number SET DEFAULT public.generate_artwork_serial_number('oil');
+
+-- 6. Dynamic trigger function:
 --    - Auto-generates category serials on INSERT if empty or non-category
 --    - Dynamically updates category code on UPDATE if category changes or was legacy
 CREATE OR REPLACE FUNCTION public.trg_paintings_set_serial_number()
@@ -94,7 +100,7 @@ CREATE TRIGGER set_artwork_serial_number
   FOR EACH ROW
   EXECUTE FUNCTION public.trg_paintings_set_serial_number();
 
--- 5. Fix all past legacy serial numbers in public.paintings immediately
+-- 7. Fix all past legacy serial numbers in public.paintings immediately
 UPDATE public.paintings
 SET serial_number = 'KCG-' || (
   CASE lower(coalesce(painting_type, ''))
@@ -106,5 +112,5 @@ SET serial_number = 'KCG-' || (
 ) || '-' || lpad(substring(serial_number from '[0-9]+$'), 4, '0')
 WHERE serial_number ~ '^KCG-[0-9]+$';
 
--- 6. Reload schema cache
+-- 8. Reload PostgREST schema cache
 NOTIFY pgrst, 'reload schema';

@@ -40,12 +40,21 @@ interface AddArtworkModalProps {
 
 function makeDefaultFrames(data: any): FrameRow[] {
   if (data?.frame_options?.length > 0) {
-    return data.frame_options.map((f: any) => ({
-      id: f.id || Math.random().toString(36),
-      frame_name: f.frame_name || '',
-      outer_size: f.outer_size || '',
-      price_bdt: f.price_bdt ?? 0,
-    }))
+    return data.frame_options.map((f: any) => {
+      let name = (f.frame_name || '').trim()
+      name = name.replace(/^Double\s*-\s*Bit\s+frame/i, 'Double-Bit frame')
+      name = name.replace(/^Single\s*-\s*Bit\s+frame/i, 'Single-Bit frame')
+      name = name.replace(/^Double\s*-\s*Bit\s*\(/i, 'Double-Bit frame (')
+      name = name.replace(/^Single\s*-\s*Bit\s*\(/i, 'Single-Bit frame (')
+      name = name.replace(/\(white\)/i, '(White)')
+      name = name.replace(/\(black\)/i, '(Black)')
+      return {
+        id: f.id || Math.random().toString(36),
+        frame_name: name,
+        outer_size: f.outer_size || '',
+        price_bdt: f.price_bdt ?? 0,
+      }
+    })
   }
   return []
 }
@@ -840,8 +849,8 @@ export default function AddArtworkModal({
                           </label>
                           <select
                             value={
-                              FRAME_PRESET_OPTIONS.includes(frame.frame_name)
-                                ? frame.frame_name
+                              FRAME_PRESET_OPTIONS.includes(frame.frame_name.replace(/-\s+/g, '-').trim())
+                                ? frame.frame_name.replace(/-\s+/g, '-').trim()
                                 : frame.frame_name
                                 ? 'custom'
                                 : ''
@@ -863,25 +872,10 @@ export default function AddArtworkModal({
                             className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-900 bg-white focus:border-black outline-none font-medium cursor-pointer"
                           >
                             <option value="">-- Choose Frame Preset --</option>
-                            <optgroup label="Standard Frame Presets">
-                              <option value="Double-Bit frame (White)">Double-Bit frame (White)</option>
-                              <option value="Double-Bit frame (Black)">Double-Bit frame (Black)</option>
-                              <option value="Single-Bit frame (White)">Single-Bit frame (White)</option>
-                              <option value="Single-Bit frame (Black)">Single-Bit frame (Black)</option>
-                            </optgroup>
-                            <optgroup label="Floating Frames">
-                              <option value="Minimalist Floating Frame (Black)">Minimalist Floating Frame (Black)</option>
-                              <option value="Minimalist Floating Frame (White)">Minimalist Floating Frame (White)</option>
-                              <option value="Minimalist Floating Frame (Natural Oak)">Minimalist Floating Frame (Natural Oak)</option>
-                              <option value="Raw Teakwood Floating Frame">Raw Teakwood Floating Frame</option>
-                              <option value="Champagne Gold Floating Frame">Champagne Gold Floating Frame</option>
-                            </optgroup>
-                            <optgroup label="Shadowbox & Gallery">
-                              <option value="Matte Black Shadowbox">Matte Black Shadowbox</option>
-                              <option value="Natural Oak Shadowbox">Natural Oak Shadowbox</option>
-                              <option value="Classic Gilded Gold Frame">Classic Gilded Gold Frame</option>
-                            </optgroup>
-                            <option value="custom">✏️ Custom / Type by Hand...</option>
+                            <option value="Double-Bit frame (White)">Double-Bit (White)</option>
+                            <option value="Double-Bit frame (Black)">Double-Bit (Black)</option>
+                            <option value="Single-Bit frame (White)">Single-Bit (White)</option>
+                            <option value="Single-Bit frame (Black)">Single-Bit (Black)</option>
                           </select>
                         </div>
 
