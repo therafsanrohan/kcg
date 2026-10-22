@@ -105,7 +105,7 @@ export default function ContactSection({ contact, className = '' }: ContactSecti
                       Fastest Response &bull; WhatsApp
                     </span>
                     <h3 className="text-base sm:text-lg font-semibold text-gray-950 group-hover:text-[#128C7E] transition-colors">
-                      Inquire via WhatsApp
+                      Chat via WhatsApp
                     </h3>
                     <p className="text-xs text-gray-500 font-light mt-0.5 font-mono">
                       +{cleanWhatsApp}

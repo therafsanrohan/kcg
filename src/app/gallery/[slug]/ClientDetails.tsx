@@ -673,7 +673,7 @@ export default function ClientDetails({
               className="flex w-full items-center justify-center gap-2.5 rounded-md bg-[#25D366] hover:bg-[#20bd5a] px-8 py-4 text-xs uppercase tracking-[0.18em] font-bold text-white shadow-md hover:shadow-lg transition-all focus:outline-none cursor-pointer active:scale-[0.99]"
             >
               <WhatsAppIcon className="h-4 w-4 fill-white flex-shrink-0" />
-              <span>Inquire via WhatsApp</span>
+              <span>Chat via WhatsApp</span>
             </button>
           ) : (
              <button
