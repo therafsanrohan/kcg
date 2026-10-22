@@ -482,7 +482,7 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
                       {/* Curated Offer Badge (Top-Left) */}
                       {hasDiscount && (
                         <div className="absolute top-2 left-2 sm:top-3 sm:left-3 z-20 pointer-events-none">
-                          <span className="bg-[#1A1A1A] text-white font-mono text-[8px] sm:text-[9px] uppercase tracking-wider px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-sm shadow-xs">
+                          <span className="bg-[#DC2626] text-white font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-sm shadow-sm">
                             {painting.offer_badge || 'OFFER'}
                           </span>
                         </div>
@@ -527,7 +527,7 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
                           <span className="text-[10px] sm:text-xs text-gray-400 line-through">
                             {originalPriceDisplay}
                           </span>
-                          <span className="font-bold text-gray-950">
+                          <span className="font-bold text-[#DC2626]">
                             {effectivePriceDisplay}
                           </span>
                         </>

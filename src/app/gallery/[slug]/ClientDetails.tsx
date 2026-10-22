@@ -447,10 +447,15 @@ export default function ClientDetails({
         <div>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-gray-400">
                   ORIGINAL CANVAS
                 </span>
+                {hasDiscount && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-sm bg-[#DC2626] text-white text-[10px] font-mono font-bold uppercase tracking-wider shadow-2xs">
+                    {painting.offer_badge || 'SPECIAL OFFER'}
+                  </span>
+                )}
               </div>
               <h1 className="font-editorial text-4xl sm:text-5xl font-normal text-gray-950 tracking-[-0.01em] leading-tight">
                 {painting.title}
@@ -621,14 +626,21 @@ export default function ClientDetails({
         {/* Total Price & Summary */}
         <div className="border-t border-gray-200 pt-6 flex items-end justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Total Price</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Total Price</p>
+              {hasDiscount && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-sm bg-[#DC2626] text-white text-[10px] font-mono font-bold uppercase tracking-wider shadow-2xs">
+                  {painting.offer_badge || 'OFFER'}
+                </span>
+              )}
+            </div>
             <div className="flex items-baseline gap-3 mt-1">
               {hasDiscount && (
                 <span className="text-xl font-normal text-gray-400 line-through font-mono">
                   {convertCurrency(originalTotalPriceBdt, currency, rates)}
                 </span>
               )}
-              <p className={`text-3xl font-bold font-mono ${hasDiscount ? 'text-red-600' : 'text-gray-950'}`}>
+              <p className={`text-3xl font-bold font-mono ${hasDiscount ? 'text-[#DC2626]' : 'text-gray-950'}`}>
                 {convertCurrency(totalPriceBdt, currency, rates)} <span className="text-xl font-normal text-gray-500">{currency}</span>
               </p>
             </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useEffect, useCallback, useRef } from 'react'
-import { X, Plus, ImageIcon, Crop, Trash2 } from 'lucide-react'
+import { X, Plus, ImageIcon, Crop, Trash2, Tag, Percent, Sparkles } from 'lucide-react'
 import { saveArtworkAction } from '@/app/admin/(dashboard)/paintings/actions'
 import Image from 'next/image'
 import { getPaintingImageUrl } from '@/utils/image'
@@ -96,12 +96,26 @@ export default function AddArtworkModal({
   const [orientation, setOrientation] = useState<ArtworkOrientation>('portrait')
   const [displaySize, setDisplaySize] = useState<string>('24 × 36 in')
 
+  // Pricing & Offer State
+  const [basePrice, setBasePrice] = useState<string>(() =>
+    initialData?.base_price_bdt ? String(initialData.base_price_bdt) : ''
+  )
+  const [discountPrice, setDiscountPrice] = useState<string>(() =>
+    initialData?.discount_price_bdt ? String(initialData.discount_price_bdt) : ''
+  )
+  const [offerBadge, setOfferBadge] = useState<string>(() =>
+    initialData?.offer_badge ?? ''
+  )
+
   const isEditMode = Boolean(initialData?.id)
 
   // Reset form state whenever initialData changes (new edit target or cleared for new)
   useEffect(() => {
     setFrames(makeDefaultFrames(initialData))
     setErrorMsg(null)
+    setBasePrice(initialData?.base_price_bdt ? String(initialData.base_price_bdt) : '')
+    setDiscountPrice(initialData?.discount_price_bdt ? String(initialData.discount_price_bdt) : '')
+    setOfferBadge(initialData?.offer_badge ?? '')
 
     // Load existing images if in edit mode (up to 4)
     if (initialData?.painting_images && initialData.painting_images.length > 0) {
@@ -727,46 +741,160 @@ export default function AddArtworkModal({
               />
             </div>
 
-            {/* Price & Offer Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
-                  Regular Price, BDT <span className="text-red-500">*</span>
-                </label>
-                <input
-                  name="base_price_bdt"
-                  type="number"
-                  required
-                  min="0"
-                  defaultValue={initialData?.base_price_bdt ?? ''}
-                  placeholder="85000"
-                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
-                />
+            {/* Price & Offer Section */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
+                    Regular Price, BDT <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="base_price_bdt"
+                    type="number"
+                    required
+                    min="0"
+                    value={basePrice}
+                    onChange={(e) => setBasePrice(e.target.value)}
+                    placeholder="85000"
+                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
+                    Offer Price, BDT <span className="text-xs font-normal text-gray-400 normal-case">(Optional)</span>
+                  </label>
+                  <input
+                    name="discount_price_bdt"
+                    type="number"
+                    min="0"
+                    value={discountPrice}
+                    onChange={(e) => setDiscountPrice(e.target.value)}
+                    placeholder="68000"
+                    className="w-full rounded-lg border border-red-200 bg-red-50/30 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10 outline-none transition-all font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
+                    Offer Badge <span className="text-xs font-normal text-gray-400 normal-case">(Optional)</span>
+                  </label>
+                  <input
+                    name="offer_badge"
+                    type="text"
+                    value={offerBadge}
+                    onChange={(e) => setOfferBadge(e.target.value)}
+                    placeholder="e.g. Special Offer or 20% OFF"
+                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
-                  Offer Price, BDT <span className="text-xs font-normal text-gray-400 normal-case">(Optional)</span>
-                </label>
-                <input
-                  name="discount_price_bdt"
-                  type="number"
-                  min="0"
-                  defaultValue={initialData?.discount_price_bdt ?? ''}
-                  placeholder="68000"
-                  className="w-full rounded-lg border border-red-200 bg-red-50/30 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10 outline-none transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
-                  Offer Badge <span className="text-xs font-normal text-gray-400 normal-case">(Optional)</span>
-                </label>
-                <input
-                  name="offer_badge"
-                  type="text"
-                  defaultValue={initialData?.offer_badge ?? ''}
-                  placeholder="20% OFF or EID SALE"
-                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
-                />
+
+              {/* Offer Preset Tools & Smart Helpers */}
+              <div className="p-3 rounded-xl bg-gray-50/80 border border-gray-200/80 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-600 font-medium">
+                    <Tag className="w-3.5 h-3.5 text-red-500" />
+                    <span>Quick Offer Presets:</span>
+                  </div>
+
+                  {discountPrice && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDiscountPrice('')
+                        setOfferBadge('')
+                      }}
+                      className="text-xs text-red-600 hover:text-red-800 font-semibold underline cursor-pointer"
+                    >
+                      Clear Offer
+                    </button>
+                  )}
+                </div>
+
+                {/* Percentage & Fixed Quick Preset Chips */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] text-gray-400 font-medium mr-1">% Off:</span>
+                  {[5, 10, 15, 20, 25, 30, 50].map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => {
+                        const numBase = parseFloat(basePrice) || 0
+                        if (numBase <= 0) return
+                        const d = Math.round(numBase * (1 - pct / 100))
+                        setDiscountPrice(String(d))
+                        if (!offerBadge || offerBadge.includes('% OFF')) {
+                          setOfferBadge(`${pct}% OFF`)
+                        }
+                      }}
+                      className="px-2.5 py-1 text-xs rounded-lg font-medium border border-gray-200 bg-white hover:bg-gray-100 hover:border-black text-gray-800 transition-all cursor-pointer shadow-2xs"
+                    >
+                      {pct}%
+                    </button>
+                  ))}
+
+                  <span className="text-[11px] text-gray-400 font-medium ml-2 mr-1">৳ Off:</span>
+                  {[1000, 2000, 3000, 5000, 10000].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => {
+                        const numBase = parseFloat(basePrice) || 0
+                        if (numBase <= amt) return
+                        const d = Math.round(numBase - amt)
+                        setDiscountPrice(String(d))
+                        if (!offerBadge || offerBadge.includes('OFF')) {
+                          setOfferBadge(`৳${amt.toLocaleString('en-BD')} OFF`)
+                        }
+                      }}
+                      className="px-2.5 py-1 text-xs rounded-lg font-medium border border-gray-200 bg-white hover:bg-gray-100 hover:border-black text-gray-800 transition-all cursor-pointer shadow-2xs"
+                    >
+                      ৳{amt.toLocaleString('en-BD')}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Quick Badge Suggestions */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-gray-200/60">
+                  <span className="text-[11px] text-gray-400 font-medium mr-1">Badge:</span>
+                  {['Special Offer', 'Eid Special', 'Curator Pick', 'Limited Deal', 'Spring Art'].map(
+                    (b) => (
+                      <button
+                        key={b}
+                        type="button"
+                        onClick={() => setOfferBadge(b)}
+                        className={`px-2 py-0.5 text-[11px] rounded font-medium border transition-all cursor-pointer ${
+                          offerBadge === b
+                            ? 'bg-red-50 text-red-700 border-red-300 font-bold'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        + {b}
+                      </button>
+                    )
+                  )}
+                </div>
+
+                {/* Active Offer Preview Indicator */}
+                {parseFloat(discountPrice) > 0 && parseFloat(basePrice) > 0 && (
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-red-50/70 border border-red-200 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block px-2 py-0.5 rounded bg-[#DC2626] text-white text-[10px] font-bold uppercase tracking-wider shadow-2xs">
+                        {offerBadge || 'OFFER'}
+                      </span>
+                      <span className="text-gray-800 font-medium">
+                        Effective Price: <strong>৳{Number(discountPrice).toLocaleString('en-BD')}</strong>
+                        {parseFloat(basePrice) > parseFloat(discountPrice) && (
+                          <span className="text-red-700 ml-1.5">
+                            (Save ৳{(parseFloat(basePrice) - parseFloat(discountPrice)).toLocaleString('en-BD')})
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-gray-400 font-light">
+                      Original ৳{Number(basePrice).toLocaleString('en-BD')} preserved
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

@@ -123,9 +123,16 @@ export default async function Home() {
 
             {/* Bottom-Left Overlay Text: Editorial Label */}
             <div className="absolute bottom-8 left-6 sm:bottom-12 sm:left-12 z-20 max-w-xl text-white">
-              <span className="text-[10px] uppercase tracking-[0.22em] text-white/80 font-medium block mb-2">
-                EXHIBITION SPOTLIGHT
-              </span>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="text-[10px] uppercase tracking-[0.22em] text-white/80 font-medium block">
+                  EXHIBITION SPOTLIGHT
+                </span>
+                {featuredPainting.discount_price_bdt && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-sm bg-[#DC2626] text-white text-[10px] font-mono font-bold uppercase tracking-wider shadow-sm">
+                    {featuredPainting.offer_badge || 'SPECIAL OFFER'}
+                  </span>
+                )}
+              </div>
               <h2 className="font-editorial text-3xl sm:text-5xl font-normal text-white leading-tight">
                 {featuredPainting.title}
               </h2>

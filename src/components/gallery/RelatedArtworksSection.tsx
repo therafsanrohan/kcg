@@ -196,7 +196,7 @@ export default function RelatedArtworksSection({
                   {/* Offer Badge */}
                   {hasDiscount && (
                     <div className="absolute top-2.5 left-2.5 z-20 pointer-events-none">
-                      <span className="bg-[#1A1A1A] text-white font-mono text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-sm shadow-xs">
+                      <span className="bg-[#DC2626] text-white font-mono text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm shadow-sm">
                         {painting.offer_badge || 'OFFER'}
                       </span>
                     </div>
@@ -237,7 +237,7 @@ export default function RelatedArtworksSection({
                       <span className="text-[11px] text-gray-400 line-through">
                         {originalPriceDisplay}
                       </span>
-                      <span className="font-bold text-gray-950">
+                      <span className="font-bold text-[#DC2626]">
                         {effectivePriceDisplay}
                       </span>
                     </>
