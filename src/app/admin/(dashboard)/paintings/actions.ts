@@ -133,14 +133,16 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
 
     id = (formData.get('id') as string | null) || null
     const title = (formData.get('title') as string)?.trim()
-    const painting_type = (formData.get('painting_type') as string) || 'oil'
+    const painting_type = (formData.get('painting_type') as string)?.trim()
     const exact_medium =
       (formData.get('exact_medium') as string)?.trim() ||
       (painting_type === 'acrylic'
         ? 'Acrylic on canvas'
         : painting_type === 'mixed'
         ? 'Mixed Media'
-        : 'Oil on canvas')
+        : painting_type === 'oil'
+        ? 'Oil on canvas'
+        : painting_type || 'Oil on canvas')
     const display_size = (formData.get('display_size') as string)?.trim() || '24 × 36 in'
     const yearStr = formData.get('year') as string
     const year = yearStr ? parseInt(yearStr, 10) : new Date().getFullYear()
@@ -160,6 +162,10 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
 
     if (!title) {
       return { error: 'Artwork title is required.' }
+    }
+
+    if (!painting_type) {
+      return { error: 'Medium is mandatory. Please select a medium for this artwork.' }
     }
 
     // ── IMAGE CONSTRAINTS VALIDATION (MIN 1 MANDATORY, MAX 4) ──

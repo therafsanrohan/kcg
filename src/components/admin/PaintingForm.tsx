@@ -389,6 +389,19 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     }
 
     const formData = new FormData(e.currentTarget)
+
+    const title = (formData.get('title') as string)?.trim()
+    if (!title) {
+      setErrorMsg('Artwork title is required.')
+      return
+    }
+
+    const paintingType = (formData.get('painting_type') as string)?.trim()
+    if (!paintingType) {
+      setErrorMsg('Medium is mandatory. Please select a medium for this artwork.')
+      return
+    }
+
     formData.set('frames_json', JSON.stringify(frames))
     formData.set('width_input', width)
     formData.set('height_input', height)
@@ -569,8 +582,10 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
               label="MEDIUM"
               id="painting_type"
               name="painting_type"
-              defaultValue={painting?.painting_type || 'oil'}
+              required
+              defaultValue={painting?.painting_type || ''}
               options={[
+                { value: '', label: '-- Select Medium * --', disabled: true },
                 { value: 'oil', label: 'Oil on canvas' },
                 { value: 'acrylic', label: 'Acrylic on canvas' },
                 { value: 'mixed', label: 'Mixed Media' },
@@ -588,6 +603,20 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
               type="number"
               defaultValue={painting?.year || 2026}
               placeholder="2026"
+              className="w-full rounded-md border border-gray-300 px-3.5 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="exact_medium" className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
+              EXACT MEDIUM SPECIFICATION <span className="text-gray-400 font-normal lowercase">(optional)</span>
+            </label>
+            <input
+              id="exact_medium"
+              name="exact_medium"
+              type="text"
+              defaultValue={painting?.exact_medium || ''}
+              placeholder="e.g. Oil on Belgian linen, Acrylic on canvas"
               className="w-full rounded-md border border-gray-300 px-3.5 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
             />
           </div>

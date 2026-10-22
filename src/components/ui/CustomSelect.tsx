@@ -39,7 +39,7 @@ export default function CustomSelect({
           htmlFor={generatedId}
           className="block text-[11px] font-bold tracking-wider uppercase text-gray-700 mb-1.5"
         >
-          {label}
+          {label} {props.required && <span className="text-red-500">*</span>}
         </label>
       )}
 

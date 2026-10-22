@@ -415,6 +415,19 @@ export default function AddArtworkModal({
 
     const formElement = e.currentTarget
     const formData = new FormData(formElement)
+
+    const title = (formData.get('title') as string)?.trim()
+    if (!title) {
+      setErrorMsg('Artwork title is required.')
+      return
+    }
+
+    const paintingType = (formData.get('painting_type') as string)?.trim()
+    if (!paintingType) {
+      setErrorMsg('Medium is mandatory. Please select a medium for this artwork.')
+      return
+    }
+
     formData.set('frames_json', JSON.stringify(frames))
     formData.set('width_input', width)
     formData.set('height_input', height)
@@ -608,8 +621,10 @@ export default function AddArtworkModal({
                 <CustomSelect
                   label="Medium"
                   name="painting_type"
-                  defaultValue={initialData?.painting_type ?? 'oil'}
+                  required
+                  defaultValue={initialData?.painting_type || ''}
                   options={[
+                    { value: '', label: '-- Select Medium * --', disabled: true },
                     { value: 'oil', label: 'Oil on canvas' },
                     { value: 'acrylic', label: 'Acrylic on canvas' },
                     { value: 'mixed', label: 'Mixed Media' },
@@ -618,7 +633,7 @@ export default function AddArtworkModal({
               </div>
             </div>
 
-            {/* Row 2: Year */}
+            {/* Row 2: Year | Exact Medium Specification */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
@@ -629,6 +644,18 @@ export default function AddArtworkModal({
                   type="number"
                   defaultValue={initialData?.year ?? new Date().getFullYear()}
                   placeholder="2026"
+                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
+                  Exact Medium Specification <span className="text-gray-400 font-normal lowercase">(optional)</span>
+                </label>
+                <input
+                  name="exact_medium"
+                  type="text"
+                  defaultValue={initialData?.exact_medium ?? ''}
+                  placeholder="e.g. Oil on Belgian linen, Acrylic on canvas"
                   className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
                 />
               </div>
