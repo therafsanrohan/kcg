@@ -52,6 +52,12 @@ function NavLinks() {
       >
         Our Story
       </Link>
+      <Link
+        href="/#contact"
+        className="text-xs uppercase tracking-[0.18em] transition-colors hover:text-black whitespace-nowrap pb-1 text-gray-500 font-medium"
+      >
+        Contact
+      </Link>
     </div>
   )
 }
@@ -275,6 +281,14 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
                 >
                   Our Story
                 </Link>
+
+                <Link 
+                  href="/#contact" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-2xl sm:text-3xl tracking-tight text-gray-600 hover:text-black font-light transition-colors"
+                >
+                  Contact
+                </Link>
               </div>
             </div>
 
@@ -304,7 +318,7 @@ export default function Navbar({ whatsappNumber = '8801824951514' }: { whatsappN
           {/* Bottom Copyright */}
           <div className="px-6 py-6 border-t border-gray-200/80 text-center">
             <p className="text-xs text-gray-400 font-light">
-              &copy; {new Date().getFullYear()} Kazi Canvas Gallery. All rights reserved.
+              &copy; 2018–{new Date().getFullYear()} Kazi Canvas Gallery. All rights reserved.
             </p>
           </div>
         </div>,

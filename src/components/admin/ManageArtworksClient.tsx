@@ -9,6 +9,7 @@ import AddArtworkModal from '@/components/admin/AddArtworkModal'
 import { deletePainting, togglePublishPainting, toggleFeaturedPainting } from '@/app/admin/(dashboard)/paintings/actions'
 import { getPaintingImageUrl } from '@/utils/image'
 import { useAdminFeedback } from '@/components/admin/AdminFeedbackProvider'
+import { formatMedium } from '@/utils/measurements'
 
 interface ManageArtworksClientProps {
   initialPaintings: any[]
@@ -127,7 +128,8 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
     return initialPaintings.filter(
       (p) =>
         p.title?.toLowerCase().includes(q) ||
-        p.exact_medium?.toLowerCase().includes(q) ||
+        p.serial_number?.toLowerCase().includes(q) ||
+        formatMedium(p.painting_type).toLowerCase().includes(q) ||
         p.painting_type?.toLowerCase().includes(q) ||
         p.availability_status?.toLowerCase().includes(q)
     )
@@ -194,7 +196,7 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
               <div className="font-semibold text-gray-950 text-sm mt-0.5">
                 {currentFeatured.title}{' '}
                 <span className="text-xs text-gray-600 font-normal">
-                  ({currentFeatured.exact_medium}
+                  ({formatMedium(currentFeatured.painting_type)}
                   {currentFeatured.display_size ? ` · ${currentFeatured.display_size}` : ''})
                 </span>
               </div>
@@ -248,7 +250,10 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
                   Artwork
                 </th>
                 <th className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-gray-500">
-                  Type
+                  Serial
+                </th>
+                <th className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-gray-500">
+                  Medium
                 </th>
                 <th className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-gray-500">
                   Price
@@ -314,11 +319,10 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
                               {painting.title}
                             </p>
                             <p className="text-xs text-gray-500 font-light mt-0.5 line-clamp-1">
-                              {painting.exact_medium}
                               {painting.display_size
-                                ? ` · ${painting.display_size}`
+                                ? painting.display_size
                                 : painting.width && painting.height
-                                ? ` · ${painting.width} × ${painting.height}`
+                                ? `${painting.width} × ${painting.height} cm`
                                 : ''}
                             </p>
                             {painting.year && (
@@ -328,11 +332,16 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
                         </div>
                       </td>
 
-                      {/* Type */}
-                      <td className="py-4 px-4 text-sm text-gray-700 capitalize font-medium">
-                        {painting.painting_type === 'mixed'
-                          ? 'Mixed Media'
-                          : painting.painting_type}
+                      {/* Serial */}
+                      <td className="py-4 px-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded font-mono text-xs font-bold bg-gray-100 text-gray-800 border border-gray-200">
+                          {painting.serial_number || '—'}
+                        </span>
+                      </td>
+
+                      {/* Medium */}
+                      <td className="py-4 px-4 text-sm text-gray-800 font-medium whitespace-nowrap">
+                        {formatMedium(painting.painting_type)}
                       </td>
 
                       {/* Price */}

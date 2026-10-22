@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { FrameOption, DeliveryZone } from '@/types'
 import { SUPPORTED_CURRENCIES, Currency, convertCurrency } from '@/utils/currency-shared'
 import {
@@ -8,6 +8,7 @@ import {
   getDisplayDimensions,
   getFrameDisplayDimensions,
   toCanonicalMm,
+  formatMedium,
 } from '@/utils/measurements'
 import Image from 'next/image'
 import { getPaintingImageUrl, getResponsiveSrcSet } from '@/utils/image'
@@ -21,13 +22,14 @@ interface PaintingData {
   title: string
   slug: string
   painting_type: string
-  exact_medium: string
+  exact_medium?: string | null
   width?: number
   height?: number
   measurement_unit?: string | null
   display_size?: string | null
   width_mm?: number | null
   height_mm?: number | null
+  serial_number?: string | null
   base_price_bdt: number
   discount_price_bdt?: number | null
   offer_badge?: string | null
@@ -137,7 +139,54 @@ export default function ClientDetails({
     isSwiping.current = false
   }
 
-  const selectedFrame = frames?.find(f => f.id === selectedFrameId)
+  // Preload adjacent slide images into browser cache for instant slide switching
+  useEffect(() => {
+    if (!images || images.length <= 1 || typeof window === 'undefined') return
+
+    const preloadKey = (key?: string | null) => {
+      if (!key) return
+      const url = getPaintingImageUrl(key, 'paintings_optimized')
+      if (url && !url.includes('placeholder')) {
+        const p = new window.Image()
+        p.src = url
+      }
+    }
+
+    // Preload next image immediately
+    const nextIdx = (activeImageIndex + 1) % images.length
+    const nextImg = images[nextIdx]
+    preloadKey(
+      nextImg?.responsive_urls?.['1600'] ||
+      nextImg?.responsive_urls?.['1000'] ||
+      nextImg?.processed_key ||
+      nextImg?.storage_key
+    )
+
+    // Preload previous image if gallery has 3 or more images
+    if (images.length > 2) {
+      const prevIdx = (activeImageIndex - 1 + images.length) % images.length
+      const prevImg = images[prevIdx]
+      preloadKey(
+        prevImg?.responsive_urls?.['1600'] ||
+        prevImg?.responsive_urls?.['1000'] ||
+        prevImg?.processed_key ||
+        prevImg?.storage_key
+      )
+    }
+  }, [activeImageIndex, images])
+
+  // Deduplicate frames by frame_name so identical options never repeat
+  const displayedFrames = useMemo(() => {
+    const seen = new Set<string>()
+    return (frames || []).filter((frame) => {
+      const key = (frame.frame_name || '').trim().toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }, [frames])
+
+  const selectedFrame = displayedFrames.find(f => f.id === selectedFrameId)
   const selectedZone = deliveryZones?.find(z => z.code === selectedZoneCode) || deliveryZones?.[0]
   
   const hasDiscount = Boolean(painting.discount_price_bdt && Number(painting.discount_price_bdt) > 0)
@@ -222,11 +271,11 @@ export default function ClientDetails({
       }
     }
 
-    const shortRefId = painting.id ? `#${painting.id.slice(0, 8).toUpperCase()}` : ''
+    const shortRefId = painting.serial_number || (painting.id ? `#${painting.id.slice(0, 8).toUpperCase()}` : '')
 
     let message = `Hello Kazi Canvas Gallery,\n\nI would like to acquire this artwork:\n\n`
     message += `*Artwork:* ${painting.title}\n`
-    message += `*Medium:* ${painting.exact_medium || painting.painting_type || 'Oil on canvas'}\n`
+    message += `*Medium:* ${formatMedium(painting.painting_type)}\n`
     message += `*Size:* ${sizeDescription}\n`
 
     if (hasDiscount) {
@@ -248,7 +297,7 @@ export default function ClientDetails({
     
     message += `\n\n*Artwork Link:* ${productUrl}`
     if (shortRefId) {
-      message += `\n*Ref:* ${shortRefId}`
+      message += `\n*Serial No:* ${shortRefId}`
     }
     message += `\n\nPlease confirm availability and delivery timeframe. Thank you!`
     
@@ -279,6 +328,18 @@ export default function ClientDetails({
                     key={img.storage_key || idx} 
                     type="button"
                     onClick={() => setActiveImageIndex(idx)}
+                    onMouseEnter={() => {
+                      const hoverKey =
+                        img.responsive_urls?.['1600'] ||
+                        img.responsive_urls?.['1000'] ||
+                        img.processed_key ||
+                        img.storage_key
+                      const url = getPaintingImageUrl(hoverKey, 'paintings_optimized')
+                      if (url && typeof window !== 'undefined' && !url.includes('placeholder')) {
+                        const p = new window.Image()
+                        p.src = url
+                      }
+                    }}
                     className={`relative flex-shrink-0 h-20 w-20 sm:h-24 sm:w-24 cursor-pointer items-center justify-center rounded-xl bg-gray-100 overflow-hidden border-2 transition-all ${isSelected ? 'border-black ring-2 ring-black/20 scale-95 shadow-sm' : 'border-gray-200 hover:border-gray-400 opacity-70 hover:opacity-100'}`}
                   >
                     <span className="sr-only">View image {idx + 1}</span>
@@ -352,9 +413,11 @@ export default function ClientDetails({
         <div>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-gray-400 block mb-1.5">
-                ORIGINAL CANVAS
-              </span>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-gray-400">
+                  ORIGINAL CANVAS
+                </span>
+              </div>
               <h1 className="font-editorial text-4xl sm:text-5xl font-normal text-gray-950 tracking-[-0.01em] leading-tight">
                 {painting.title}
               </h1>
@@ -371,7 +434,7 @@ export default function ClientDetails({
             </div>
           </div>
           <p className="mt-3 text-xs sm:text-sm text-gray-500 font-light">
-            {painting.painting_type} &bull; {painting.exact_medium}
+            {formatMedium(painting.painting_type)}
           </p>
           
           {/* Size with unit toggle */}
@@ -421,7 +484,7 @@ export default function ClientDetails({
               </div>
             </label>
             
-            {frames.map((frame) => {
+            {displayedFrames.map((frame) => {
               const frameSizeStr = getFrameDisplayDimensions(frame, displayUnit)
               return (
                 <label key={frame.id} className={`block border p-3.5 rounded-lg cursor-pointer transition-colors ${selectedFrameId === frame.id ? 'border-black bg-gray-50/60 ring-1 ring-black' : 'border-gray-200 hover:border-gray-300'}`}>

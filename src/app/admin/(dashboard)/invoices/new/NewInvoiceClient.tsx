@@ -30,6 +30,7 @@ import { useAdminFeedback } from '@/components/admin/AdminFeedbackProvider'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { Client } from '@/types/invoice'
 import { getPaintingImageUrl } from '@/utils/image'
+import { formatMedium } from '@/utils/measurements'
 
 interface InvoiceItemDraft {
   item_type: 'painting' | 'frame' | 'delivery' | 'custom'
@@ -150,7 +151,7 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
             paintings.filter(
               (p) =>
                 p.title.toLowerCase().includes(q) ||
-                (p.exact_medium && p.exact_medium.toLowerCase().includes(q)) ||
+                (p.painting_type && formatMedium(p.painting_type).toLowerCase().includes(q)) ||
                 (p.display_size && p.display_size.toLowerCase().includes(q))
             )
           )
@@ -218,7 +219,7 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
         ...copy[index],
         painting_id: artwork.id,
         item_name: artwork.title,
-        item_description: artwork.exact_medium ? `${artwork.exact_medium}` : '',
+        item_description: artwork.painting_type ? formatMedium(artwork.painting_type) : '',
         size_snapshot: dims,
         unit_price_bdt: price,
         item_type: 'painting',
@@ -698,7 +699,7 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
                                   {art.title}
                                 </p>
                                 <p className="text-[11px] text-gray-500 truncate">
-                                  {art.display_size || (art.width && art.height ? `${art.width} × ${art.height} cm` : 'Custom Size')} • {art.exact_medium}
+                                  {art.display_size || (art.width && art.height ? `${art.width} × ${art.height} cm` : 'Custom Size')} • {formatMedium(art.painting_type)}
                                 </p>
                               </div>
                             </div>

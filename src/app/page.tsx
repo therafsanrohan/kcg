@@ -6,24 +6,49 @@ import Image from 'next/image'
 import { getPaintingImageUrl } from '@/utils/image'
 import { ArrowUpRight, ArrowRight, ChevronDown } from 'lucide-react'
 import CustomerGallerySection from '@/components/CustomerGallerySection'
+import { formatMedium } from '@/utils/measurements'
+import ContactSection from '@/components/ContactSection'
+import { parseContactSettings } from '@/types/contact'
 
-export const revalidate = 0 // Instant updates from database
+export const revalidate = 60 // 60s ISR cache with immediate on-demand revalidation on admin changes
 
 export default async function Home() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
-  // Fetch all published paintings with images and frame options
-  const { data: paintings } = await supabase
-    .from('paintings')
-    .select(`
-      id, title, slug, base_price_bdt, discount_price_bdt, offer_badge, exact_medium, painting_type,
-      display_size, width, height, availability_status, is_featured, created_at,
-      painting_images(storage_key, thumbnail_key, responsive_urls, is_main, archived_at),
-      frame_options(id, frame_name, outer_size, price_bdt, is_active)
-    `)
-    .eq('is_published', true)
-    .order('created_at', { ascending: false })
+  // Fetch published paintings and site settings in parallel
+  const [paintingsResult, settingsResult] = await Promise.all([
+    supabase
+      .from('paintings')
+      .select(`
+        id, title, slug, serial_number, base_price_bdt, discount_price_bdt, offer_badge, exact_medium, painting_type,
+        display_size, width, height, availability_status, is_featured, created_at,
+        painting_images(storage_key, thumbnail_key, responsive_urls, is_main, archived_at)
+      `)
+      .eq('is_published', true)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('site_settings')
+      .select('*')
+      .single(),
+  ])
+
+  let paintings = paintingsResult.data
+  if (paintingsResult.error) {
+    const fallback = await supabase
+      .from('paintings')
+      .select(`
+        id, title, slug, base_price_bdt, discount_price_bdt, offer_badge, exact_medium, painting_type,
+        display_size, width, height, availability_status, is_featured, created_at,
+        painting_images(storage_key, thumbnail_key, responsive_urls, is_main, archived_at)
+      `)
+      .eq('is_published', true)
+      .order('created_at', { ascending: false })
+    paintings = (fallback.data?.map((p) => ({ ...p, serial_number: null })) || []) as any
+  }
+
+  const siteSettings = settingsResult.data
+  const contactSettings = parseContactSettings(siteSettings)
 
   // Find featured painting for Hero Banner
   const featuredPainting =
@@ -105,7 +130,7 @@ export default async function Home() {
                 {featuredPainting.title}
               </h2>
               <p className="text-xs sm:text-sm text-white/80 font-light mt-2 tracking-wide">
-                {featuredPainting.exact_medium} &bull; {featuredPainting.display_size || `${featuredPainting.width} × ${featuredPainting.height} in`}
+                {formatMedium(featuredPainting.painting_type)} &bull; {featuredPainting.display_size || `${featuredPainting.width} × ${featuredPainting.height} in`}
               </p>
             </div>
 
@@ -207,6 +232,9 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      {/* ── 6. Contact Section (Direct Communication Channels) ── */}
+      <ContactSection contact={contactSettings} />
 
     </div>
   )

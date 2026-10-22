@@ -31,6 +31,7 @@ interface ArtworkImageSliderProps {
   showDots?: boolean
   showArrows?: boolean
   showCounter?: boolean
+  variant?: 'card' | 'detail' | 'preview'
 }
 
 export default function ArtworkImageSlider({
@@ -45,8 +46,9 @@ export default function ArtworkImageSlider({
   onImageChange,
   controlledIndex,
   showDots = true,
-  showArrows = true,
+  showArrows = false,
   showCounter = true,
+  variant,
 }: ArtworkImageSliderProps) {
   // Filter active images (exclude archived ones if archived_at is present)
   const activeImages = images.filter((img) => !img.archived_at)
@@ -69,6 +71,28 @@ export default function ArtworkImageSlider({
 
   const totalImages = displayImages.length
   const hasMultipleImages = totalImages > 1
+  const isCard = variant === 'card' || Boolean(href)
+
+  // Preload adjacent image into browser memory cache for instantaneous slide transitions
+  const preloadSlide = useCallback((index: number) => {
+    if (typeof window === 'undefined' || !displayImages[index]) return
+    const targetImg = displayImages[index]
+    const key = isCard
+      ? targetImg.thumbnail_key || targetImg.responsive_urls?.['400'] || targetImg.responsive_urls?.['1000'] || targetImg.storage_key
+      : targetImg.responsive_urls?.['1600'] || targetImg.responsive_urls?.['1000'] || targetImg.storage_key
+    const url = getPaintingImageUrl(key)
+    if (url && !url.includes('placeholder')) {
+      const p = new window.Image()
+      p.src = url
+    }
+  }, [displayImages, isCard])
+
+  // Preload next image whenever current slide changes
+  useEffect(() => {
+    if (hasMultipleImages) {
+      preloadSlide((currentIndex + 1) % totalImages)
+    }
+  }, [currentIndex, hasMultipleImages, totalImages, preloadSlide])
 
   const goToPrevious = useCallback(
     (e?: React.MouseEvent | React.TouchEvent) => {
@@ -130,6 +154,8 @@ export default function ArtworkImageSlider({
     touchStartY.current = e.touches[0].clientY
     touchEndX.current = null
     isSwiping.current = false
+    // Preload next image on first touch interaction
+    preloadSlide((currentIndex + 1) % totalImages)
   }
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -183,13 +209,18 @@ export default function ArtworkImageSlider({
 
   const currentImage = displayImages[currentIndex] || displayImages[0]
   
-  // Prefer 1000w responsive variant or thumbnail for cards
-  const imageKey =
-    currentImage?.responsive_urls?.['1000'] ||
-    currentImage?.responsive_urls?.['1600'] ||
-    currentImage?.thumbnail_key ||
-    currentImage?.storage_key ||
-    currentImage?.processed_key
+  // Gallery cards prioritize lightweight ~16KB 400w thumbnail to prevent downloading heavy detail images
+  // Detail views prioritize 1600w high-fidelity display variant
+  const imageKey = isCard
+    ? currentImage?.thumbnail_key ||
+      currentImage?.responsive_urls?.['400'] ||
+      currentImage?.responsive_urls?.['1000'] ||
+      currentImage?.storage_key ||
+      currentImage?.processed_key
+    : currentImage?.responsive_urls?.['1600'] ||
+      currentImage?.responsive_urls?.['1000'] ||
+      currentImage?.storage_key ||
+      currentImage?.processed_key
 
   const imageUrl = getPaintingImageUrl(imageKey)
 
@@ -205,6 +236,11 @@ export default function ArtworkImageSlider({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onMouseEnter={() => {
+        if (hasMultipleImages) {
+          preloadSlide((currentIndex + 1) % totalImages)
+        }
+      }}
       onClickCapture={(e) => {
         if (justSwipedRef.current) {
           e.preventDefault()
@@ -221,6 +257,7 @@ export default function ArtworkImageSlider({
         href ? (
           <Link
             href={href}
+            prefetch={true}
             className="absolute inset-0 z-0 block cursor-pointer"
             aria-label={`View ${title}`}
             onClick={(e) => {

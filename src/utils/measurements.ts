@@ -373,3 +373,18 @@ export function getArtworkAspectRatio(painting: {
 
   return 0.8 // 4:5 portrait fallback
 }
+
+/**
+ * Formats painting_type into a clean editorial Medium string.
+ * 'oil' -> 'Oil on canvas'
+ * 'acrylic' -> 'Acrylic on canvas'
+ * 'mixed' -> 'Mixed Media'
+ */
+export function formatMedium(type?: string | null): string {
+  if (!type) return 'Oil on canvas'
+  const t = type.toLowerCase().trim()
+  if (t === 'oil') return 'Oil on canvas'
+  if (t === 'acrylic') return 'Acrylic on canvas'
+  if (t === 'mixed' || t === 'mixed media') return 'Mixed Media'
+  return type
+}

@@ -500,11 +500,27 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
   return (
     <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-200">
       <div className="mb-6">
-        <h2 className="font-sans text-3xl font-bold text-gray-950">
-          {isEditMode ? 'Edit artwork' : 'Add new artwork'}
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-sans text-3xl font-bold text-gray-950">
+            {isEditMode ? 'Edit artwork' : 'Add new artwork'}
+          </h2>
+          {isEditMode && (painting as any)?.serial_number && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-gray-100 border border-gray-200 text-xs font-mono font-bold text-gray-900">
+              <span className="text-[10px] uppercase tracking-wider text-gray-400 font-normal">SERIAL</span>
+              {(painting as any).serial_number}
+            </span>
+          )}
+          {!isEditMode && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-[11px] font-mono text-emerald-800">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block animate-pulse" />
+              Auto-Serial (e.g. KCG-OIL-0049)
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-sm text-gray-500 font-light">
-          Add the painting details and a clear, high-resolution image.
+          {isEditMode
+            ? 'Update the painting details below. The serial number is permanent and immutable.'
+            : 'Add the painting details and a clear, high-resolution image. A permanent serial number is generated automatically.'}
         </p>
       </div>
 
@@ -543,29 +559,15 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
 
           <div>
             <CustomSelect
-              label="PAINTING TYPE"
+              label="MEDIUM"
               id="painting_type"
               name="painting_type"
               defaultValue={painting?.painting_type || 'oil'}
               options={[
-                { value: 'oil', label: 'Oil' },
-                { value: 'acrylic', label: 'Acrylic' },
+                { value: 'oil', label: 'Oil on canvas' },
+                { value: 'acrylic', label: 'Acrylic on canvas' },
                 { value: 'mixed', label: 'Mixed Media' },
               ]}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="exact_medium" className="block text-[11px] font-bold tracking-wider uppercase text-gray-800 mb-1.5">
-              MEDIUM
-            </label>
-            <input
-              id="exact_medium"
-              name="exact_medium"
-              type="text"
-              defaultValue={painting?.exact_medium || 'Oil on canvas'}
-              placeholder="Oil on canvas"
-              className="w-full rounded-md border border-gray-300 px-3.5 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
             />
           </div>
 

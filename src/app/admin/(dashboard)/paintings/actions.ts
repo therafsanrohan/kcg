@@ -125,13 +125,22 @@ export async function deletePainting(id: string) {
 // SAVE (CREATE or UPDATE) PAINTING
 // ─────────────────────────────────────────────
 export async function saveArtworkAction(prevState: any, formData: FormData) {
+  let id: string | null = null
+  let paintingId: string | null = null
+
   try {
     const { supabase } = await requireAdmin()
 
-    const id = formData.get('id') as string | null
+    id = (formData.get('id') as string | null) || null
     const title = (formData.get('title') as string)?.trim()
     const painting_type = (formData.get('painting_type') as string) || 'oil'
-    const exact_medium = (formData.get('exact_medium') as string)?.trim() || 'Oil on canvas'
+    const exact_medium =
+      (formData.get('exact_medium') as string)?.trim() ||
+      (painting_type === 'acrylic'
+        ? 'Acrylic on canvas'
+        : painting_type === 'mixed'
+        ? 'Mixed Media'
+        : 'Oil on canvas')
     const display_size = (formData.get('display_size') as string)?.trim() || '24 × 36 in'
     const yearStr = formData.get('year') as string
     const year = yearStr ? parseInt(yearStr, 10) : new Date().getFullYear()
@@ -217,7 +226,7 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
       }
     }
 
-    let paintingId = id
+    paintingId = id
 
     // If making this artwork featured, un-feature all other paintings
     if (is_featured) {
@@ -280,7 +289,7 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
           is_published,
           is_featured,
         })
-        .select('id')
+        .select('id, slug, serial_number')
         .single()
 
       if (insertErr) throw insertErr
@@ -332,8 +341,17 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
                 sort_order: idx + 1,
               }
             })
-          if (frameRecords.length > 0) {
-            await supabase.from('frame_options').insert(frameRecords)
+          // Deduplicate frame records so duplicate frame options can never be inserted
+          const seen = new Set<string>()
+          const deduplicatedRecords = frameRecords.filter(f => {
+            const key = f.frame_name.toLowerCase()
+            if (seen.has(key)) return false
+            seen.add(key)
+            return true
+          })
+
+          if (deduplicatedRecords.length > 0) {
+            await supabase.from('frame_options').insert(deduplicatedRecords)
           }
         }
       } catch (e) {
@@ -491,6 +509,7 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
     revalidatePath('/admin/paintings')
     revalidatePath('/')
     revalidatePath('/gallery')
+    revalidatePath('/gallery/[slug]', 'page')
     if (id) {
       revalidatePath(`/admin/paintings/${id}`)
     }
@@ -498,6 +517,16 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
     return { success: true }
   } catch (err: any) {
     console.error('Save painting error:', err)
+    // If a brand new artwork creation failed mid-flight (e.g. image constraints),
+    // clean up the orphaned painting record so no broken artwork or consumed serial is left behind.
+    if (!id && paintingId) {
+      try {
+        const { supabase } = await requireAdmin()
+        await supabase.from('paintings').delete().eq('id', paintingId)
+      } catch (cleanupErr) {
+        console.error('Failed to clean up incomplete painting record:', cleanupErr)
+      }
+    }
     return { error: err.message || 'Failed to save artwork.' }
   }
 }

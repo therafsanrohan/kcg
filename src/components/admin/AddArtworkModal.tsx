@@ -551,13 +551,27 @@ export default function AddArtworkModal({
 
         {/* Header */}
         <div className="px-6 sm:px-8 pt-7 pb-5 border-b border-gray-100">
-          <h2 className="font-sans text-3xl font-bold text-gray-950 pr-8">
-            {isEditMode ? 'Edit artwork' : 'Add new artwork'}
-          </h2>
+          <div className="flex flex-wrap items-center justify-between gap-3 pr-8">
+            <h2 className="font-sans text-3xl font-bold text-gray-950">
+              {isEditMode ? 'Edit artwork' : 'Add new artwork'}
+            </h2>
+            {isEditMode && initialData?.serial_number && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-gray-100 border border-gray-200 text-xs font-mono font-bold text-gray-900">
+                <span className="text-[10px] uppercase tracking-wider text-gray-400 font-normal">SERIAL</span>
+                {initialData.serial_number}
+              </span>
+            )}
+            {!isEditMode && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-[11px] font-mono text-emerald-800">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block animate-pulse" />
+                Auto-Serial (e.g. KCG-OIL-0049)
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-sm text-gray-500 font-light">
             {isEditMode
-              ? 'Update the painting details below.'
-              : 'Add the painting details and a clear, high-resolution image.'}
+              ? 'Update the painting details below. The serial number is permanent and immutable.'
+              : 'Add the painting details and a clear, high-resolution image. A permanent serial number is generated automatically.'}
           </p>
         </div>
 
@@ -580,7 +594,7 @@ export default function AddArtworkModal({
               <input type="hidden" name="id" value={initialData.id} />
             )}
 
-            {/* Row 1: Title | Type */}
+            {/* Row 1: Title | Medium */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
@@ -597,32 +611,20 @@ export default function AddArtworkModal({
               </div>
               <div>
                 <CustomSelect
-                  label="Painting Type"
+                  label="Medium"
                   name="painting_type"
                   defaultValue={initialData?.painting_type ?? 'oil'}
                   options={[
-                    { value: 'oil', label: 'Oil' },
-                    { value: 'acrylic', label: 'Acrylic' },
+                    { value: 'oil', label: 'Oil on canvas' },
+                    { value: 'acrylic', label: 'Acrylic on canvas' },
                     { value: 'mixed', label: 'Mixed Media' },
                   ]}
                 />
               </div>
             </div>
 
-            {/* Row 2: Medium | Year */}
+            {/* Row 2: Year */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
-                  Medium
-                </label>
-                <input
-                  name="exact_medium"
-                  type="text"
-                  defaultValue={initialData?.exact_medium ?? 'Oil on canvas'}
-                  placeholder="Oil on canvas"
-                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
-                />
-              </div>
               <div>
                 <label className="block text-[11px] font-bold tracking-widest uppercase text-gray-700 mb-1.5">
                   Year

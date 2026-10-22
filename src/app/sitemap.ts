@@ -14,6 +14,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .from('paintings')
     .select('slug, updated_at, created_at')
     .eq('is_published', true)
+    .is('archived_at', null)
 
   const staticRoutes: MetadataRoute.Sitemap = [
     {

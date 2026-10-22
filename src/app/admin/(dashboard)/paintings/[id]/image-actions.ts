@@ -59,6 +59,7 @@ export async function saveAdvancedImagesAction(paintingId: string, advancedImage
     revalidatePath(`/admin/paintings/${paintingId}`)
     revalidatePath('/')
     revalidatePath('/gallery')
+    revalidatePath('/gallery/[slug]', 'page')
 
     return { success: true }
   } catch (err: any) {
@@ -170,6 +171,7 @@ export async function deletePaintingImageAction({
     revalidatePath(`/admin/paintings/${paintingId}`)
     revalidatePath('/')
     revalidatePath('/gallery')
+    revalidatePath('/gallery/[slug]', 'page')
 
     return { success: true }
   } catch (err: any) {
@@ -211,6 +213,7 @@ export async function setPrimaryPaintingImageAction({
     revalidatePath(`/admin/paintings/${paintingId}`)
     revalidatePath('/')
     revalidatePath('/gallery')
+    revalidatePath('/gallery/[slug]', 'page')
 
     return { success: true }
   } catch (err: any) {

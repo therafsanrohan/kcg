@@ -5,6 +5,7 @@ import { ArrowRight, ArrowUpRight } from 'lucide-react'
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { getPaintingImageUrl } from '@/utils/image'
+import { formatMedium } from '@/utils/measurements'
 
 export const metadata: Metadata = {
   title: 'Our Story | Kazi Canvas Gallery',
@@ -28,7 +29,7 @@ export default async function AboutPage() {
   const { data: paintings } = await supabase
     .from('paintings')
     .select(`
-      id, title, slug, exact_medium, display_size, width, height, is_featured,
+      id, title, slug, painting_type, display_size, width, height, is_featured,
       painting_images(storage_key, thumbnail_key, is_main, archived_at)
     `)
     .eq('is_published', true)
@@ -72,9 +73,6 @@ export default async function AboutPage() {
           {/* Left Column: Editorial Story Copy */}
           <div className="lg:col-span-7 xl:col-span-6 space-y-8">
             <div className="space-y-3">
-              <span className="text-[11px] uppercase tracking-[0.28em] font-semibold text-gray-400 block">
-                ABOUT KAZI CANVAS GALLERY
-              </span>
               <h1 className="font-editorial text-4xl sm:text-5xl lg:text-6xl font-normal text-gray-950 tracking-tight leading-[1.08]">
                 Our Story
               </h1>
@@ -153,8 +151,8 @@ export default async function AboutPage() {
                   <div className="flex items-baseline justify-between gap-4 text-xs text-gray-500 font-light px-1">
                     <div>
                       <span className="font-medium text-gray-900">{showcasePainting.title}</span>
-                      {showcasePainting.exact_medium && (
-                        <span> &bull; {showcasePainting.exact_medium}</span>
+                      {showcasePainting.painting_type && (
+                        <span> &bull; {formatMedium(showcasePainting.painting_type)}</span>
                       )}
                     </div>
                     {sizeLabel && <span className="font-mono text-gray-400">{sizeLabel}</span>}

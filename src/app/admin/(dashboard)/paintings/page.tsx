@@ -8,10 +8,10 @@ export default async function AdminPaintingsPage() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
-  const { data: paintings, error } = await supabase
+  let { data: paintings, error } = await supabase
     .from('paintings')
     .select(`
-      id, title, slug, painting_type, exact_medium, display_size, width, height,
+      id, serial_number, title, slug, painting_type, exact_medium, display_size, width, height,
       base_price_bdt, discount_price_bdt, offer_badge, availability_status, is_published, is_featured, description, year, created_at,
       painting_images(storage_key, is_main),
       frame_options(id, frame_name, outer_size, price_bdt, is_active)
@@ -19,7 +19,20 @@ export default async function AdminPaintingsPage() {
     .order('created_at', { ascending: false })
 
   if (error) {
-    console.error('Error fetching paintings for admin paintings page:', error)
+    // If migration 12 has not been applied yet to PostgreSQL, fallback gracefully without failing
+    const fallbackRes = await supabase
+      .from('paintings')
+      .select(`
+        id, title, slug, painting_type, exact_medium, display_size, width, height,
+        base_price_bdt, discount_price_bdt, offer_badge, availability_status, is_published, is_featured, description, year, created_at,
+        painting_images(storage_key, is_main),
+        frame_options(id, frame_name, outer_size, price_bdt, is_active)
+      `)
+      .order('created_at', { ascending: false })
+    paintings = (fallbackRes.data?.map((p) => ({ ...p, serial_number: null })) || []) as any
+    if (fallbackRes.error) {
+      console.error('Error fetching paintings for admin paintings page:', fallbackRes.error)
+    }
   }
 
   return <ManageArtworksClient initialPaintings={paintings || []} />

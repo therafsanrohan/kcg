@@ -10,7 +10,7 @@ export default async function NewInvoicePage() {
 
   const { data: paintings } = await supabase
     .from('paintings')
-    .select('id, title, base_price_bdt, discount_price_bdt, exact_medium, display_size, width, height, primary_image_url')
+    .select('id, title, base_price_bdt, discount_price_bdt, painting_type, display_size, width, height, primary_image_url')
     .order('title', { ascending: true })
 
   const { data: clients } = await supabase

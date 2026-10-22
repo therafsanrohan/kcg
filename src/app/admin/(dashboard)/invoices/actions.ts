@@ -3,6 +3,7 @@
 import { requireAdmin } from '@/utils/supabase/admin-auth'
 import { revalidatePath } from 'next/cache'
 import { Invoice, InvoiceItem } from '@/types/invoice'
+import { formatMedium } from '@/utils/measurements'
 
 /**
  * Authoritative Server-Side Inventory Search
@@ -15,12 +16,12 @@ export async function searchInventoryArtworksAction(query: string) {
 
     let dbQuery = supabase
       .from('paintings')
-      .select('id, title, base_price_bdt, discount_price_bdt, exact_medium, display_size, width, height, primary_image_url, availability_status')
+      .select('id, title, base_price_bdt, discount_price_bdt, painting_type, display_size, width, height, primary_image_url, availability_status')
       .order('title', { ascending: true })
       .limit(20)
 
     if (trimmed) {
-      dbQuery = dbQuery.or(`title.ilike.%${trimmed}%,exact_medium.ilike.%${trimmed}%,display_size.ilike.%${trimmed}%`)
+      dbQuery = dbQuery.or(`title.ilike.%${trimmed}%,painting_type.ilike.%${trimmed}%,display_size.ilike.%${trimmed}%`)
     }
 
     const { data, error } = await dbQuery
@@ -53,7 +54,7 @@ export async function createInvoiceDraft(payload: any) {
         if (item.painting_id) {
           const { data: painting } = await supabase
             .from('paintings')
-            .select('id, title, base_price_bdt, discount_price_bdt, display_size, exact_medium')
+            .select('id, title, base_price_bdt, discount_price_bdt, display_size, painting_type')
             .eq('id', item.painting_id)
             .single()
 
@@ -63,8 +64,8 @@ export async function createInvoiceDraft(payload: any) {
             if (!sizeSnapshot && painting.display_size) {
               sizeSnapshot = painting.display_size
             }
-            if (!itemDescription && painting.exact_medium) {
-              itemDescription = painting.exact_medium
+            if (!itemDescription && painting.painting_type) {
+              itemDescription = formatMedium(painting.painting_type)
             }
           }
         }
