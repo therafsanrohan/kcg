@@ -643,3 +643,326 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
 export async function saveArtworkModalAction(prevState: any, formData: FormData) {
   return await saveArtworkAction(prevState, formData)
 }
+
+// ─────────────────────────────────────────────
+// BULK ARTWORK ACTIONS (SECURITY & AUTHORITATIVE PROCESSING)
+// ─────────────────────────────────────────────
+
+export interface BulkActionResult {
+  success: boolean
+  updatedCount: number
+  skippedCount: number
+  failedCount: number
+  message: string
+  error?: string
+}
+
+export async function bulkUpdateVisibilityAction(
+  ids: string[],
+  isPublished: boolean
+): Promise<BulkActionResult> {
+  try {
+    const { supabase } = await requireAdmin()
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return {
+        success: false,
+        updatedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+        message: 'No artworks selected.',
+        error: 'No artworks selected.',
+      }
+    }
+
+    const targetIds = ids.slice(0, 1000)
+    let eligibleIds = targetIds
+    let skippedCount = 0
+
+    // If publishing, enforce production safeguard: artwork must have at least 1 image
+    if (isPublished) {
+      const { data: imagesWithPaintings } = await supabase
+        .from('painting_images')
+        .select('painting_id')
+        .in('painting_id', targetIds)
+        .is('archived_at', null)
+
+      const paintingsWithImages = new Set((imagesWithPaintings || []).map((img) => img.painting_id))
+      eligibleIds = targetIds.filter((id) => paintingsWithImages.has(id))
+      skippedCount = targetIds.length - eligibleIds.length
+    }
+
+    let updatedCount = 0
+    let failedCount = 0
+    const now = new Date().toISOString()
+
+    // Chunk updates into safe batches of 50
+    const chunkSize = 50
+    for (let i = 0; i < eligibleIds.length; i += chunkSize) {
+      const chunk = eligibleIds.slice(i, i + chunkSize)
+      const { data, error } = await supabase
+        .from('paintings')
+        .update({
+          is_published: isPublished,
+          updated_at: now,
+        })
+        .in('id', chunk)
+        .select('id')
+
+      if (error) {
+        console.error('Bulk visibility chunk error:', error)
+        failedCount += chunk.length
+      } else {
+        updatedCount += data?.length ?? chunk.length
+      }
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/admin/paintings')
+    revalidatePath('/')
+    revalidatePath('/gallery')
+    revalidatePath('/sitemap.xml')
+
+    const actionWord = isPublished ? 'published' : 'hidden'
+    let msg = `Successfully ${actionWord} ${updatedCount} artwork${updatedCount !== 1 ? 's' : ''}.`
+    if (skippedCount > 0) {
+      msg += ` (${skippedCount} artwork${skippedCount !== 1 ? 's were' : ' was'} skipped because of 0 uploaded images)`
+    }
+    if (failedCount > 0) {
+      msg += ` (${failedCount} failed to update)`
+    }
+
+    return {
+      success: updatedCount > 0 || (skippedCount > 0 && failedCount === 0),
+      updatedCount,
+      skippedCount,
+      failedCount,
+      message: msg,
+    }
+  } catch (err: any) {
+    console.error('bulkUpdateVisibilityAction error:', err)
+    return {
+      success: false,
+      updatedCount: 0,
+      skippedCount: 0,
+      failedCount: ids?.length || 0,
+      message: err.message || 'Unauthorized or server error.',
+      error: err.message || 'Unauthorized.',
+    }
+  }
+}
+
+export async function bulkApplyOfferAction(
+  ids: string[],
+  discountType: 'percentage' | 'fixed',
+  discountValue: number,
+  customBadge?: string | null
+): Promise<BulkActionResult> {
+  try {
+    const { supabase } = await requireAdmin()
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return {
+        success: false,
+        updatedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+        message: 'No artworks selected.',
+        error: 'No artworks selected.',
+      }
+    }
+
+    const val = Number(discountValue)
+    if (isNaN(val) || val <= 0 || !isFinite(val)) {
+      return {
+        success: false,
+        updatedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+        message: 'Please provide a valid positive discount value.',
+        error: 'Invalid discount value.',
+      }
+    }
+
+    if (discountType === 'percentage' && (val < 1 || val > 99)) {
+      return {
+        success: false,
+        updatedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+        message: 'Percentage discount must be between 1% and 99%.',
+        error: 'Invalid percentage discount.',
+      }
+    }
+
+    const targetIds = ids.slice(0, 1000)
+
+    // Fetch original base prices to calculate authoritative discounts
+    const { data: artworks, error: fetchErr } = await supabase
+      .from('paintings')
+      .select('id, title, base_price_bdt')
+      .in('id', targetIds)
+
+    if (fetchErr || !artworks) {
+      throw fetchErr || new Error('Failed to retrieve target artworks.')
+    }
+
+    let updatedCount = 0
+    let skippedCount = 0
+    let failedCount = 0
+
+    // Compute badges and discounted prices for each artwork
+    const updates: Array<{ id: string; discount_price_bdt: number; offer_badge: string }> = []
+
+    for (const art of artworks) {
+      const basePrice = Number(art.base_price_bdt) || 0
+      if (basePrice <= 0) {
+        skippedCount++
+        continue
+      }
+
+      let discountedPrice = 0
+      let defaultBadge = ''
+
+      if (discountType === 'percentage') {
+        discountedPrice = Math.round(basePrice * (1 - val / 100))
+        defaultBadge = `${Math.round(val)}% OFF`
+      } else {
+        // Fixed discount in BDT
+        discountedPrice = Math.round(basePrice - val)
+        defaultBadge = `৳${Math.round(val).toLocaleString('en-BD')} OFF`
+      }
+
+      // Security & business validation: discounted price must be positive and strictly lower than base price
+      if (discountedPrice <= 0 || discountedPrice >= basePrice) {
+        skippedCount++
+        continue
+      }
+
+      const finalBadge = customBadge && customBadge.trim() ? customBadge.trim().slice(0, 50) : defaultBadge
+
+      updates.push({
+        id: art.id,
+        discount_price_bdt: discountedPrice,
+        offer_badge: finalBadge,
+      })
+    }
+
+    const now = new Date().toISOString()
+    for (const item of updates) {
+      const { error } = await supabase
+        .from('paintings')
+        .update({
+          discount_price_bdt: item.discount_price_bdt,
+          offer_badge: item.offer_badge,
+          updated_at: now,
+        })
+        .eq('id', item.id)
+
+      if (error) {
+        console.error(`Failed to apply offer to artwork ${item.id}:`, error)
+        failedCount++
+      } else {
+        updatedCount++
+      }
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/admin/paintings')
+    revalidatePath('/')
+    revalidatePath('/gallery')
+
+    let msg = `Successfully applied offer to ${updatedCount} artwork${updatedCount !== 1 ? 's' : ''}.`
+    if (skippedCount > 0) {
+      msg += ` (${skippedCount} skipped due to base price constraints)`
+    }
+    if (failedCount > 0) {
+      msg += ` (${failedCount} failed to update)`
+    }
+
+    return {
+      success: updatedCount > 0,
+      updatedCount,
+      skippedCount,
+      failedCount,
+      message: msg,
+    }
+  } catch (err: any) {
+    console.error('bulkApplyOfferAction error:', err)
+    return {
+      success: false,
+      updatedCount: 0,
+      skippedCount: 0,
+      failedCount: ids?.length || 0,
+      message: err.message || 'Unauthorized or server error.',
+      error: err.message || 'Unauthorized.',
+    }
+  }
+}
+
+export async function bulkRemoveOfferAction(ids: string[]): Promise<BulkActionResult> {
+  try {
+    const { supabase } = await requireAdmin()
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return {
+        success: false,
+        updatedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+        message: 'No artworks selected.',
+        error: 'No artworks selected.',
+      }
+    }
+
+    const targetIds = ids.slice(0, 1000)
+    let updatedCount = 0
+    let failedCount = 0
+
+    const chunkSize = 50
+    const now = new Date().toISOString()
+    for (let i = 0; i < targetIds.length; i += chunkSize) {
+      const chunk = targetIds.slice(i, i + chunkSize)
+      const { data, error } = await supabase
+        .from('paintings')
+        .update({
+          discount_price_bdt: null,
+          offer_badge: null,
+          updated_at: now,
+        })
+        .in('id', chunk)
+        .select('id')
+
+      if (error) {
+        console.error('Bulk remove offer chunk error:', error)
+        failedCount += chunk.length
+      } else {
+        updatedCount += data?.length ?? chunk.length
+      }
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/admin/paintings')
+    revalidatePath('/')
+    revalidatePath('/gallery')
+
+    return {
+      success: updatedCount > 0,
+      updatedCount,
+      skippedCount: 0,
+      failedCount,
+      message: `Successfully removed offers from ${updatedCount} artwork${updatedCount !== 1 ? 's' : ''}.`,
+    }
+  } catch (err: any) {
+    console.error('bulkRemoveOfferAction error:', err)
+    return {
+      success: false,
+      updatedCount: 0,
+      skippedCount: 0,
+      failedCount: ids?.length || 0,
+      message: err.message || 'Unauthorized or server error.',
+      error: err.message || 'Unauthorized.',
+    }
+  }
+}
+

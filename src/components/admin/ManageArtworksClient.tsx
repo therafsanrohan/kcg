@@ -1,12 +1,43 @@
 'use client'
 
-import { useState, useTransition, useMemo, useCallback } from 'react'
+import React, { useState, useTransition, useMemo, useCallback, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Pencil, Trash2, Eye, EyeOff, Search, X, Star, Sparkles, ArrowUpRight } from 'lucide-react'
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Eye,
+  EyeOff,
+  Search,
+  X,
+  Star,
+  Sparkles,
+  ArrowUpRight,
+  Tag,
+  Percent,
+  CheckSquare,
+  Square,
+  MinusSquare,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal,
+  RotateCcw,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+} from 'lucide-react'
 import AddArtworkModal from '@/components/admin/AddArtworkModal'
-import { deletePainting, togglePublishPainting, toggleFeaturedPainting } from '@/app/admin/(dashboard)/paintings/actions'
+import BulkOfferModal from '@/components/admin/BulkOfferModal'
+import {
+  deletePainting,
+  togglePublishPainting,
+  toggleFeaturedPainting,
+  bulkUpdateVisibilityAction,
+  bulkApplyOfferAction,
+  bulkRemoveOfferAction,
+} from '@/app/admin/(dashboard)/paintings/actions'
 import { getPaintingImageUrl } from '@/utils/image'
 import { useAdminFeedback } from '@/components/admin/AdminFeedbackProvider'
 import { formatMedium } from '@/utils/measurements'
@@ -29,9 +60,11 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function ManageArtworksClient({ initialPaintings }: ManageArtworksClientProps) {
   const router = useRouter()
+  const { toast, confirm: confirmModal } = useAdminFeedback()
+
+  // ── Existing Modal & Action States ──
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingPainting, setEditingPainting] = useState<any | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
   const [isDeleting, startDeleteTransition] = useTransition()
   const [isToggling, startToggleTransition] = useTransition()
   const [isFeaturing, startFeaturingTransition] = useTransition()
@@ -39,6 +72,277 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [featuringId, setFeaturingId] = useState<string | null>(null)
 
+  // ── Search & Filter States ──
+  const [searchQuery, setSearchQuery] = useState('')
+  const [mediumFilter, setMediumFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [visibilityFilter, setVisibilityFilter] = useState('all')
+  const [offerFilter, setOfferFilter] = useState('all')
+
+  // ── Pagination State ──
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+
+  // ── Selection States (Modes A, B, C) ──
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [selectAllMatching, setSelectAllMatching] = useState(false)
+
+  // ── Bulk Actions Modal & Loading States ──
+  const [isBulkOfferOpen, setIsBulkOfferOpen] = useState(false)
+  const [isBulkLoading, setIsBulkLoading] = useState(false)
+
+  // ── Reset selection when filters change to prevent accidental bulk actions ──
+  useEffect(() => {
+    setCurrentPage(1)
+    if (selectAllMatching) {
+      setSelectAllMatching(false)
+    }
+  }, [searchQuery, mediumFilter, statusFilter, visibilityFilter, offerFilter])
+
+  // ── Filtered Artworks ──
+  const filtered = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim()
+    return initialPaintings.filter((p) => {
+      // Search matching
+      if (q) {
+        const matchesQuery =
+          p.title?.toLowerCase().includes(q) ||
+          p.serial_number?.toLowerCase().includes(q) ||
+          formatMedium(p.painting_type).toLowerCase().includes(q) ||
+          p.painting_type?.toLowerCase().includes(q) ||
+          p.availability_status?.toLowerCase().includes(q)
+        if (!matchesQuery) return false
+      }
+
+      // Medium filter
+      if (mediumFilter !== 'all' && p.painting_type !== mediumFilter) {
+        return false
+      }
+
+      // Availability status filter
+      if (statusFilter !== 'all' && p.availability_status !== statusFilter) {
+        return false
+      }
+
+      // Visibility filter
+      if (visibilityFilter === 'published' && !p.is_published) return false
+      if (visibilityFilter === 'unpublished' && p.is_published) return false
+
+      // Offer filter
+      const hasOffer = p.discount_price_bdt && Number(p.discount_price_bdt) > 0
+      if (offerFilter === 'with_offer' && !hasOffer) return false
+      if (offerFilter === 'without_offer' && hasOffer) return false
+
+      return true
+    })
+  }, [initialPaintings, searchQuery, mediumFilter, statusFilter, visibilityFilter, offerFilter])
+
+  // ── Pagination Calculations ──
+  const totalFilteredCount = filtered.length
+  const totalPages = Math.max(1, Math.ceil(totalFilteredCount / pageSize))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+
+  const paginatedPaintings = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * pageSize
+    return filtered.slice(startIndex, startIndex + pageSize)
+  }, [filtered, safeCurrentPage, pageSize])
+
+  const currentPageIds = useMemo(
+    () => paginatedPaintings.map((p) => p.id),
+    [paginatedPaintings]
+  )
+
+  // ── Selection Status ──
+  const isAllCurrentPageSelected = useMemo(() => {
+    if (paginatedPaintings.length === 0) return false
+    return paginatedPaintings.every((p) => selectedIds.has(p.id))
+  }, [paginatedPaintings, selectedIds])
+
+  const isSomeCurrentPageSelected = useMemo(() => {
+    if (isAllCurrentPageSelected) return false
+    return paginatedPaintings.some((p) => selectedIds.has(p.id))
+  }, [paginatedPaintings, selectedIds, isAllCurrentPageSelected])
+
+  // Count of currently selected items
+  const selectedCount = selectAllMatching ? totalFilteredCount : selectedIds.size
+
+  // Artworks currently selected (for bulk modal preview)
+  const selectedArtworks = useMemo(() => {
+    if (selectAllMatching) {
+      return filtered
+    }
+    return initialPaintings.filter((p) => selectedIds.has(p.id))
+  }, [selectAllMatching, filtered, initialPaintings, selectedIds])
+
+  // ── Selection Handlers ──
+  const handleToggleRow = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (selectAllMatching) {
+        // If transitioning from Mode C to individual deselection, populate all filtered minus deselected
+        const allFilteredIds = filtered.map((p) => p.id)
+        allFilteredIds.forEach((fid) => next.add(fid))
+        next.delete(id)
+        setSelectAllMatching(false)
+      } else {
+        if (next.has(id)) {
+          next.delete(id)
+        } else {
+          next.add(id)
+        }
+      }
+      return next
+    })
+  }
+
+  const handleToggleSelectPage = () => {
+    if (isAllCurrentPageSelected) {
+      // Deselect all on current page
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        currentPageIds.forEach((id) => next.delete(id))
+        return next
+      })
+      setSelectAllMatching(false)
+    } else {
+      // Select all on current page (Mode B)
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        currentPageIds.forEach((id) => next.add(id))
+        return next
+      })
+    }
+  }
+
+  const handleSelectAllMatching = () => {
+    setSelectAllMatching(true)
+    const allFilteredIds = filtered.map((p) => p.id)
+    setSelectedIds(new Set(allFilteredIds))
+  }
+
+  const handleClearSelection = () => {
+    setSelectedIds(new Set())
+    setSelectAllMatching(false)
+  }
+
+  const isFilterActive =
+    searchQuery.trim() !== '' ||
+    mediumFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    visibilityFilter !== 'all' ||
+    offerFilter !== 'all'
+
+  const handleResetFilters = () => {
+    setSearchQuery('')
+    setMediumFilter('all')
+    setStatusFilter('all')
+    setVisibilityFilter('all')
+    setOfferFilter('all')
+    setCurrentPage(1)
+  }
+
+  // ── Bulk Actions Handlers ──
+  const getTargetIds = (): string[] => {
+    if (selectAllMatching) {
+      return filtered.map((p) => p.id)
+    }
+    return Array.from(selectedIds)
+  }
+
+  const handleApplyOfferConfirm = async (
+    type: 'percentage' | 'fixed',
+    val: number,
+    badge: string | null
+  ) => {
+    const ids = getTargetIds()
+    if (ids.length === 0) return
+
+    setIsBulkLoading(true)
+    try {
+      const res = await bulkApplyOfferAction(ids, type, val, badge)
+      setIsBulkOfferOpen(false)
+      handleClearSelection()
+      if (res.success) {
+        toast(res.message, 'success')
+        router.refresh()
+      } else {
+        toast(res.error || res.message, 'error')
+      }
+    } catch (err: any) {
+      toast(err.message || 'Failed to apply offer in bulk.', 'error')
+    } finally {
+      setIsBulkLoading(false)
+    }
+  }
+
+  const handleBulkRemoveOffer = () => {
+    const ids = getTargetIds()
+    if (ids.length === 0) return
+
+    confirmModal({
+      title: 'Remove Offers in Bulk',
+      message: `Are you sure you want to remove active offers from ${ids.length} selected artwork${
+        ids.length !== 1 ? 's' : ''
+      }? Original base prices will remain strictly untouched.`,
+      confirmText: `Remove Offers (${ids.length})`,
+      isDestructive: false,
+      onConfirm: async () => {
+        setIsBulkLoading(true)
+        try {
+          const res = await bulkRemoveOfferAction(ids)
+          handleClearSelection()
+          if (res.success) {
+            toast(res.message, 'success')
+            router.refresh()
+          } else {
+            toast(res.error || res.message, 'error')
+          }
+        } catch (err: any) {
+          toast(err.message || 'Failed to remove offers.', 'error')
+        } finally {
+          setIsBulkLoading(false)
+        }
+      },
+    })
+  }
+
+  const handleBulkVisibility = (isPublished: boolean) => {
+    const ids = getTargetIds()
+    if (ids.length === 0) return
+
+    const actionText = isPublished ? 'Publish' : 'Hide'
+    confirmModal({
+      title: `${actionText} Selected Artworks`,
+      message: isPublished
+        ? `Publish ${ids.length} selected artwork${
+            ids.length !== 1 ? 's' : ''
+          } to the public gallery? Artworks without any uploaded images will be safely skipped.`
+        : `Hide ${ids.length} selected artwork${
+            ids.length !== 1 ? 's' : ''
+          }? They will be immediately hidden from the public gallery and customer view, while all artwork data and images remain completely safe.`,
+      confirmText: `${actionText} (${ids.length})`,
+      isDestructive: !isPublished,
+      onConfirm: async () => {
+        setIsBulkLoading(true)
+        try {
+          const res = await bulkUpdateVisibilityAction(ids, isPublished)
+          handleClearSelection()
+          if (res.success) {
+            toast(res.message, 'success')
+            router.refresh()
+          } else {
+            toast(res.error || res.message, 'error')
+          }
+        } catch (err: any) {
+          toast(err.message || `Failed to update visibility in bulk.`, 'error')
+        } finally {
+          setIsBulkLoading(false)
+        }
+      },
+    })
+  }
+
+  // ── Individual Actions ──
   const handleOpenAdd = () => {
     setEditingPainting(null)
     setIsModalOpen(true)
@@ -59,8 +363,6 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
     },
     [router]
   )
-
-  const { toast, confirm: confirmModal } = useAdminFeedback()
 
   const handleDelete = (id: string, title: string) => {
     confirmModal({
@@ -121,42 +423,28 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
     return initialPaintings.find((p) => p.is_featured) || null
   }, [initialPaintings])
 
-  // Client-side search filter
-  const filtered = useMemo(() => {
-    const q = searchQuery.toLowerCase().trim()
-    if (!q) return initialPaintings
-    return initialPaintings.filter(
-      (p) =>
-        p.title?.toLowerCase().includes(q) ||
-        p.serial_number?.toLowerCase().includes(q) ||
-        formatMedium(p.painting_type).toLowerCase().includes(q) ||
-        p.painting_type?.toLowerCase().includes(q) ||
-        p.availability_status?.toLowerCase().includes(q)
-    )
-  }, [initialPaintings, searchQuery])
-
   const totalCount = initialPaintings.length
   const availableCount = initialPaintings.filter(
     (p) => p.availability_status === 'available'
   ).length
 
   return (
-    <div>
+    <div className="pb-24">
       {/* ── Page Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between pb-8 mb-8 border-b border-gray-200/70">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-widest text-gray-400 letter-spacing-widest">
-            INVENTORY
+            INVENTORY MANAGEMENT
           </span>
           <h2 className="font-sans text-4xl sm:text-5xl font-bold text-gray-950 mt-1 leading-tight">
             Manage artworks
           </h2>
           <p className="mt-2 text-sm sm:text-base text-gray-500 font-light">
-            Update stock, pricing, framing and images from one place.
+            Search, filter, edit individual works, or apply offers and visibility in bulk.
           </p>
           {/* Summary stats */}
           <div className="flex items-center gap-4 mt-4">
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-full px-3 py-1 shadow-sm">
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-full px-3 py-1 shadow-xs">
               <span className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block" />
               {totalCount} total
             </span>
@@ -164,6 +452,12 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
               <span className="w-1.5 h-1.5 rounded-full bg-[#2D7A4D] inline-block" />
               {availableCount} available
             </span>
+            {selectedCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-black bg-amber-200/80 border border-amber-300 rounded-full px-3 py-1 animate-in fade-in">
+                <CheckCircle2 className="w-3.5 h-3.5 text-amber-800" />
+                {selectedCount} selected
+              </span>
+            )}
           </div>
         </div>
 
@@ -220,33 +514,182 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
         )}
       </div>
 
-      {/* ── Search bar ── */}
-      <div className="mb-5 relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by title, medium, type or status…"
-          className="w-full sm:max-w-sm rounded-xl border border-gray-200 bg-white pl-10 pr-9 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all shadow-sm"
-        />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
+      {/* ── Search & Filter Controls Bar ── */}
+      <div className="mb-5 bg-white p-4 rounded-2xl border border-gray-200 shadow-xs space-y-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          {/* Search Bar */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search title, serial, medium, or status…"
+              className="w-full rounded-xl border border-gray-200 bg-gray-50/50 pl-10 pr-9 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:bg-white focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Filter Dropdowns */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Medium Filter */}
+            <select
+              value={mediumFilter}
+              onChange={(e) => setMediumFilter(e.target.value)}
+              className="h-9 px-3 text-xs font-medium bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-black outline-none transition-all cursor-pointer"
+            >
+              <option value="all">All Mediums</option>
+              <option value="acrylic">Acrylic on canvas</option>
+              <option value="oil">Oil on canvas</option>
+              <option value="mixed">Mixed Media</option>
+            </select>
+
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-9 px-3 text-xs font-medium bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-black outline-none transition-all cursor-pointer"
+            >
+              <option value="all">All Statuses</option>
+              <option value="available">Available</option>
+              <option value="reserved">Reserved</option>
+              <option value="sold">Sold</option>
+            </select>
+
+            {/* Visibility Filter */}
+            <select
+              value={visibilityFilter}
+              onChange={(e) => setVisibilityFilter(e.target.value)}
+              className="h-9 px-3 text-xs font-medium bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-black outline-none transition-all cursor-pointer"
+            >
+              <option value="all">All Visibility</option>
+              <option value="published">Published (Visible)</option>
+              <option value="unpublished">Unpublished (Hidden)</option>
+            </select>
+
+            {/* Offer Filter */}
+            <select
+              value={offerFilter}
+              onChange={(e) => setOfferFilter(e.target.value)}
+              className="h-9 px-3 text-xs font-medium bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-black outline-none transition-all cursor-pointer"
+            >
+              <option value="all">All Pricing</option>
+              <option value="with_offer">With Active Offer</option>
+              <option value="without_offer">Regular Base Price Only</option>
+            </select>
+
+            {/* Reset Filters */}
+            {isFilterActive && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="h-9 px-3 rounded-xl border border-dashed border-gray-300 hover:border-black text-gray-600 hover:text-black text-xs font-medium flex items-center gap-1.5 transition-all"
+                title="Reset all filters"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Filter stats & helper */}
+        <div className="flex items-center justify-between text-xs text-gray-500 pt-1 border-t border-gray-100">
+          <span>
+            Found <strong className="text-gray-900 font-semibold">{totalFilteredCount}</strong>{' '}
+            artwork{totalFilteredCount !== 1 ? 's' : ''} matching criteria
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-gray-400">Rows per page:</span>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value))
+                setCurrentPage(1)
+              }}
+              className="text-xs bg-transparent border-b border-gray-300 font-semibold text-gray-800 pb-0.5 outline-none cursor-pointer"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+        </div>
       </div>
+
+      {/* ── Selection Mode C Banner (Cross-Page Matching) ── */}
+      {isAllCurrentPageSelected && totalFilteredCount > paginatedPaintings.length && (
+        <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs animate-in fade-in">
+          <div className="flex items-center gap-2.5 text-xs text-amber-900">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              All <strong className="font-bold">{paginatedPaintings.length}</strong> artworks on
+              this page are selected.
+            </span>
+          </div>
+          <div>
+            {!selectAllMatching ? (
+              <button
+                type="button"
+                onClick={handleSelectAllMatching}
+                className="text-xs font-bold text-amber-950 underline hover:text-black transition-colors"
+              >
+                Select all {totalFilteredCount} artworks matching current filters across all pages
+              </button>
+            ) : (
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-md">
+                  All {totalFilteredCount} matching artworks selected
+                </span>
+                <button
+                  type="button"
+                  onClick={handleClearSelection}
+                  className="text-xs text-amber-900 underline hover:text-black"
+                >
+                  Clear selection
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Artworks Table ── */}
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="py-3.5 pl-6 pr-4 text-[11px] font-bold uppercase tracking-wider text-gray-500">
+              <tr className="border-b border-gray-100 bg-gray-50/40">
+                {/* Select All Checkbox Header (Mode B) */}
+                <th className="py-3.5 pl-5 pr-2 w-10">
+                  <button
+                    type="button"
+                    onClick={handleToggleSelectPage}
+                    className="p-1 rounded-md text-gray-500 hover:text-black transition-colors cursor-pointer"
+                    title={
+                      isAllCurrentPageSelected
+                        ? 'Deselect all on this page'
+                        : 'Select all on this page'
+                    }
+                  >
+                    {isAllCurrentPageSelected ? (
+                      <CheckSquare className="w-4 h-4 text-black fill-black/10" />
+                    ) : isSomeCurrentPageSelected ? (
+                      <MinusSquare className="w-4 h-4 text-black" />
+                    ) : (
+                      <Square className="w-4 h-4 text-gray-400" />
+                    )}
+                  </button>
+                </th>
+                <th className="py-3.5 pl-2 pr-4 text-[11px] font-bold uppercase tracking-wider text-gray-500">
                   Artwork
                 </th>
                 <th className="py-3.5 px-4 text-[11px] font-bold uppercase tracking-wider text-gray-500">
@@ -274,8 +717,8 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
             </thead>
 
             <tbody className="divide-y divide-gray-100">
-              {filtered.length > 0 ? (
-                filtered.map((painting) => {
+              {paginatedPaintings.length > 0 ? (
+                paginatedPaintings.map((painting) => {
                   const mainImage =
                     painting.painting_images?.find((img: any) => img.is_main) ??
                     painting.painting_images?.[0]
@@ -294,18 +737,34 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
                   const isThisDeleting = deletingId === painting.id
                   const isThisToggling = togglingId === painting.id
                   const isThisFeaturing = featuringId === painting.id
+                  const isSelected = selectedIds.has(painting.id)
 
                   return (
                     <tr
                       key={painting.id}
-                      className={`hover:bg-gray-50/60 transition-colors ${
-                        !isPublished ? 'opacity-60' : ''
-                      }`}
+                      className={`hover:bg-gray-50/70 transition-colors ${
+                        isSelected ? 'bg-amber-50/40' : ''
+                      } ${!isPublished ? 'opacity-70' : ''}`}
                     >
-                      {/* Artwork */}
-                      <td className="py-4 pl-6 pr-4">
+                      {/* Row Checkbox (Mode A) */}
+                      <td className="py-4 pl-5 pr-2">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleRow(painting.id)}
+                          className="p-1 rounded-md text-gray-400 hover:text-black transition-colors cursor-pointer"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-black fill-black/10" />
+                          ) : (
+                            <Square className="w-4 h-4 text-gray-300" />
+                          )}
+                        </button>
+                      </td>
+
+                      {/* Artwork thumbnail & title */}
+                      <td className="py-4 pl-2 pr-4">
                         <div className="flex items-center gap-3.5">
-                          <div className="relative h-14 w-14 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-200">
+                          <div className="relative h-14 w-14 rounded-xl overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
                             <Image
                               src={imageUrl}
                               alt={painting.title}
@@ -491,20 +950,21 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
                 })
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-20 text-center">
-                    {searchQuery ? (
+                  <td colSpan={9} className="py-20 text-center">
+                    {isFilterActive ? (
                       <>
                         <p className="text-lg font-sans font-bold text-gray-800 mb-1">
-                          No results for &ldquo;{searchQuery}&rdquo;
+                          No artworks match the current filters.
                         </p>
                         <p className="text-sm text-gray-400 font-light">
-                          Try a different title, medium or type.
+                          Try adjusting your search query, medium, status, or visibility filters.
                         </p>
                         <button
-                          onClick={() => setSearchQuery('')}
-                          className="mt-4 text-sm text-black underline font-medium"
+                          onClick={handleResetFilters}
+                          className="mt-4 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-sm text-black font-semibold transition-all inline-flex items-center gap-1.5"
                         >
-                          Clear search
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          Reset all filters
                         </button>
                       </>
                     ) : (
@@ -532,18 +992,164 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
           </table>
         </div>
 
-        {/* Footer count */}
-        {filtered.length > 0 && (
-          <div className="px-6 py-3 border-t border-gray-100 bg-gray-50/50">
-            <p className="text-xs text-gray-400 font-light">
-              Showing {filtered.length} of {totalCount} artwork{totalCount !== 1 ? 's' : ''}
-              {searchQuery ? ` matching "${searchQuery}"` : ''}
+        {/* ── Table Footer & Pagination ── */}
+        {totalFilteredCount > 0 && (
+          <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-gray-500 font-light">
+              Showing {(safeCurrentPage - 1) * pageSize + 1} to{' '}
+              {Math.min(safeCurrentPage * pageSize, totalFilteredCount)} of {totalFilteredCount}{' '}
+              artworks
+              {totalFilteredCount !== totalCount && ` (filtered from ${totalCount} total)`}
             </p>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={safeCurrentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="h-8 w-8 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-600 hover:border-black hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs"
+                  title="Previous page"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }).map((_, i) => {
+                    const pageNum = i + 1
+                    // Show first, last, and window around current
+                    if (
+                      pageNum === 1 ||
+                      pageNum === totalPages ||
+                      Math.abs(pageNum - safeCurrentPage) <= 1
+                    ) {
+                      return (
+                        <button
+                          key={pageNum}
+                          type="button"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`h-8 min-w-8 px-2 rounded-lg text-xs font-semibold transition-all ${
+                            safeCurrentPage === pageNum
+                              ? 'bg-black text-white shadow-2xs'
+                              : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-400'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      )
+                    }
+                    if (
+                      pageNum === safeCurrentPage - 2 ||
+                      pageNum === safeCurrentPage + 2
+                    ) {
+                      return (
+                        <span key={pageNum} className="text-xs text-gray-400 px-1">
+                          …
+                        </span>
+                      )
+                    }
+                    return null
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={safeCurrentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="h-8 w-8 rounded-lg border border-gray-200 bg-white flex items-center justify-center text-gray-600 hover:border-black hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-2xs"
+                  title="Next page"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Add / Edit Modal — key forces remount when editing a different painting */}
+      {/* ── Floating Bulk Action Toolbar ── */}
+      {selectedCount > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 max-w-2xl w-[92vw] animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <div className="bg-gray-950 text-white rounded-2xl shadow-2xl border border-gray-800 p-2 sm:px-4 sm:py-3 flex flex-wrap items-center justify-between gap-3">
+            {/* Left: Count & Clear */}
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-400 text-gray-950 text-xs font-bold shadow-xs">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>
+                  {selectAllMatching
+                    ? `All ${selectedCount} matching selected`
+                    : `${selectedCount} selected`}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={handleClearSelection}
+                className="text-xs text-gray-400 hover:text-white underline transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+
+            {/* Right: Bulk Action Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={isBulkLoading}
+                onClick={() => setIsBulkOfferOpen(true)}
+                className="h-9 px-3.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs"
+                title="Apply percentage or fixed discount offer"
+              >
+                <Tag className="w-3.5 h-3.5" />
+                <span>Apply Offer</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isBulkLoading}
+                onClick={handleBulkRemoveOffer}
+                className="h-9 px-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs font-semibold flex items-center gap-1.5 transition-all border border-gray-700"
+                title="Remove discounts from selected artworks"
+              >
+                <Percent className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Remove Offer</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isBulkLoading}
+                onClick={() => handleBulkVisibility(true)}
+                className="h-9 px-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-emerald-400 text-xs font-semibold flex items-center gap-1.5 transition-all border border-gray-700"
+                title="Publish artworks to public gallery"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Publish</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isBulkLoading}
+                onClick={() => handleBulkVisibility(false)}
+                className="h-9 px-3 rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs font-semibold flex items-center gap-1.5 transition-all border border-gray-700"
+                title="Hide artworks from public gallery"
+              >
+                <EyeOff className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Hide</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Bulk Offer Modal ── */}
+      <BulkOfferModal
+        isOpen={isBulkOfferOpen}
+        onClose={() => setIsBulkOfferOpen(false)}
+        selectedArtworks={selectedArtworks}
+        onApply={handleApplyOfferConfirm}
+        isApplying={isBulkLoading}
+      />
+
+      {/* Add / Edit Individual Artwork Modal */}
       <AddArtworkModal
         key={isModalOpen ? (editingPainting?.id ?? 'new') : 'closed'}
         isOpen={isModalOpen}
