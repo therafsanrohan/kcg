@@ -5,14 +5,24 @@ import { Plus, X, Crop, Trash2, ImageIcon } from 'lucide-react'
 import Image from 'next/image'
 import { savePainting } from '@/app/admin/(dashboard)/paintings/actions'
 import { Painting } from '@/types'
-import { MeasurementUnit, parseLegacyDisplaySize, fromCanonicalMm, formatDimensions, ArtworkOrientation } from '@/utils/measurements'
+import {
+  MeasurementUnit,
+  parseLegacyDisplaySize,
+  fromCanonicalMm,
+  formatDimensions,
+  ArtworkOrientation,
+  calculateSuggestedOuterSize,
+  calculateFramePrice,
+  isDoubleBitFrame,
+  isSingleBitFrame,
+} from '@/utils/measurements'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import ImageCropperModal from './ImageCropperModal'
 import DimensionInputGroup from './DimensionInputGroup'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { getPaintingImageUrl } from '@/utils/image'
-import { FRAME_PRESET_OPTIONS, calculateSuggestedOuterSize } from './AddArtworkModal'
+import { FRAME_PRESET_OPTIONS } from './AddArtworkModal'
 
 interface FrameRow {
   id: string
@@ -57,6 +67,28 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     painting?.display_size || `${width} × ${height} ${unit}`
   )
 
+  const updatePresetFrames = (w: string, h: string, u: MeasurementUnit) => {
+    setFrames((prev) =>
+      prev.map((f) => {
+        if (!f.frame_name) return f
+        const isPreset =
+          FRAME_PRESET_OPTIONS.includes(f.frame_name) ||
+          isDoubleBitFrame(f.frame_name) ||
+          isSingleBitFrame(f.frame_name)
+        if (!isPreset) return f
+
+        const newOuter = calculateSuggestedOuterSize(w, h, u, f.frame_name)
+        const newPrice = calculateFramePrice(f.frame_name, w, h, u)
+
+        return {
+          ...f,
+          outer_size: newOuter || f.outer_size,
+          price_bdt: newPrice > 0 ? newPrice : f.price_bdt,
+        }
+      })
+    )
+  }
+
   const handleWidthChange = (newW: string) => {
     setWidth(newW)
     if (newW && height) {
@@ -68,6 +100,7 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
         else setOrientation(nw > nh ? 'landscape' : 'portrait')
       }
     }
+    updatePresetFrames(newW, height, unit)
   }
 
   const handleHeightChange = (newH: string) => {
@@ -81,6 +114,7 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
         else setOrientation(nw > nh ? 'landscape' : 'portrait')
       }
     }
+    updatePresetFrames(width, newH, unit)
   }
 
   const handleUnitChange = (newUnit: MeasurementUnit) => {
@@ -88,6 +122,7 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     if (width && height) {
       setDisplaySize(`${width} × ${height} ${newUnit}`)
     }
+    updatePresetFrames(width, height, newUnit)
   }
 
   const handleOrientationChange = (newOrient: ArtworkOrientation) => {
@@ -145,33 +180,35 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
   const [imageSrcToCrop, setImageSrcToCrop] = useState<string | null>(null)
 
   const handleAddFrame = () => {
-    const suggestedSize = calculateSuggestedOuterSize(width, height, unit)
+    const suggestedSize = calculateSuggestedOuterSize(width, height, unit, 'Double-Bit frame (White)')
+    const autoPrice = calculateFramePrice('Double-Bit frame (White)', width, height, unit)
     setFrames((prev) => [
       ...prev,
       {
         id: Math.random().toString(),
         frame_name: '',
         outer_size: suggestedSize,
-        price_bdt: 2700,
+        price_bdt: autoPrice > 0 ? autoPrice : 2700,
       },
     ])
   }
 
-  const handleAddPresetFrame = (presetName: string, defaultPrice: number = 2700) => {
+  const handleAddPresetFrame = (presetName: string, defaultPrice?: number) => {
     const canonical = presetName.replace(/^Double-\s*Bit/i, 'Double-Bit').replace(/^Single-\s*Bit/i, 'Single-Bit').trim()
     setFrames((prev) => {
       // Prevent duplicate frame names on the same artwork
       if (prev.some((f) => f.frame_name.trim().toLowerCase() === canonical.toLowerCase())) {
         return prev
       }
-      const suggestedSize = calculateSuggestedOuterSize(width, height, unit)
+      const suggestedSize = calculateSuggestedOuterSize(width, height, unit, canonical)
+      const autoPrice = calculateFramePrice(canonical, width, height, unit)
       return [
         ...prev,
         {
           id: Math.random().toString(),
           frame_name: canonical,
           outer_size: suggestedSize,
-          price_bdt: defaultPrice,
+          price_bdt: defaultPrice ?? (autoPrice > 0 ? autoPrice : 2700),
         },
       ]
     })
@@ -181,7 +218,7 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     setFrames((prev) => prev.filter((f) => f.id !== id))
   }
 
-  const handleFrameChange = (id: string, field: keyof FrameRow, val: string) => {
+  const handleFrameChange = (id: string, field: keyof FrameRow, val: string | number) => {
     setFrames((prev) =>
       prev.map((f) => (f.id === id ? { ...f, [field]: val } : f))
     )
@@ -798,9 +835,11 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
                             }
                           } else {
                             handleFrameChange(frame.id, 'frame_name', val)
-                            if (!frame.outer_size && width && height) {
-                              const suggested = calculateSuggestedOuterSize(width, height, unit)
+                            if (width && height) {
+                              const suggested = calculateSuggestedOuterSize(width, height, unit, val)
+                              const autoPrice = calculateFramePrice(val, width, height, unit)
                               if (suggested) handleFrameChange(frame.id, 'outer_size', suggested)
+                              if (autoPrice > 0) handleFrameChange(frame.id, 'price_bdt', autoPrice)
                             }
                           }
                         }}
@@ -820,12 +859,15 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
                         <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600">
                           FRAME SIZE
                         </label>
-                        {(!frame.outer_size || frame.outer_size.trim() === '') && width && height && (
+                        {width && height && (
                           <button
                             type="button"
                             onClick={() => {
-                              const suggested = calculateSuggestedOuterSize(width, height, unit)
+                              const targetFrameName = frame.frame_name || 'Double-Bit frame (White)'
+                              const suggested = calculateSuggestedOuterSize(width, height, unit, targetFrameName)
+                              const autoPrice = calculateFramePrice(targetFrameName, width, height, unit)
                               if (suggested) handleFrameChange(frame.id, 'outer_size', suggested)
+                              if (autoPrice > 0) handleFrameChange(frame.id, 'price_bdt', autoPrice)
                             }}
                             className="text-[9px] text-blue-600 hover:underline cursor-pointer"
                           >

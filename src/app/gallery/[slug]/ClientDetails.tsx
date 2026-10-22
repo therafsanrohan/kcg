@@ -8,7 +8,12 @@ import {
   getDisplayDimensions,
   getFrameDisplayDimensions,
   toCanonicalMm,
+  fromCanonicalMm,
   formatMedium,
+  calculateFramePrice,
+  calculateSuggestedOuterSize,
+  isDoubleBitFrame,
+  isSingleBitFrame,
 } from '@/utils/measurements'
 import Image from 'next/image'
 import { getPaintingImageUrl, getResponsiveSrcSet } from '@/utils/image'
@@ -175,17 +180,37 @@ export default function ClientDetails({
     }
   }, [activeImageIndex, images])
 
-  // Deduplicate frames by frame_name so identical options never repeat
+  // Deduplicate frames by frame_name and dynamically ensure accurate pricing and dimensions
   const displayedFrames = useMemo(() => {
     const seen = new Set<string>()
+    const artUnit: MeasurementUnit = (painting?.measurement_unit as MeasurementUnit) || 'in'
+    const artW = painting?.width || (painting?.width_mm ? fromCanonicalMm(painting.width_mm, artUnit) : 0)
+    const artH = painting?.height || (painting?.height_mm ? fromCanonicalMm(painting.height_mm, artUnit) : 0)
+
     return (frames || [])
       .map((frame) => {
         let name = (frame.frame_name || '').trim()
         name = name.replace(/^Double\s*-\s*Bit\s+frame/i, 'Double-Bit frame')
         name = name.replace(/^Single\s*-\s*Bit\s+frame/i, 'Single-Bit frame')
+        name = name.replace(/^Double\s*-\s*Bit\s*\(/i, 'Double-Bit frame (')
+        name = name.replace(/^Single\s*-\s*Bit\s*\(/i, 'Single-Bit frame (')
         name = name.replace(/\(white\)/i, '(White)')
         name = name.replace(/\(black\)/i, '(Black)')
-        return { ...frame, frame_name: name }
+
+        let price_bdt = Number(frame.price_bdt) || 0
+        let outer_size = frame.outer_size
+
+        if (artW > 0 && artH > 0 && (isDoubleBitFrame(name) || isSingleBitFrame(name))) {
+          const dynamicPrice = calculateFramePrice(name, artW, artH, artUnit)
+          if (dynamicPrice > 0) {
+            price_bdt = dynamicPrice
+          }
+          if (!outer_size || outer_size.includes('inches') || !outer_size.includes('×')) {
+            outer_size = calculateSuggestedOuterSize(artW, artH, artUnit, name)
+          }
+        }
+
+        return { ...frame, frame_name: name, price_bdt, outer_size }
       })
       .filter((frame) => {
         const key = (frame.frame_name || '').toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -193,7 +218,7 @@ export default function ClientDetails({
         seen.add(key)
         return true
       })
-  }, [frames])
+  }, [frames, painting])
 
   const selectedFrame = displayedFrames.find(f => f.id === selectedFrameId)
   const selectedZone = deliveryZones?.find(z => z.code === selectedZoneCode) || deliveryZones?.[0]
@@ -495,6 +520,7 @@ export default function ClientDetails({
             
             {displayedFrames.map((frame) => {
               const frameSizeStr = getFrameDisplayDimensions(frame, displayUnit)
+              const isDb = isDoubleBitFrame(frame.frame_name)
               return (
                 <label key={frame.id} className={`block border p-3.5 rounded-lg cursor-pointer transition-colors ${selectedFrameId === frame.id ? 'border-black bg-gray-50/60 ring-1 ring-black' : 'border-gray-200 hover:border-gray-300'}`}>
                   <div className="flex items-center justify-between">
@@ -502,7 +528,10 @@ export default function ClientDetails({
                       <input type="radio" name="frame" value={frame.id} checked={selectedFrameId === frame.id} onChange={() => setSelectedFrameId(frame.id)} className="h-4 w-4 text-black focus:ring-black border-gray-300" />
                       <div className="ml-3">
                         <span className="block font-medium text-gray-900 text-sm">{frame.frame_name}</span>
-                        <span className="block text-xs text-gray-500 font-light">Outer: {frameSizeStr}</span>
+                        <span className="block text-xs text-gray-500 font-light">
+                          Outer: {frameSizeStr}
+                          {isDb && <span className="ml-1.5 text-[11px] text-gray-400 font-normal">(+6″ frame dimensions)</span>}
+                        </span>
                       </div>
                     </div>
                     <span className="text-xs font-mono font-medium text-gray-900">

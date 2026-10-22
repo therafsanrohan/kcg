@@ -5,7 +5,16 @@ import { X, Plus, ImageIcon, Crop, Trash2 } from 'lucide-react'
 import { saveArtworkAction } from '@/app/admin/(dashboard)/paintings/actions'
 import Image from 'next/image'
 import { getPaintingImageUrl } from '@/utils/image'
-import { MeasurementUnit, parseLegacyDisplaySize, fromCanonicalMm, ArtworkOrientation } from '@/utils/measurements'
+import {
+  MeasurementUnit,
+  parseLegacyDisplaySize,
+  fromCanonicalMm,
+  ArtworkOrientation,
+  calculateSuggestedOuterSize,
+  calculateFramePrice,
+  isDoubleBitFrame,
+  isSingleBitFrame,
+} from '@/utils/measurements'
 import ImageCropperModal from './ImageCropperModal'
 import DimensionInputGroup from './DimensionInputGroup'
 import CustomSelect from '@/components/ui/CustomSelect'
@@ -24,13 +33,8 @@ export const FRAME_PRESET_OPTIONS = [
   'Single-Bit frame (Black)',
 ]
 
-export function calculateSuggestedOuterSize(wStr: string, hStr: string, u: MeasurementUnit = 'in'): string {
-  const w = parseFloat(wStr) || 0
-  const h = parseFloat(hStr) || 0
-  if (w <= 0 || h <= 0) return ''
-  const extra = u === 'in' ? 6 : u === 'cm' ? 15 : 150
-  return `${Math.round(w + extra)} × ${Math.round(h + extra)} ${u}`
-}
+export { calculateSuggestedOuterSize }
+
 
 interface AddArtworkModalProps {
   isOpen: boolean
@@ -150,6 +154,28 @@ export default function AddArtworkModal({
     setDisplaySize(initialData?.display_size || `${w} × ${h} ${u}`)
   }, [initialData?.id, initialData?.display_size, initialData?.width_mm, initialData?.height_mm])
 
+  const updatePresetFrames = (w: string, h: string, u: MeasurementUnit) => {
+    setFrames((prev) =>
+      prev.map((f) => {
+        if (!f.frame_name) return f
+        const isPreset =
+          FRAME_PRESET_OPTIONS.includes(f.frame_name) ||
+          isDoubleBitFrame(f.frame_name) ||
+          isSingleBitFrame(f.frame_name)
+        if (!isPreset) return f
+
+        const newOuter = calculateSuggestedOuterSize(w, h, u, f.frame_name)
+        const newPrice = calculateFramePrice(f.frame_name, w, h, u)
+
+        return {
+          ...f,
+          outer_size: newOuter || f.outer_size,
+          price_bdt: newPrice > 0 ? newPrice : f.price_bdt,
+        }
+      })
+    )
+  }
+
   const handleWidthChange = (newW: string) => {
     setWidth(newW)
     if (newW && height) {
@@ -161,6 +187,7 @@ export default function AddArtworkModal({
         else setOrientation(nw > nh ? 'landscape' : 'portrait')
       }
     }
+    updatePresetFrames(newW, height, unit)
   }
 
   const handleHeightChange = (newH: string) => {
@@ -174,6 +201,7 @@ export default function AddArtworkModal({
         else setOrientation(nw > nh ? 'landscape' : 'portrait')
       }
     }
+    updatePresetFrames(width, newH, unit)
   }
 
   const handleUnitChange = (newUnit: MeasurementUnit) => {
@@ -181,6 +209,7 @@ export default function AddArtworkModal({
     if (width && height) {
       setDisplaySize(`${width} × ${height} ${newUnit}`)
     }
+    updatePresetFrames(width, height, newUnit)
   }
 
   const handleOrientationChange = (newOrient: ArtworkOrientation) => {
@@ -188,29 +217,31 @@ export default function AddArtworkModal({
   }
 
   const handleAddFrame = useCallback(() => {
-    const suggestedSize = calculateSuggestedOuterSize(width, height, unit)
+    const suggestedSize = calculateSuggestedOuterSize(width, height, unit, 'Double-Bit frame (White)')
+    const autoPrice = calculateFramePrice('Double-Bit frame (White)', width, height, unit)
     setFrames((prev) => [
       ...prev,
-      { id: Math.random().toString(36), frame_name: '', outer_size: suggestedSize, price_bdt: 2700 },
+      { id: Math.random().toString(36), frame_name: '', outer_size: suggestedSize, price_bdt: autoPrice > 0 ? autoPrice : 2700 },
     ])
   }, [width, height, unit])
 
   const handleAddPresetFrame = useCallback(
-    (presetName: string, defaultPrice: number = 2700) => {
+    (presetName: string, defaultPrice?: number) => {
       const canonicalName = presetName.replace(/^Double-\s*Bit/i, 'Double-Bit').replace(/^Single-\s*Bit/i, 'Single-Bit').trim()
       setFrames((prev) => {
         // Prevent duplicate frame names on the same artwork
         if (prev.some((f) => f.frame_name.trim().toLowerCase() === canonicalName.toLowerCase())) {
           return prev
         }
-        const suggestedSize = calculateSuggestedOuterSize(width, height, unit)
+        const suggestedSize = calculateSuggestedOuterSize(width, height, unit, canonicalName)
+        const autoPrice = calculateFramePrice(canonicalName, width, height, unit)
         return [
           ...prev,
           {
             id: Math.random().toString(36),
             frame_name: canonicalName,
             outer_size: suggestedSize,
-            price_bdt: defaultPrice,
+            price_bdt: defaultPrice ?? (autoPrice > 0 ? autoPrice : 2700),
           },
         ]
       })
@@ -223,7 +254,7 @@ export default function AddArtworkModal({
   }, [])
 
   const handleFrameChange = useCallback(
-    (id: string, field: keyof FrameRow, val: string) => {
+    (id: string, field: keyof FrameRow, val: string | number) => {
       setFrames((prev) => prev.map((f) => (f.id === id ? { ...f, [field]: val } : f)))
     },
     []
@@ -863,9 +894,11 @@ export default function AddArtworkModal({
                                 }
                               } else {
                                 handleFrameChange(frame.id, 'frame_name', val)
-                                if (!frame.outer_size && width && height) {
-                                  const suggested = calculateSuggestedOuterSize(width, height, unit)
+                                if (width && height) {
+                                  const suggested = calculateSuggestedOuterSize(width, height, unit, val)
+                                  const autoPrice = calculateFramePrice(val, width, height, unit)
                                   if (suggested) handleFrameChange(frame.id, 'outer_size', suggested)
+                                  if (autoPrice > 0) handleFrameChange(frame.id, 'price_bdt', autoPrice)
                                 }
                               }
                             }}
@@ -885,12 +918,15 @@ export default function AddArtworkModal({
                             <label className="block text-[10px] font-bold tracking-wider uppercase text-gray-600">
                               Size
                             </label>
-                            {(!frame.outer_size || frame.outer_size.trim() === '') && width && height && (
+                            {width && height && (
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const suggested = calculateSuggestedOuterSize(width, height, unit)
+                                  const targetFrameName = frame.frame_name || 'Double-Bit frame (White)'
+                                  const suggested = calculateSuggestedOuterSize(width, height, unit, targetFrameName)
+                                  const autoPrice = calculateFramePrice(targetFrameName, width, height, unit)
                                   if (suggested) handleFrameChange(frame.id, 'outer_size', suggested)
+                                  if (autoPrice > 0) handleFrameChange(frame.id, 'price_bdt', autoPrice)
                                 }}
                                 className="text-[9px] text-blue-600 hover:underline cursor-pointer"
                               >

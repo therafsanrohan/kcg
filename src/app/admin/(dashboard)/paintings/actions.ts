@@ -2,6 +2,14 @@
 
 import { requireAdmin } from '@/utils/supabase/admin-auth'
 import { revalidatePath } from 'next/cache'
+import {
+  calculateSuggestedOuterSize,
+  calculateFramePrice,
+  isDoubleBitFrame,
+  isSingleBitFrame,
+  getFrameCalculationDimensions,
+  MeasurementUnit,
+} from '@/utils/measurements'
 
 // Helper to generate clean URL slugs from title
 function generateSlug(title: string) {
@@ -385,10 +393,42 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
             .map((f, idx) => {
               let outer_width_mm = f.outer_width_mm || null
               let outer_height_mm = f.outer_height_mm || null
+              let outer_size = (f.outer_size || '').trim()
+              let price_bdt = Number(f.price_bdt) || 0
 
-              // If mm is not explicitly provided, try parsing outer_size
-              if (!outer_width_mm && f.outer_size) {
-                const match = f.outer_size.match(/(\d+(?:\.\d+)?)\s*[x×X]\s*(\d+(?:\.\d+)?)\s*(in|cm|mm|ft)?/i)
+              let normalizedName = f.frame_name.trim()
+              normalizedName = normalizedName.replace(/^Double\s*-\s*Bit\s+frame/i, 'Double-Bit frame')
+              normalizedName = normalizedName.replace(/^Single\s*-\s*Bit\s+frame/i, 'Single-Bit frame')
+              normalizedName = normalizedName.replace(/^Double\s*-\s*Bit\s*\(/i, 'Double-Bit frame (')
+              normalizedName = normalizedName.replace(/^Single\s*-\s*Bit\s*\(/i, 'Single-Bit frame (')
+              normalizedName = normalizedName.replace(/\(white\)/i, '(White)')
+              normalizedName = normalizedName.replace(/\(black\)/i, '(Black)')
+
+              const isDb = isDoubleBitFrame(normalizedName)
+              const isSb = isSingleBitFrame(normalizedName)
+
+              // If artwork dimensions are present and positive, validate or derive canonical outer dimensions and pricing
+              if ((isDb || isSb) && width && height && width > 0 && height > 0) {
+                const artUnit = (measurement_unit as MeasurementUnit) || 'in'
+                const dims = getFrameCalculationDimensions(normalizedName, width, height, artUnit)
+                const canonicalOuter = calculateSuggestedOuterSize(width, height, artUnit, normalizedName)
+
+                if (!outer_size || outer_size.includes('inches') || !outer_size.includes('×')) {
+                  outer_size = canonicalOuter
+                }
+
+                if (dims.calculationWidthIn > 0 && dims.calculationHeightIn > 0) {
+                  outer_width_mm = Math.round(dims.calculationWidthIn * 25.4 * 10) / 10
+                  outer_height_mm = Math.round(dims.calculationHeightIn * 25.4 * 10) / 10
+                }
+
+                // If price was not provided or 0, compute dynamically
+                if (price_bdt <= 0) {
+                  price_bdt = calculateFramePrice(normalizedName, width, height, artUnit)
+                }
+              } else if (!outer_width_mm && outer_size) {
+                // If mm is not explicitly provided, try parsing outer_size
+                const match = outer_size.match(/(\d+(?:\.\d+)?)\s*[x×X]\s*(\d+(?:\.\d+)?)\s*(in|cm|mm|ft)?/i)
                 if (match) {
                   const w = parseFloat(match[1])
                   const h = parseFloat(match[2])
@@ -399,19 +439,13 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
                 }
               }
 
-              let normalizedName = f.frame_name.trim()
-              normalizedName = normalizedName.replace(/^Double\s*-\s*Bit\s+frame/i, 'Double-Bit frame')
-              normalizedName = normalizedName.replace(/^Single\s*-\s*Bit\s+frame/i, 'Single-Bit frame')
-              normalizedName = normalizedName.replace(/\(white\)/i, '(White)')
-              normalizedName = normalizedName.replace(/\(black\)/i, '(Black)')
-
               return {
                 painting_id: paintingId,
                 frame_name: normalizedName,
-                outer_size: f.outer_size || '',
+                outer_size,
                 outer_width_mm,
                 outer_height_mm,
-                price_bdt: Number(f.price_bdt) || 0,
+                price_bdt,
                 is_active: true,
                 sort_order: idx + 1,
               }

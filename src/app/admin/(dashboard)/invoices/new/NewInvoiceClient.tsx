@@ -30,7 +30,14 @@ import { useAdminFeedback } from '@/components/admin/AdminFeedbackProvider'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { Client } from '@/types/invoice'
 import { getPaintingImageUrl } from '@/utils/image'
-import { formatMedium } from '@/utils/measurements'
+import {
+  formatMedium,
+  calculateSuggestedOuterSize,
+  calculateFramePrice,
+  isDoubleBitFrame,
+  isSingleBitFrame,
+  parseLegacyDisplaySize,
+} from '@/utils/measurements'
 
 interface InvoiceItemDraft {
   item_type: 'painting' | 'frame' | 'delivery' | 'custom'
@@ -825,8 +832,26 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
                 </label>
                 <CustomSelect
                   value={framingType}
-                  onChange={(e) => setFramingType(e.target.value)}
+                  onChange={(e) => {
+                    const newType = e.target.value
+                    setFramingType(newType)
+                    // If an artwork item exists in items, auto-calculate Double-Bit or Single-Bit framing
+                    const firstArt = items.find((i) => i.item_type === 'painting' && i.size_snapshot)
+                    if (firstArt && (isDoubleBitFrame(newType) || isSingleBitFrame(newType))) {
+                      const parsed = parseLegacyDisplaySize(firstArt.size_snapshot)
+                      if (parsed) {
+                        const outer = calculateSuggestedOuterSize(parsed.width, parsed.height, parsed.unit, newType)
+                        const price = calculateFramePrice(newType, parsed.width, parsed.height, parsed.unit)
+                        if (outer) setFramingDimensions(outer)
+                        if (price > 0) setFramingUnitPrice(price)
+                      }
+                    }
+                  }}
                   options={[
+                    { value: 'Double-Bit frame (White)', label: 'Double-Bit frame (White)' },
+                    { value: 'Double-Bit frame (Black)', label: 'Double-Bit frame (Black)' },
+                    { value: 'Single-Bit frame (White)', label: 'Single-Bit frame (White)' },
+                    { value: 'Single-Bit frame (Black)', label: 'Single-Bit frame (Black)' },
                     { value: 'Classic Wooden Box Frame', label: 'Classic Wooden Box Frame' },
                     { value: 'Floating Canvas Frame (Black)', label: 'Floating Canvas Frame (Black)' },
                     { value: 'Floating Canvas Frame (Natural Teak)', label: 'Floating Canvas Frame (Natural Teak)' },
