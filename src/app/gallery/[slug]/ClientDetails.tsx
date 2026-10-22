@@ -359,7 +359,7 @@ export default function ClientDetails({
                 const isSelected = idx === activeImageIndex
                 return (
                   <button
-                    key={img.storage_key || idx} 
+                    key={img.id ? `${img.id}-${idx}` : `${img.storage_key || 'img'}-${idx}`}
                     type="button"
                     onClick={() => setActiveImageIndex(idx)}
                     onMouseEnter={() => {

@@ -127,9 +127,17 @@ export default async function PaintingDetailsPage({ params }: { params: Promise<
     notFound()
   }
 
-  // Filter & sort active images
+  // Filter, deduplicate & sort active images
+  const seenImageKeys = new Set<string>()
   const images = (painting.painting_images || [])
-    .filter((img: any) => !img.archived_at)
+    .filter((img: any) => {
+      if (img.archived_at) return false
+      const key = (img.storage_key || img.processed_key || img.id || '').trim()
+      if (!key) return false
+      if (seenImageKeys.has(key)) return false
+      seenImageKeys.add(key)
+      return true
+    })
     .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
 
   // Filter & sort active frame options
