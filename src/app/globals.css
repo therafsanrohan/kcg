@@ -182,3 +182,27 @@ h1, h2, h3, h4, h5, h6, p, span, a, button, input, select, textarea {
   }
 }
 
+/* Secure Invisible Password Input:
+   Keeps genuine type="password", allows typing, paste, autofill and password managers,
+   while keeping typed characters and masking dots visually invisible. */
+.invisible-password-input {
+  color: transparent !important;
+  caret-color: transparent !important;
+  text-shadow: none !important;
+}
+
+.invisible-password-input::selection {
+  background-color: transparent !important;
+  color: transparent !important;
+}
+
+.invisible-password-input::-moz-selection {
+  background-color: transparent !important;
+  color: transparent !important;
+}
+
+.invisible-password-input::-ms-reveal,
+.invisible-password-input::-ms-clear {
+  display: none !important;
+}
+
