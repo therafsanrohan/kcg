@@ -8,6 +8,7 @@ import { ArrowUpRight, ArrowRight, ChevronDown } from 'lucide-react'
 import CustomerGallerySection from '@/components/CustomerGallerySection'
 import { formatMedium } from '@/utils/measurements'
 import ContactSection from '@/components/ContactSection'
+import GoogleReviewsSection from '@/components/GoogleReviewsSection'
 import { parseContactSettings } from '@/types/contact'
 
 export const revalidate = 60 // 60s ISR cache with immediate on-demand revalidation on admin changes
@@ -240,7 +241,10 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── 6. Contact Section (Direct Communication Channels) ── */}
+      {/* ── 6. Google Reviews (Verified Collector Feedback) ── */}
+      <GoogleReviewsSection />
+
+      {/* ── 7. Contact Section (Direct Communication Channels) ── */}
       <ContactSection contact={contactSettings} />
 
     </div>
