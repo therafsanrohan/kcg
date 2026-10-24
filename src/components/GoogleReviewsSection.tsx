@@ -1,16 +1,22 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useTransition } from 'react'
 import {
   ArrowUpRight,
   ExternalLink,
   Star,
   X,
-  Copy,
-  Check,
+  CheckCircle,
   Sparkles,
   MessageSquareHeart,
+  Quote,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  ShieldCheck,
 } from 'lucide-react'
+import { Review } from '@/types/reviews'
+import { submitReviewAction } from '@/app/actions/reviews'
 
 export interface GoogleReviewsConfig {
   verifiedRating?: number | null
@@ -20,9 +26,11 @@ export interface GoogleReviewsConfig {
 interface GoogleReviewsSectionProps {
   className?: string
   config?: GoogleReviewsConfig
+  approvedReviews?: Review[]
 }
 
-export const GOOGLE_WRITE_REVIEW_URL = 'https://g.page/r/Cf5qSiy_wScMEBM/review'
+export const GOOGLE_WRITE_REVIEW_URL =
+  'https://search.google.com/local/writereview?placeid=ChIJUfPQ0YfHVTcR_mpKLL_BJww'
 export const GOOGLE_SEE_REVIEWS_URL =
   'https://search.google.com/local/reviews?placeid=ChIJUfPQ0YfHVTcR_mpKLL_BJww'
 
@@ -61,13 +69,21 @@ const QUICK_TAGS = [
 export default function GoogleReviewsSection({
   className = '',
   config,
+  approvedReviews = [],
 }: GoogleReviewsSectionProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedRating, setSelectedRating] = useState<number>(5)
   const [hoverRating, setHoverRating] = useState<number>(0)
+  const [customerName, setCustomerName] = useState('')
+  const [customerEmail, setCustomerEmail] = useState('')
+  const [customerLocation, setCustomerLocation] = useState('')
   const [reviewText, setReviewText] = useState('')
-  const [isCopied, setIsCopied] = useState(false)
-  const [hasProceeded, setHasProceeded] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [isSubmitted, setIsSubmitted] = useState(false)
+
+  // Carousel index for approved reviews if multiple exist
+  const [reviewIndex, setReviewIndex] = useState(0)
 
   // Prevent background scroll when review modal is active
   useEffect(() => {
@@ -75,8 +91,8 @@ export default function GoogleReviewsSection({
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = ''
-      setHasProceeded(false)
-      setIsCopied(false)
+      setSubmitError(null)
+      setIsSubmitted(false)
     }
     return () => {
       document.body.style.overflow = ''
@@ -103,20 +119,30 @@ export default function GoogleReviewsSection({
     })
   }
 
-  const handlePostToGoogle = async () => {
-    const textToCopy = reviewText.trim()
-    if (textToCopy) {
-      try {
-        await navigator.clipboard.writeText(textToCopy)
-        setIsCopied(true)
-      } catch {
-        // Fallback or ignore if permission denied
-      }
-    }
-    setHasProceeded(true)
+  const handleSubmitReview = (e: React.FormEvent) => {
+    e.preventDefault()
+    setSubmitError(null)
 
-    // Open Google's official review dialogue in a new tab
-    window.open(GOOGLE_WRITE_REVIEW_URL, '_blank', 'noopener,noreferrer')
+    startTransition(async () => {
+      const res = await submitReviewAction({
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_location: customerLocation,
+        rating: selectedRating,
+        review_text: reviewText,
+      })
+
+      if (res.success) {
+        setIsSubmitted(true)
+        setCustomerName('')
+        setCustomerEmail('')
+        setCustomerLocation('')
+        setReviewText('')
+        setSelectedRating(5)
+      } else {
+        setSubmitError(res.error || 'Failed to submit review. Please try again.')
+      }
+    })
   }
 
   return (
@@ -125,7 +151,9 @@ export default function GoogleReviewsSection({
       aria-labelledby="google-reviews-heading"
       className={`border-t border-gray-200/80 bg-[#FAF9F5] py-14 sm:py-20 px-4 sm:px-6 lg:px-8 scroll-mt-20 ${className}`}
     >
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto space-y-10 sm:space-y-12">
+        
+        {/* Main Review Hub Card */}
         <div className="rounded-2xl sm:rounded-3xl border border-gray-200/80 bg-white/70 p-6 sm:p-10 lg:p-12 shadow-2xs backdrop-blur-[2px] transition-all">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
             
@@ -174,40 +202,41 @@ export default function GoogleReviewsSection({
                 id="google-reviews-heading"
                 className="font-editorial text-2xl sm:text-3xl lg:text-4xl text-gray-950 font-normal leading-snug"
               >
-                Google Reviews
+                Google Reviews & Collector Stories
               </h2>
 
               {/* Descriptive Editorial Paragraph */}
               <p className="text-sm sm:text-base text-gray-600 font-light leading-relaxed max-w-2xl">
-                Every original painting is created by hand with patience and chosen by personal feeling. We invite collectors, interior designers, and patrons to read authentic experiences on Google, or share feedback on their acquired canvas, bespoke framing, and delivery.
+                Every original painting is created by hand with patience and chosen by personal feeling. We invite patrons and collectors to share their feedback directly on our verified Google Business Profile.
               </p>
 
               {/* Verified Trust Pillars */}
               <div className="pt-2 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-gray-600">
                 <div className="flex items-start gap-2">
                   <span className="text-[#10B981] font-bold">✓</span>
-                  <span>100% Genuine Collector Feedback</span>
+                  <span>Direct Google Submission</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-[#10B981] font-bold">✓</span>
-                  <span>Direct Google Business Profile</span>
+                  <span>100% Verified Profiles</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <span className="text-[#10B981] font-bold">✓</span>
-                  <span>Independent & Unfiltered</span>
+                  <span>Official Business Listed</span>
                 </div>
               </div>
             </div>
 
-            {/* Right Column: Direct Verified Action Buttons */}
+            {/* Right Column: Direct Actions */}
             <div className="lg:col-span-5 xl:col-span-5 flex flex-col gap-3.5 sm:gap-4 justify-center">
               
-              {/* Primary Action Button: Write a Review (Opens In-Page Review Writer) */}
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(true)}
+              {/* Primary Action Button: Write a Review directly on Google */}
+              <a
+                href={GOOGLE_WRITE_REVIEW_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="group flex items-center justify-between px-6 py-4 rounded-xl bg-[#1A1A1A] text-white hover:bg-black transition-all shadow-sm hover:shadow-md cursor-pointer text-left w-full"
-                aria-label="Write a Review for Kazi Canvas Gallery"
+                aria-label="Write a Review on Google (opens in new tab)"
               >
                 <div className="flex items-center gap-3">
                   <div className="h-8 w-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
@@ -218,12 +247,12 @@ export default function GoogleReviewsSection({
                       Write a Review
                     </span>
                     <span className="block text-[11px] text-gray-300 font-light">
-                      Draft your review & publish to Google
+                      Rate and review directly on Google
                     </span>
                   </div>
                 </div>
                 <ArrowUpRight className="h-4 w-4 text-white/80 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </button>
+              </a>
 
               {/* Secondary Action Button: See Reviews on Google */}
               <a
@@ -253,9 +282,103 @@ export default function GoogleReviewsSection({
 
           </div>
         </div>
+
+        {/* ── Approved Collector Reviews Showcase (Only Approved Reviews are Shown) ── */}
+        {approvedReviews.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[10px] uppercase tracking-[0.24em] text-gray-500 font-semibold block">
+                  APPROVED TESTIMONIALS
+                </span>
+                <h3 className="font-editorial text-xl sm:text-2xl text-gray-950 font-normal">
+                  Words from Our Collectors
+                </h3>
+              </div>
+              {approvedReviews.length > 3 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setReviewIndex((prev) => (prev > 0 ? prev - 1 : approvedReviews.length - 1))
+                    }
+                    className="p-2 rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                    aria-label="Previous review"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setReviewIndex((prev) => (prev < approvedReviews.length - 1 ? prev + 1 : 0))
+                    }
+                    className="p-2 rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                    aria-label="Next review"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {approvedReviews.slice(0, 6).map((item) => (
+                <a
+                  key={item.id}
+                  href={GOOGLE_SEE_REVIEWS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group/review-card rounded-2xl border border-gray-200/80 bg-white/80 p-6 shadow-2xs space-y-4 flex flex-col justify-between hover:border-black/30 hover:shadow-md transition-all cursor-pointer block"
+                  aria-label={`Read review by ${item.customer_name} on Google`}
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`h-3.5 w-3.5 ${
+                              star <= item.rating
+                                ? 'fill-[#FBBC04] text-[#FBBC04]'
+                                : 'fill-transparent text-gray-200'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          <ShieldCheck className="h-3 w-3" />
+                          Verified Collector
+                        </span>
+                        <ExternalLink className="h-3 w-3 text-gray-400 group-hover/review-card:text-black transition-colors" />
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-gray-800 font-light leading-relaxed italic group-hover/review-card:text-gray-950 transition-colors">
+                      &ldquo;{item.review_text}&rdquo;
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+                    <span className="font-semibold text-gray-900 group-hover/review-card:text-black transition-colors">
+                      {item.customer_name}
+                    </span>
+                    {item.customer_location && (
+                      <span className="flex items-center gap-1 font-light">
+                        <MapPin className="h-3 w-3 text-gray-400" />
+                        {item.customer_location}
+                      </span>
+                    )}
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
       </div>
 
-      {/* ── Interactive In-Page Review Writer Modal ── */}
+      {/* ── Direct On-Site Review Submission Modal ── */}
       {isModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in"
@@ -264,157 +387,251 @@ export default function GoogleReviewsSection({
           aria-labelledby="review-modal-title"
         >
           <div
-            className="relative w-full max-w-lg rounded-2xl bg-[#FAF9F5] border border-gray-200 p-6 sm:p-8 shadow-2xl space-y-5 animate-fade-in-up"
+            className="relative w-full max-w-lg rounded-2xl bg-[#FAF9F5] border border-gray-200 p-6 sm:p-8 shadow-2xl space-y-5 animate-fade-in-up max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close button */}
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
-              className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-black hover:bg-gray-200/60 transition-colors"
+              className="absolute top-5 right-5 p-1.5 rounded-full text-gray-400 hover:text-black hover:bg-gray-200/60 transition-colors cursor-pointer"
               aria-label="Close review dialog"
             >
               <X className="h-5 w-5" />
             </button>
 
-            {/* Header */}
-            <div className="space-y-1.5 pr-8">
-              <div className="flex items-center gap-2">
-                <GoogleLogo className="h-4 w-4" />
-                <span className="text-[11px] uppercase tracking-[0.2em] font-semibold text-gray-500">
-                  Google Business Review
-                </span>
-              </div>
-              <h3
-                id="review-modal-title"
-                className="font-editorial text-2xl sm:text-3xl text-gray-950 font-normal"
-              >
-                Share Your Experience
-              </h3>
-              <p className="text-xs sm:text-sm text-gray-600 font-light">
-                Write your review here. When you click <strong>Post to Google</strong>, your review will be copied and Google&rsquo;s official review window will open so you can publish it in one tap.
-              </p>
-            </div>
-
-            {/* Interactive Star Rating Selector */}
-            <div className="bg-white p-4 rounded-xl border border-gray-200/80 space-y-2">
-              <label className="block text-xs uppercase tracking-wider font-semibold text-gray-700">
-                Your Star Rating
-              </label>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => {
-                    const isFilled =
-                      hoverRating > 0 ? star <= hoverRating : star <= selectedRating
-                    return (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setSelectedRating(star)}
-                        onMouseEnter={() => setHoverRating(star)}
-                        onMouseLeave={() => setHoverRating(0)}
-                        className="p-1 cursor-pointer transition-transform hover:scale-110 focus:outline-none"
-                        aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
-                      >
-                        <Star
-                          className={`h-6 w-6 transition-colors ${
-                            isFilled
-                              ? 'fill-[#FBBC04] text-[#FBBC04]'
-                              : 'fill-transparent text-gray-300'
-                          }`}
-                        />
-                      </button>
-                    )
-                  })}
+            {isSubmitted ? (
+              /* Success Confirmation Screen */
+              <div className="py-6 text-center space-y-4 animate-fade-in">
+                <div className="h-14 w-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+                  <CheckCircle className="h-8 w-8" />
                 </div>
-                <span className="text-xs font-medium text-gray-600 ml-2">
-                  {hoverRating > 0
-                    ? `${hoverRating} of 5 Stars`
-                    : `${selectedRating} of 5 Stars`}
-                </span>
-              </div>
-            </div>
-
-            {/* Textarea for review drafting */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="review-draft"
-                  className="block text-xs uppercase tracking-wider font-semibold text-gray-700"
-                >
-                  Your Review
-                </label>
-                <span className="text-[11px] text-gray-400">Optional details</span>
-              </div>
-              <textarea
-                id="review-draft"
-                rows={4}
-                value={reviewText}
-                onChange={(e) => setReviewText(e.target.value)}
-                placeholder="Share details about the canvas texture, delivery, framing, or how the artwork feels in your space..."
-                className="w-full rounded-xl border border-gray-300 bg-white p-3.5 text-sm text-gray-950 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all resize-none"
-              />
-            </div>
-
-            {/* Quick Inspiration Tags */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] text-gray-500 font-medium flex items-center gap-1">
-                <Sparkles className="h-3 w-3 text-amber-500" />
-                Tap to include talking points:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {QUICK_TAGS.map((tag) => (
+                <div className="space-y-1.5">
+                  <h3 className="font-editorial text-2xl text-gray-950 font-normal">
+                    Review Submitted Successfully!
+                  </h3>
+                  <p className="text-sm text-gray-600 font-light max-w-sm mx-auto leading-relaxed">
+                    Thank you for sharing your collector experience. Your review has been saved securely and will appear on the gallery website once curated by our team.
+                  </p>
+                </div>
+                <div className="pt-2">
                   <button
-                    key={tag}
                     type="button"
-                    onClick={() => handleAddTag(tag)}
-                    className="text-[11px] px-2.5 py-1 rounded-full border border-gray-200 bg-white text-gray-700 hover:border-black hover:text-black transition-all cursor-pointer"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-6 py-3 rounded-xl bg-[#1A1A1A] text-white hover:bg-black transition-all text-xs uppercase tracking-wider font-semibold cursor-pointer shadow-sm"
                   >
-                    + {tag}
+                    Done
                   </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Success / Status Message after Proceeding */}
-            {hasProceeded && (
-              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5 animate-fade-in">
-                <Check className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold">
-                    {isCopied
-                      ? 'Review text copied to clipboard!'
-                      : 'Google review page opened!'}
-                  </p>
-                  <p className="text-[11px] text-emerald-700 mt-0.5">
-                    {isCopied
-                      ? 'Paste your text (Ctrl+V or Cmd+V) in the Google popup and tap Post.'
-                      : 'Complete your rating and feedback on Google.'}
-                  </p>
                 </div>
               </div>
+            ) : (
+              /* Direct Review Submission Form */
+              <form onSubmit={handleSubmitReview} className="space-y-4">
+                
+                {/* Header */}
+                <div className="space-y-1.5 pr-8">
+                  <span className="text-[11px] uppercase tracking-[0.2em] font-semibold text-gray-500">
+                    Kazi Canvas Gallery
+                  </span>
+                  <h3
+                    id="review-modal-title"
+                    className="font-editorial text-2xl sm:text-3xl text-gray-950 font-normal"
+                  >
+                    Share Your Experience
+                  </h3>
+                  <p className="text-xs sm:text-sm text-gray-600 font-light">
+                    Submit your feedback directly on our website. Your review will be stored securely and displayed upon admin approval.
+                  </p>
+                </div>
+
+                {submitError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium animate-fade-in">
+                    {submitError}
+                  </div>
+                )}
+
+                {/* Star Rating Selector */}
+                <div className="bg-white p-3.5 rounded-xl border border-gray-200/80 space-y-1.5">
+                  <label className="block text-xs uppercase tracking-wider font-semibold text-gray-700">
+                    Your Rating *
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => {
+                        const isFilled =
+                          hoverRating > 0 ? star <= hoverRating : star <= selectedRating
+                        return (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setSelectedRating(star)}
+                            onMouseEnter={() => setHoverRating(star)}
+                            onMouseLeave={() => setHoverRating(0)}
+                            className="p-1 cursor-pointer transition-transform hover:scale-110 focus:outline-none"
+                            aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                          >
+                            <Star
+                              className={`h-6 w-6 transition-colors ${
+                                isFilled
+                                  ? 'fill-[#FBBC04] text-[#FBBC04]'
+                                  : 'fill-transparent text-gray-300'
+                              }`}
+                            />
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <span className="text-xs font-medium text-gray-600 ml-2">
+                      {hoverRating > 0
+                        ? `${hoverRating} of 5 Stars`
+                        : `${selectedRating} of 5 Stars`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Customer Name & Location Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      htmlFor="customer-name"
+                      className="block text-xs uppercase tracking-wider font-semibold text-gray-700 mb-1"
+                    >
+                      Your Name *
+                    </label>
+                    <input
+                      id="customer-name"
+                      type="text"
+                      required
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="e.g. Farhana Rahman"
+                      className="w-full rounded-xl border border-gray-300 bg-white p-2.5 text-sm text-gray-900 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="customer-location"
+                      className="block text-xs uppercase tracking-wider font-semibold text-gray-700 mb-1"
+                    >
+                      City / Location
+                    </label>
+                    <input
+                      id="customer-location"
+                      type="text"
+                      value={customerLocation}
+                      onChange={(e) => setCustomerLocation(e.target.value)}
+                      placeholder="e.g. Dhaka, Bangladesh"
+                      className="w-full rounded-xl border border-gray-300 bg-white p-2.5 text-sm text-gray-900 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* Customer Email */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label
+                      htmlFor="customer-email"
+                      className="block text-xs uppercase tracking-wider font-semibold text-gray-700"
+                    >
+                      Your Email *
+                    </label>
+                    <span className="text-[10px] text-gray-400">Kept private; never published</span>
+                  </div>
+                  <input
+                    id="customer-email"
+                    type="email"
+                    required
+                    value={customerEmail}
+                    onChange={(e) => setCustomerEmail(e.target.value)}
+                    placeholder="e.g. farhana@example.com"
+                    className="w-full rounded-xl border border-gray-300 bg-white p-2.5 text-sm text-gray-900 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all"
+                  />
+                </div>
+
+                {/* Review Textarea */}
+                <div>
+                  <label
+                    htmlFor="review-draft"
+                    className="block text-xs uppercase tracking-wider font-semibold text-gray-700 mb-1"
+                  >
+                    Your Review *
+                  </label>
+                  <textarea
+                    id="review-draft"
+                    rows={4}
+                    required
+                    value={reviewText}
+                    onChange={(e) => setReviewText(e.target.value)}
+                    placeholder="Share your experience with the artwork's physical texture, framing finish, safe delivery, or artist consultation..."
+                    className="w-full rounded-xl border border-gray-300 bg-white p-3 text-sm text-gray-950 placeholder:text-gray-400 focus:border-black focus:ring-2 focus:ring-black/10 outline-none transition-all resize-none"
+                  />
+                </div>
+
+                {/* Quick Inspiration Tags */}
+                <div className="space-y-1">
+                  <span className="text-[11px] text-gray-500 font-medium flex items-center gap-1">
+                    <Sparkles className="h-3 w-3 text-amber-500" />
+                    Quick Talking Points:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {QUICK_TAGS.map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => handleAddTag(tag)}
+                        className="text-[11px] px-2.5 py-0.5 rounded-full border border-gray-200 bg-white text-gray-700 hover:border-black hover:text-black transition-all cursor-pointer"
+                      >
+                        + {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+                  <button
+                    type="submit"
+                    disabled={isPending}
+                    className="w-full sm:flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[#1A1A1A] text-white hover:bg-black transition-all font-semibold text-xs uppercase tracking-wider cursor-pointer shadow-sm disabled:opacity-50"
+                  >
+                    {isPending ? (
+                      <span>Submitting...</span>
+                    ) : (
+                      <>
+                        <MessageSquareHeart className="h-4 w-4" />
+                        <span>Submit Review</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="w-full sm:w-auto px-4 py-3 rounded-xl border border-gray-300 text-gray-700 hover:text-black hover:border-gray-400 transition-colors text-xs font-medium cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                {/* Optional Separate Google Review Link */}
+                <div className="pt-2 text-center border-t border-gray-200/60">
+                  <span className="text-[11px] text-gray-500 font-light">
+                    Prefer to leave a review on Google?{' '}
+                    <a
+                      href={GOOGLE_WRITE_REVIEW_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline font-medium text-gray-800 hover:text-black inline-flex items-center gap-0.5"
+                    >
+                      <span>Open Google Reviews</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </span>
+                </div>
+
+              </form>
             )}
-
-            {/* Action Buttons */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
-              <button
-                type="button"
-                onClick={handlePostToGoogle}
-                className="w-full sm:flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[#1A1A1A] text-white hover:bg-black transition-all font-semibold text-xs uppercase tracking-wider cursor-pointer shadow-sm"
-              >
-                <GoogleLogo className="h-4 w-4" />
-                <span>Post to Google Reviews</span>
-                <ArrowUpRight className="h-4 w-4" />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="w-full sm:w-auto px-4 py-3 rounded-xl border border-gray-300 text-gray-700 hover:text-black hover:border-gray-400 transition-colors text-xs font-medium cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
 
           </div>
         </div>

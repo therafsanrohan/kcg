@@ -9,6 +9,7 @@ import CustomerGallerySection from '@/components/CustomerGallerySection'
 import { formatMedium } from '@/utils/measurements'
 import ContactSection from '@/components/ContactSection'
 import GoogleReviewsSection from '@/components/GoogleReviewsSection'
+import { getApprovedReviews } from '@/utils/reviews'
 import { parseContactSettings } from '@/types/contact'
 
 export const revalidate = 60 // 60s ISR cache with immediate on-demand revalidation on admin changes
@@ -17,8 +18,8 @@ export default async function Home() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
-  // Fetch published paintings and site settings in parallel
-  const [paintingsResult, settingsResult] = await Promise.all([
+  // Fetch published paintings, site settings, and approved reviews in parallel
+  const [paintingsResult, settingsResult, approvedReviews] = await Promise.all([
     supabase
       .from('paintings')
       .select(`
@@ -32,6 +33,7 @@ export default async function Home() {
       .from('site_settings')
       .select('*')
       .single(),
+    getApprovedReviews(),
   ])
 
   let paintings = paintingsResult.data
@@ -61,19 +63,20 @@ export default async function Home() {
     featuredPainting?.painting_images?.[0]
   const featuredImageUrl = getPaintingImageUrl(featuredImage?.storage_key)
 
-  // Find artwork to pair with Our Story section
-  const storyPainting =
-    paintings?.find((p: any) => !p.is_featured && p.painting_images?.length) ||
-    paintings?.[1] ||
-    featuredPainting
+  // Pair Our Story section with the featured artwork
+  const storyPainting = featuredPainting
 
-  const storyImage =
+  const storyImageUrl = featuredImageUrl || (
     storyPainting?.painting_images?.find((img: any) => !img.archived_at && img.is_main) ||
     storyPainting?.painting_images?.find((img: any) => !img.archived_at) ||
     storyPainting?.painting_images?.[0]
-  const storyImageUrl = storyImage
-    ? getPaintingImageUrl(storyImage.storage_key || storyImage.thumbnail_key)
-    : null
+      ? getPaintingImageUrl(
+          (storyPainting?.painting_images?.find((img: any) => !img.archived_at && img.is_main) ||
+            storyPainting?.painting_images?.find((img: any) => !img.archived_at) ||
+            storyPainting?.painting_images?.[0])?.storage_key
+        )
+      : null
+  )
 
   return (
     <div className="bg-[#FAF9F5] text-gray-950 font-sans">
@@ -199,6 +202,7 @@ export default async function Home() {
                       src={storyImageUrl}
                       alt="Kazi Canvas Gallery - Our Story"
                       fill
+                      unoptimized
                       sizes="(max-width: 1024px) 100vw, 40vw"
                       className="object-cover object-center transition-transform duration-700 ease-out group-hover/story-card:scale-[1.03]"
                     />
@@ -241,8 +245,8 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── 6. Google Reviews (Verified Collector Feedback) ── */}
-      <GoogleReviewsSection />
+      {/* ── 6. Google Reviews & Collector Stories ── */}
+      <GoogleReviewsSection approvedReviews={approvedReviews} />
 
       {/* ── 7. Contact Section (Direct Communication Channels) ── */}
       <ContactSection contact={contactSettings} />

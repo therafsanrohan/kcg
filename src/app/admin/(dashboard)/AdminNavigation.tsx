@@ -10,6 +10,7 @@ import {
   Users,
   Settings,
   User,
+  Star,
   LogOut,
   ChevronDown,
   Menu,
@@ -62,6 +63,12 @@ export default function AdminNavigation({ userEmail, onHoverChange }: AdminNavig
       href: '/admin/clients',
       icon: Users,
       active: pathname.startsWith('/admin/clients'),
+    },
+    {
+      name: 'Reviews',
+      href: '/admin/reviews',
+      icon: Star,
+      active: pathname.startsWith('/admin/reviews'),
     },
     {
       name: 'Delivery & Settings',

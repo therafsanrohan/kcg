@@ -1243,7 +1243,7 @@ export default function AddArtworkModal({
                         All Photos ({artworkImages.length} of 4)
                       </span>
                       <span className="text-[11px] text-gray-400 font-light">
-                        Click "Crop" to adjust each photo individually
+                        Click &ldquo;Crop&rdquo; to adjust each photo individually
                       </span>
                     </div>
 
@@ -1445,7 +1445,7 @@ export default function AddArtworkModal({
       {/* Multi-Orientation Aspect Ratio Image Cropper Modal */}
       {cropModalOpen && imageSrcToCrop && (
         <ImageCropperModal
-          key={`${imageSrcToCrop}-${activeCropIndexRef.current ?? 'crop'}`}
+          key={`${imageSrcToCrop}-${activeCropIndex ?? 'crop'}`}
           isOpen={cropModalOpen}
           imageSrc={imageSrcToCrop}
           defaultOrientation={orientation}

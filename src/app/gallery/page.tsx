@@ -25,7 +25,7 @@ export default async function GalleryPage() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
-  let { data: paintings, error: paintingsErr } = await supabase
+  const { data: initialPaintings, error: paintingsErr } = await supabase
     .from('paintings')
     .select(`
       id, title, slug, serial_number, base_price_bdt, discount_price_bdt, offer_badge, exact_medium, painting_type,
@@ -35,6 +35,8 @@ export default async function GalleryPage() {
     .eq('is_published', true)
     .is('archived_at', null)
     .order('created_at', { ascending: false })
+
+  let paintings = initialPaintings
 
   if (paintingsErr) {
     const fallback = await supabase
