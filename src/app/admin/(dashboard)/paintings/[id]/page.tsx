@@ -42,7 +42,13 @@ export default async function EditPaintingPage({ params }: { params: { id: strin
       </div>
       
       {/* 1. Edit Details */}
-      <PaintingForm painting={painting} />
+      <PaintingForm
+        painting={{
+          ...painting,
+          painting_images: images || [],
+          frame_options: frames || [],
+        }}
+      />
       
       {/* 2. Advanced Image Management */}
       <div className="bg-white px-4 py-5 shadow sm:rounded-lg sm:p-6 border border-gray-100">

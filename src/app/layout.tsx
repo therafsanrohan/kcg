@@ -1,9 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
 
 export const metadata: Metadata = {
   title: "Kazi Canvas Gallery | Original Handmade Canvas Art",
@@ -29,9 +35,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html
       lang="en"
-      className={`h-full antialiased`}
+      className="h-full antialiased"
     >
-      <body className="min-h-screen flex flex-col">
+      <body className="min-h-screen flex flex-col font-sans bg-[#FAF9F5] text-[#1A1A1A] selection:bg-[#EAE8E3]">
+        <div className="gallery-grain-overlay" aria-hidden="true" />
         <Navbar whatsappNumber={whatsappNumber} />
         <main className="flex-1">
           {children}

@@ -2,6 +2,8 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 
+import CustomSelect from '@/components/ui/CustomSelect'
+
 export default function FilterSort({ defaultType = 'all', defaultSort = 'newest' }: { defaultType?: string, defaultSort?: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -27,27 +29,33 @@ export default function FilterSort({ defaultType = 'all', defaultSort = 'newest'
   }
 
   return (
-    <div className="flex gap-2">
-      <select
-        value={defaultType}
-        onChange={handleFilterChange}
-        className="block rounded-md border-0 py-1.5 pl-3 pr-8 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-black sm:text-sm sm:leading-6"
-      >
-        <option value="all">All Types</option>
-        <option value="oil">Oil</option>
-        <option value="acrylic">Acrylic</option>
-        <option value="mixed">Mixed Media</option>
-      </select>
+    <div className="flex flex-wrap items-center gap-2.5">
+      <div className="w-36 sm:w-40">
+        <CustomSelect
+          value={defaultType}
+          onChange={handleFilterChange}
+          className="text-xs py-2 pl-3 pr-8 rounded-full border-gray-200 bg-white shadow-2xs font-medium"
+          options={[
+            { value: 'all', label: 'All Types' },
+            { value: 'oil', label: 'Oil on Canvas' },
+            { value: 'acrylic', label: 'Acrylic' },
+            { value: 'mixed', label: 'Mixed Media' },
+          ]}
+        />
+      </div>
 
-      <select
-        value={defaultSort}
-        onChange={handleSortChange}
-        className="block rounded-md border-0 py-1.5 pl-3 pr-8 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-black sm:text-sm sm:leading-6"
-      >
-        <option value="newest">Newest First</option>
-        <option value="price_asc">Price: Low to High</option>
-        <option value="price_desc">Price: High to Low</option>
-      </select>
+      <div className="w-40 sm:w-44">
+        <CustomSelect
+          value={defaultSort}
+          onChange={handleSortChange}
+          className="text-xs py-2 pl-3 pr-8 rounded-full border-gray-200 bg-white shadow-2xs font-medium"
+          options={[
+            { value: 'newest', label: 'Newest First' },
+            { value: 'price_asc', label: 'Price: Low to High' },
+            { value: 'price_desc', label: 'Price: High to Low' },
+          ]}
+        />
+      </div>
     </div>
   )
 }

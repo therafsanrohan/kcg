@@ -107,17 +107,30 @@ async function writeCache(rates: Record<string, number>): Promise<void> {
   }
 }
 
+// Process-level in-memory cache to eliminate repetitive DB queries across concurrent requests
+let inMemoryCache: { rates: Record<string, number>; expiresAt: number } | null = null
+const IN_MEMORY_TTL_MS = 10 * 60 * 1000 // 10 minutes
+
 /**
  * Get exchange rates – server-side only.
- * Strategy: cache → API (if stale) → stale cache → fallback.
+ * Strategy: in-memory RAM → DB cache → API (if stale) → stale cache → fallback.
  */
 export async function getExchangeRates(): Promise<Record<string, number>> {
-  // 1. Try reading from cache
+  // 0. Fast-path: In-memory RAM cache (0ms)
+  if (inMemoryCache && Date.now() < inMemoryCache.expiresAt) {
+    return inMemoryCache.rates
+  }
+
+  // 1. Try reading from database cache
   const cached = await readCache()
 
   if (cached) {
     const age = Date.now() - new Date(cached.fetched_at).getTime()
     if (age < CACHE_MAX_AGE_MS) {
+      inMemoryCache = {
+        rates: cached.rates,
+        expiresAt: Date.now() + Math.min(IN_MEMORY_TTL_MS, CACHE_MAX_AGE_MS - age),
+      }
       return cached.rates
     }
   }
@@ -125,6 +138,10 @@ export async function getExchangeRates(): Promise<Record<string, number>> {
   // 2. Cache is stale or missing – fetch from API
   const liveRates = await fetchFromApi()
   if (liveRates) {
+    inMemoryCache = {
+      rates: liveRates,
+      expiresAt: Date.now() + IN_MEMORY_TTL_MS,
+    }
     writeCache(liveRates).catch(() => {})
     return liveRates
   }
@@ -132,6 +149,10 @@ export async function getExchangeRates(): Promise<Record<string, number>> {
   // 3. API failed – return stale cache if available
   if (cached) {
     console.warn('[currency] Using stale cache (API unavailable)')
+    inMemoryCache = {
+      rates: cached.rates,
+      expiresAt: Date.now() + 60 * 1000, // retry after 1 min
+    }
     return cached.rates
   }
 

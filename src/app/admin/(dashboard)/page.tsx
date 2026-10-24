@@ -11,7 +11,7 @@ export default async function AdminDashboardPage() {
   const { data: paintings, error } = await supabase
     .from('paintings')
     .select(`
-      id, title, slug, painting_type, exact_medium, display_size, width, height,
+      id, serial_number, title, slug, painting_type, display_size, width, height,
       base_price_bdt, discount_price_bdt, offer_badge, availability_status, is_published, is_featured, description, year, created_at,
       painting_images(storage_key, is_main),
       frame_options(id, frame_name, outer_size, price_bdt, is_active)

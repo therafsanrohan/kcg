@@ -282,5 +282,57 @@ INSERT INTO public.painting_images (painting_id, storage_key, alt_text, sort_ord
 VALUES ('44444444-4444-4444-4444-444444444444', 'https://images.unsplash.com/photo-1577083552431-6e5fd01aa342?q=80&w=1200&auto=format&fit=crop', 'Crimson Horizon', 0, true, 1200, 1600)
 ON CONFLICT (id) DO NOTHING;
 
+-- Serial Number System for Artworks with Category Codes (KCG-OIL-0001, KCG-ACR-0002, etc.)
+CREATE SEQUENCE IF NOT EXISTS public.artwork_serial_seq START WITH 1 INCREMENT BY 1;
+ALTER TABLE public.paintings ADD COLUMN IF NOT EXISTS serial_number text;
+
+CREATE OR REPLACE FUNCTION public.generate_artwork_serial_number(p_type text DEFAULT 'oil')
+RETURNS text
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  next_val bigint;
+  cat_code text;
+BEGIN
+  next_val := nextval('public.artwork_serial_seq');
+
+  cat_code := CASE lower(coalesce(p_type, ''))
+    WHEN 'oil' THEN 'OIL'
+    WHEN 'acrylic' THEN 'ACR'
+    WHEN 'mixed' THEN 'MIX'
+    ELSE 'ART'
+  END;
+
+  RETURN 'KCG-' || cat_code || '-' || lpad(next_val::text, 4, '0');
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.trg_paintings_set_serial_number()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF tg_op = 'INSERT' THEN
+    IF NEW.serial_number IS NULL OR trim(NEW.serial_number) = '' THEN
+      NEW.serial_number := public.generate_artwork_serial_number(NEW.painting_type);
+    END IF;
+  ELSIF tg_op = 'UPDATE' THEN
+    IF OLD.serial_number IS NOT NULL AND NEW.serial_number IS DISTINCT FROM OLD.serial_number THEN
+      NEW.serial_number := OLD.serial_number;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS set_artwork_serial_number ON public.paintings;
+CREATE TRIGGER set_artwork_serial_number
+  BEFORE INSERT OR UPDATE ON public.paintings
+  FOR EACH ROW
+  EXECUTE FUNCTION public.trg_paintings_set_serial_number();
+
+CREATE UNIQUE INDEX IF NOT EXISTS paintings_serial_number_idx
+  ON public.paintings (serial_number);
+
 -- Final cache reload
 NOTIFY pgrst, 'reload schema';

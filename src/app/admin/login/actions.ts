@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { createClient } from '@/utils/supabase/server'
+import { createClient, ADMIN_REMEMBER_MAX_AGE, REMEMBER_ME_COOKIE_NAME } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 
 export async function login(prevState: any, formData: FormData) {
@@ -11,14 +11,15 @@ export async function login(prevState: any, formData: FormData) {
   // Safe normalization for email; exact preservation for password (no .trim())
   const email = String(formData.get('email') ?? '').trim().toLowerCase()
   const password = String(formData.get('password') ?? '')
+  const remember = formData.get('remember') === 'on' || formData.get('remember') === 'true'
 
   if (!email || !password) {
     return { error: 'Please enter both your admin email and password.' }
   }
 
   // Validate that environment configuration exists
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || 'https://jndcunflcastmtqmqyvx.supabase.co'
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpuZGN1bmZsY2FzdG10cW1xeXZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0MzY5MzUsImV4cCI6MjEwNDAxMjkzNX0.p2Vni1gwACsc21E-MWOVNPuEacF9Wg6u-loviaQTBIw'
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || ''
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
   if (!supabaseUrl || !supabaseKey) {
     console.error('[Admin Auth Error]', {
@@ -31,7 +32,25 @@ export async function login(prevState: any, formData: FormData) {
   }
 
   try {
-    const supabase = createClient(cookieStore)
+    if (remember) {
+      cookieStore.set(REMEMBER_ME_COOKIE_NAME, 'true', {
+        maxAge: ADMIN_REMEMBER_MAX_AGE,
+        expires: new Date(Date.now() + ADMIN_REMEMBER_MAX_AGE * 1000),
+        path: '/',
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+      })
+    } else {
+      cookieStore.set(REMEMBER_ME_COOKIE_NAME, 'false', {
+        path: '/',
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+      })
+    }
+
+    const supabase = createClient(cookieStore, { remember })
 
     // 1. Authenticate user against Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -40,6 +59,16 @@ export async function login(prevState: any, formData: FormData) {
     })
 
     if (authError || !authData.user) {
+      // Clear any remember preference cookie on failed authentication
+      cookieStore.set(REMEMBER_ME_COOKIE_NAME, '', {
+        maxAge: 0,
+        expires: new Date(0),
+        path: '/',
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+      })
+
       // Safe server logging with NO sensitive information (no passwords, tokens, or raw responses)
       console.error('[Admin Auth Error]', {
         status: authError?.status,
@@ -84,8 +113,25 @@ export async function login(prevState: any, formData: FormData) {
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'production',
       })
+      cookieStore.set(REMEMBER_ME_COOKIE_NAME, '', {
+        maxAge: 0,
+        expires: new Date(0),
+        path: '/',
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+      })
       await supabase.auth.signOut()
-      return { error: 'Access denied: This account is not an authorized administrator.' }
+      return { error: 'Invalid email or password. Please check your credentials.' }
+    }
+
+    // If owner email is verified but missing from public.admin_users, safely register them
+    if (isOwnerEmail && (!adminRecord || adminError)) {
+      await supabase.from('admin_users').upsert({
+        id: authData.user.id,
+        email: authData.user.email,
+        role: 'superadmin'
+      }, { onConflict: 'id' })
     }
 
     revalidatePath('/', 'layout')
@@ -108,6 +154,14 @@ export async function logout() {
   try {
     const supabase = createClient(cookieStore)
     await supabase.auth.signOut()
+    cookieStore.set(REMEMBER_ME_COOKIE_NAME, '', {
+      maxAge: 0,
+      expires: new Date(0),
+      path: '/',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+    })
   } catch (err: any) {
     console.error('[Admin Logout Error]', {
       name: err?.name || 'Error',

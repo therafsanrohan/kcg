@@ -5,7 +5,7 @@
  * - Supabase Storage keys (prepends the public storage URL)
  * - Safe fallback to a local vector placeholder
  */
-export function getPaintingImageUrl(storageKey?: string | null, bucket: 'paintings' | 'paintings_optimized' | 'paintings_master' = 'paintings'): string {
+export function getPaintingImageUrl(storageKey?: string | null, bucket: 'paintings' | 'paintings_optimized' | 'paintings_master' = 'paintings_optimized'): string {
   if (!storageKey || storageKey.trim() === '') {
     return '/placeholder.svg'
   }
@@ -15,7 +15,7 @@ export function getPaintingImageUrl(storageKey?: string | null, bucket: 'paintin
     return storageKey
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jndcunflcastmtqmqyvx.supabase.co'
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ofqbpjgoqkfwiicvqtxe.supabase.co'
   return `${supabaseUrl}/storage/v1/object/public/${bucket}/${storageKey.replace(/^\/+/, '')}`
 }
 

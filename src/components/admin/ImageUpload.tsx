@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { useAdminFeedback } from '@/components/admin/AdminFeedbackProvider'
 
 export default function ImageUpload({ paintingId, existingImages = [] }: { paintingId: string, existingImages?: any[] }) {
   const [uploading, setUploading] = useState(false)
@@ -26,7 +27,7 @@ export default function ImageUpload({ paintingId, existingImages = [] }: { paint
 
       const file = event.target.files[0]
       const fileExt = file.name.split('.').pop()
-      const filePath = `${paintingId}-${Math.random()}.${fileExt}`
+      const filePath = `${paintingId}-${Date.now()}.${fileExt}`
 
       const { error: uploadError } = await supabase.storage
         .from('paintings')
@@ -57,25 +58,32 @@ export default function ImageUpload({ paintingId, existingImages = [] }: { paint
     }
   }
 
+  const { toast, confirm: confirmModal } = useAdminFeedback()
+
   async function handleDelete(id: string, storageKey: string) {
-    if (!confirm('Are you sure you want to delete this image?')) return
-    
-    try {
-      setUploading(true)
-      
-      const { error: storageError } = await supabase.storage.from('paintings').remove([storageKey])
-      if (storageError) throw storageError
-      
-      const { error: dbError } = await supabase.from('painting_images').delete().eq('id', id)
-      if (dbError) throw dbError
-      
-      showMessage('Image deleted successfully!', 'success')
-      router.refresh()
-    } catch (error: any) {
-      showMessage(error.message, 'error')
-    } finally {
-      setUploading(false)
-    }
+    confirmModal({
+      title: 'Delete Image',
+      message: 'Are you sure you want to delete this artwork image? This cannot be undone.',
+      confirmText: 'Delete Image',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          setUploading(true)
+          
+          await supabase.storage.from('paintings_optimized').remove([storageKey])
+          
+          const { error: dbError } = await supabase.from('painting_images').delete().eq('id', id)
+          if (dbError) throw dbError
+          
+          toast('Image deleted successfully!', 'success')
+          router.refresh()
+        } catch (error: any) {
+          toast(error.message, 'error')
+        } finally {
+          setUploading(false)
+        }
+      },
+    })
   }
 
   async function handleSetMain(id: string) {

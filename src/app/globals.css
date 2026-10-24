@@ -1,15 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #111827;
+  --background: #FAF9F5;
+  --foreground: #1A1A1A;
+  --font-helvetica: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --animate-fade-in: fade-in 0.6s ease-out forwards;
-  --animate-fade-in-up: fade-in-up 0.6s ease-out forwards;
+  --font-helvetica: var(--font-helvetica);
+  --font-sans: var(--font-helvetica);
+  --font-serif: var(--font-helvetica);
+  --animate-fade-in: fade-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-fade-in-up: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes fade-in {
@@ -22,13 +26,183 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-body {
-  background-color: #ffffff;
-  color: #111827;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+html, body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-helvetica);
+  font-stretch: normal !important;
+  letter-spacing: normal;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+/* Subtle organic gallery canvas / paper grain overlay */
+.gallery-grain-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.032; /* subtle, tactile, non-intrusive organic paper texture */
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 250 250' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
+
+/* Strictly enforce regular/natural uncompressed and non-extended Helvetica Neue proportions */
+* {
+  font-stretch: normal !important;
+}
+
+h1, h2, h3, h4, h5, h6, p, span, a, button, input, select, textarea {
+  font-family: var(--font-helvetica);
+  font-stretch: normal !important;
+}
+
+/* Prevent auto-zooming on mobile iOS Safari when focusing form inputs */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+.font-editorial {
+  font-family: var(--font-helvetica);
+  font-stretch: normal !important;
+}
+
+/* ── International A4 Invoice Print Styles ── */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm 10mm 12mm;
+  }
+
+  *, *::before, *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #111111 !important;
+    width: 100% !important;
+    min-height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 10pt !important;
+    line-height: 1.35 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide non-printable UI elements */
+  header, nav, footer, .print-hidden, [data-print-hidden="true"], button, input, textarea {
+    display: none !important;
+  }
+
+  /* Reset outer wrappers */
+  .min-h-screen, main, #__next {
+    min-height: auto !important;
+    height: auto !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .max-w-3xl, .max-w-4xl, .max-w-5xl, .max-w-7xl {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Invoice Card Styling for Print */
+  .invoice-paper-doc, .print-clean-doc {
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Table rules */
+  table {
+    width: 100% !important;
+    max-width: 100% !important;
+    page-break-inside: auto;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto;
+  }
+
+  th, td {
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+
+  th {
+    border-bottom: 1.5pt solid #e5e7eb !important;
+    color: #4b5563 !important;
+    font-size: 8.5pt !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+  }
+
+  td {
+    border-bottom: 0.5pt solid #f3f4f6 !important;
+  }
+
+  .page-break-inside-avoid {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .page-break-before {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+}
+
+/* Secure Invisible Password Input:
+   Keeps genuine type="password", allows typing, paste, autofill and password managers,
+   while keeping typed characters and masking dots visually invisible. */
+.invisible-password-input {
+  color: transparent !important;
+  caret-color: transparent !important;
+  text-shadow: none !important;
+}
+
+.invisible-password-input::selection {
+  background-color: transparent !important;
+  color: transparent !important;
+}
+
+.invisible-password-input::-moz-selection {
+  background-color: transparent !important;
+  color: transparent !important;
+}
+
+.invisible-password-input::-ms-reveal,
+.invisible-password-input::-ms-clear {
+  display: none !important;
+}
+

@@ -2,6 +2,14 @@
 
 import { requireAdmin } from '@/utils/supabase/admin-auth'
 import { revalidatePath } from 'next/cache'
+import {
+  calculateSuggestedOuterSize,
+  calculateFramePrice,
+  isDoubleBitFrame,
+  isSingleBitFrame,
+  getFrameCalculationDimensions,
+  MeasurementUnit,
+} from '@/utils/measurements'
 
 // Helper to generate clean URL slugs from title
 function generateSlug(title: string) {
@@ -58,6 +66,49 @@ export async function togglePublishPainting(id: string, currentValue: boolean) {
 }
 
 // ─────────────────────────────────────────────
+// TOGGLE FEATURED PAINTING (HOMEPAGE EXHIBITION SPOTLIGHT)
+// ─────────────────────────────────────────────
+export async function toggleFeaturedPainting(id: string, currentValue: boolean) {
+  try {
+    const { supabase } = await requireAdmin()
+
+    const newValue = !currentValue
+
+    // When setting an artwork as featured, un-feature all other artworks
+    // so this chosen artwork becomes the primary exhibition spotlight on the homepage
+    if (newValue === true) {
+      await supabase
+        .from('paintings')
+        .update({ is_featured: false })
+        .neq('id', id)
+    }
+
+    const { error } = await supabase
+      .from('paintings')
+      .update({ is_featured: newValue, updated_at: new Date().toISOString() })
+      .eq('id', id)
+
+    if (error) throw error
+
+    revalidatePath('/')
+    revalidatePath('/gallery')
+    revalidatePath('/admin')
+    revalidatePath('/admin/paintings')
+
+    return {
+      success: true,
+      isFeatured: newValue,
+      message: newValue
+        ? 'Artwork is now featured on the homepage exhibition spotlight!'
+        : 'Artwork unfeatured from homepage spotlight.',
+    }
+  } catch (err: any) {
+    console.error('Toggle featured error:', err)
+    return { success: false, error: err.message || 'Unauthorized action.' }
+  }
+}
+
+// ─────────────────────────────────────────────
 // DELETE PAINTING
 // ─────────────────────────────────────────────
 export async function deletePainting(id: string) {
@@ -82,13 +133,24 @@ export async function deletePainting(id: string) {
 // SAVE (CREATE or UPDATE) PAINTING
 // ─────────────────────────────────────────────
 export async function saveArtworkAction(prevState: any, formData: FormData) {
+  let id: string | null = null
+  let paintingId: string | null = null
+
   try {
     const { supabase } = await requireAdmin()
 
-    const id = formData.get('id') as string | null
+    id = (formData.get('id') as string | null) || null
     const title = (formData.get('title') as string)?.trim()
-    const painting_type = (formData.get('painting_type') as string) || 'oil'
-    const exact_medium = (formData.get('exact_medium') as string)?.trim() || 'Oil on canvas'
+    const painting_type = (formData.get('painting_type') as string)?.trim()
+    const exact_medium =
+      (formData.get('exact_medium') as string)?.trim() ||
+      (painting_type === 'acrylic'
+        ? 'Acrylic on canvas'
+        : painting_type === 'mixed'
+        ? 'Mixed Media'
+        : painting_type === 'oil'
+        ? 'Oil on canvas'
+        : painting_type || 'Oil on canvas')
     const display_size = (formData.get('display_size') as string)?.trim() || '24 × 36 in'
     const yearStr = formData.get('year') as string
     const year = yearStr ? parseInt(yearStr, 10) : new Date().getFullYear()
@@ -108,6 +170,38 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
 
     if (!title) {
       return { error: 'Artwork title is required.' }
+    }
+
+    if (!painting_type) {
+      return { error: 'Medium is mandatory. Please select a medium for this artwork.' }
+    }
+
+    // ── IMAGE CONSTRAINTS VALIDATION (MIN 1 MANDATORY, MAX 4) ──
+    const advancedImagesRaw = formData.get('advanced_images_json') as string
+    const uploadedImageRaw = formData.get('uploaded_image_json') as string
+
+    let payloadImagesCount = 0
+    if (advancedImagesRaw) {
+      try {
+        const parsed = JSON.parse(advancedImagesRaw)
+        if (Array.isArray(parsed)) {
+          payloadImagesCount = parsed.length
+        }
+      } catch {}
+    } else if (uploadedImageRaw) {
+      payloadImagesCount = 1
+    }
+
+    if (payloadImagesCount > 4) {
+      return { error: 'Maximum 4 images allowed per artwork.' }
+    }
+
+    if (!id && payloadImagesCount === 0) {
+      return { error: 'Artwork image is mandatory. Please upload at least 1 image.' }
+    }
+
+    if (id && advancedImagesRaw && payloadImagesCount === 0) {
+      return { error: 'Artwork image is mandatory. At least 1 image is required.' }
     }
 
     // Canonical mm dimension calculation
@@ -146,15 +240,52 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
       }
     }
 
-    let paintingId = id
+    paintingId = id
+
+    // If making this artwork featured, un-feature all other paintings
+    if (is_featured) {
+      if (id) {
+        await supabase.from('paintings').update({ is_featured: false }).neq('id', id)
+      } else {
+        await supabase.from('paintings').update({ is_featured: false })
+      }
+    }
+
+    const catCode =
+      painting_type === 'acrylic'
+        ? 'ACR'
+        : painting_type === 'mixed'
+        ? 'MIX'
+        : painting_type === 'oil'
+        ? 'OIL'
+        : 'ART'
 
     if (id) {
       // ── UPDATE ──
+      // Check existing painting to dynamically sync category code in serial_number if category changed or was legacy
+      const { data: existingP } = await supabase
+        .from('paintings')
+        .select('serial_number, painting_type')
+        .eq('id', id)
+        .single()
+
+      let nextSerial = existingP?.serial_number
+      if (nextSerial) {
+        const numMatch = nextSerial.match(/\d+$/)
+        if (numMatch) {
+          const num = numMatch[0].padStart(4, '0')
+          if (existingP?.painting_type !== painting_type || nextSerial.match(/^KCG-\d+$/)) {
+            nextSerial = `KCG-${catCode}-${num}`
+          }
+        }
+      }
+
       const { error: updateErr } = await supabase
         .from('paintings')
         .update({
           title,
           painting_type,
+          serial_number: nextSerial,
           exact_medium,
           display_size,
           width,
@@ -177,12 +308,47 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
       if (updateErr) throw updateErr
     } else {
       // ── INSERT ──
+      // Proactively generate guaranteed category-coded serial number (e.g. KCG-OIL-0064)
+      let generatedSerial: string | null = null
+      try {
+        const { data: rpcSerial } = await supabase.rpc('generate_artwork_serial_number', {
+          p_type: painting_type || 'oil',
+        })
+        if (rpcSerial && typeof rpcSerial === 'string' && rpcSerial.includes(catCode)) {
+          generatedSerial = rpcSerial
+        }
+      } catch (err) {
+        console.warn('RPC serial generation notice:', err)
+      }
+
+      if (!generatedSerial) {
+        const { data: latestRows } = await supabase
+          .from('paintings')
+          .select('serial_number')
+          .not('serial_number', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(10)
+
+        let highestNum = 63
+        if (latestRows && latestRows.length > 0) {
+          for (const row of latestRows) {
+            const m = (row.serial_number || '').match(/\d+$/)
+            if (m) {
+              const val = parseInt(m[0], 10)
+              if (val > highestNum) highestNum = val
+            }
+          }
+        }
+        generatedSerial = `KCG-${catCode}-${String(highestNum + 1).padStart(4, '0')}`
+      }
+
       const slug = generateSlug(title)
       const { data: newPainting, error: insertErr } = await supabase
         .from('paintings')
         .insert({
           title,
           slug,
+          serial_number: generatedSerial,
           painting_type,
           exact_medium,
           display_size,
@@ -200,7 +366,7 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
           is_published,
           is_featured,
         })
-        .select('id')
+        .select('id, slug, serial_number')
         .single()
 
       if (insertErr) throw insertErr
@@ -227,15 +393,47 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
             .map((f, idx) => {
               let outer_width_mm = f.outer_width_mm || null
               let outer_height_mm = f.outer_height_mm || null
+              let outer_size = (f.outer_size || '').trim()
+              let price_bdt = Number(f.price_bdt) || 0
 
-              // If mm is not explicitly provided, try parsing outer_size
-              if (!outer_width_mm && f.outer_size) {
-                const match = f.outer_size.match(/(\d+(?:\.\d+)?)\s*[x×X]\s*(\d+(?:\.\d+)?)\s*(in|cm|mm)?/i)
+              let normalizedName = f.frame_name.trim()
+              normalizedName = normalizedName.replace(/^Double\s*-\s*Bit\s+frame/i, 'Double-Bit frame')
+              normalizedName = normalizedName.replace(/^Single\s*-\s*Bit\s+frame/i, 'Single-Bit frame')
+              normalizedName = normalizedName.replace(/^Double\s*-\s*Bit\s*\(/i, 'Double-Bit frame (')
+              normalizedName = normalizedName.replace(/^Single\s*-\s*Bit\s*\(/i, 'Single-Bit frame (')
+              normalizedName = normalizedName.replace(/\(white\)/i, '(White)')
+              normalizedName = normalizedName.replace(/\(black\)/i, '(Black)')
+
+              const isDb = isDoubleBitFrame(normalizedName)
+              const isSb = isSingleBitFrame(normalizedName)
+
+              // If artwork dimensions are present and positive, validate or derive canonical outer dimensions and pricing
+              if ((isDb || isSb) && width && height && width > 0 && height > 0) {
+                const artUnit = (measurement_unit as MeasurementUnit) || 'in'
+                const dims = getFrameCalculationDimensions(normalizedName, width, height, artUnit)
+                const canonicalOuter = calculateSuggestedOuterSize(width, height, artUnit, normalizedName)
+
+                if (!outer_size || outer_size.includes('inches') || !outer_size.includes('×')) {
+                  outer_size = canonicalOuter
+                }
+
+                if (dims.calculationWidthIn > 0 && dims.calculationHeightIn > 0) {
+                  outer_width_mm = Math.round(dims.calculationWidthIn * 25.4 * 10) / 10
+                  outer_height_mm = Math.round(dims.calculationHeightIn * 25.4 * 10) / 10
+                }
+
+                // If price was not provided or 0, compute dynamically
+                if (price_bdt <= 0) {
+                  price_bdt = calculateFramePrice(normalizedName, width, height, artUnit)
+                }
+              } else if (!outer_width_mm && outer_size) {
+                // If mm is not explicitly provided, try parsing outer_size
+                const match = outer_size.match(/(\d+(?:\.\d+)?)\s*[x×X]\s*(\d+(?:\.\d+)?)\s*(in|cm|mm|ft)?/i)
                 if (match) {
                   const w = parseFloat(match[1])
                   const h = parseFloat(match[2])
-                  const u = (match[3] || 'in').toLowerCase() === 'cm' ? 'cm' : (match[3] || 'in').toLowerCase() === 'mm' ? 'mm' : 'in'
-                  const factor = u === 'in' ? 25.4 : u === 'mm' ? 1 : 10
+                  const rawUnit = (match[3] || 'in').toLowerCase()
+                  const factor = rawUnit === 'ft' ? 304.8 : rawUnit === 'in' ? 25.4 : rawUnit === 'mm' ? 1 : 10
                   outer_width_mm = Math.round(w * factor * 10) / 10
                   outer_height_mm = Math.round(h * factor * 10) / 10
                 }
@@ -243,17 +441,26 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
 
               return {
                 painting_id: paintingId,
-                frame_name: f.frame_name.trim(),
-                outer_size: f.outer_size || '',
+                frame_name: normalizedName,
+                outer_size,
                 outer_width_mm,
                 outer_height_mm,
-                price_bdt: Number(f.price_bdt) || 0,
+                price_bdt,
                 is_active: true,
                 sort_order: idx + 1,
               }
             })
-          if (frameRecords.length > 0) {
-            await supabase.from('frame_options').insert(frameRecords)
+          // Deduplicate frame records so duplicate frame options can never be inserted
+          const seen = new Set<string>()
+          const deduplicatedRecords = frameRecords.filter(f => {
+            const key = f.frame_name.toLowerCase().replace(/[^a-z0-9]/g, '')
+            if (seen.has(key)) return false
+            seen.add(key)
+            return true
+          })
+
+          if (deduplicatedRecords.length > 0) {
+            await supabase.from('frame_options').insert(deduplicatedRecords)
           }
         }
       } catch (e) {
@@ -262,7 +469,6 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
     }
 
     // ── ADVANCED IMAGES PAYLOAD ──
-    const advancedImagesRaw = formData.get('advanced_images_json') as string
     if (advancedImagesRaw && paintingId) {
       try {
         const advancedImages: Array<{
@@ -276,32 +482,99 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
         }> = JSON.parse(advancedImagesRaw)
         
         if (advancedImages.length > 0) {
-          // Soft delete old images by archiving them (instead of hard delete)
+          // 1. Demote and archive all existing images for this painting so no duplicate primary_image remains
           await supabase
             .from('painting_images')
-            .update({ archived_at: new Date().toISOString() })
+            .update({
+              archived_at: new Date().toISOString(),
+              primary_image: false,
+              is_main: false,
+            })
             .eq('painting_id', paintingId)
-            .is('archived_at', null)
 
-          const imageRecords = advancedImages.map((img) => ({
-            painting_id: paintingId,
-            storage_key: img.originalKey,
-            thumbnail_key: img.thumbnailKey,
-            responsive_urls: img.responsiveUrls,
-            is_main: img.isPrimary,
-            primary_image: img.isPrimary,
-            sort_order: img.sortOrder,
-            mime_type: img.mimeType,
-            file_format: img.mimeType?.split('/')[1] || 'webp'
-          }))
+          // 2. Ensure strictly ONE primary image in the incoming batch
+          const primaryIdx = advancedImages.findIndex((img) => img.isPrimary)
+          const targetPrimaryIdx = primaryIdx >= 0 ? primaryIdx : 0
+
+          const imageRecords = advancedImages.map((img, idx) => {
+            const deliverableKey =
+              img.responsiveUrls?.['1600'] ||
+              img.responsiveUrls?.['1000'] ||
+              img.responsiveUrls?.['960'] ||
+              img.thumbnailKey ||
+              img.originalKey
+
+            const isPrimary = idx === targetPrimaryIdx
+
+            return {
+              painting_id: paintingId,
+              storage_key: deliverableKey,
+              processed_key: deliverableKey,
+              thumbnail_key: img.thumbnailKey || deliverableKey,
+              responsive_urls: img.responsiveUrls || {},
+              is_main: isPrimary,
+              primary_image: isPrimary,
+              sort_order: Number(img.sortOrder) || (idx + 1),
+              mime_type: img.mimeType || 'image/webp',
+              file_format: img.mimeType?.split('/')[1] || 'webp',
+              processing_status: 'completed',
+            }
+          })
 
           const { error: imgInsertErr } = await supabase.from('painting_images').insert(imageRecords)
           if (imgInsertErr) {
             console.error('Error inserting advanced images:', imgInsertErr)
+            throw new Error(`Failed to save images: ${imgInsertErr.message}`)
           }
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error('Error parsing advanced images JSON:', e)
+        throw e
+      }
+    } else if (uploadedImageRaw && paintingId) {
+      try {
+        const uploadedImg = JSON.parse(uploadedImageRaw)
+        const primaryStorageKey =
+          uploadedImg.displayKey ||
+          uploadedImg.storageKey ||
+          uploadedImg.responsiveUrls?.['1600'] ||
+          uploadedImg.responsiveUrls?.['1000'] ||
+          uploadedImg.thumbnailKey
+
+        if (uploadedImg && primaryStorageKey) {
+          // If editing and updating main cover image, demote all existing images for this painting
+          if (id) {
+            await supabase
+              .from('painting_images')
+              .update({ is_main: false, primary_image: false })
+              .eq('painting_id', id)
+          }
+
+          const { error: insertImgErr } = await supabase.from('painting_images').insert({
+            painting_id: paintingId,
+            storage_key: primaryStorageKey,
+            processed_key: primaryStorageKey,
+            thumbnail_key: uploadedImg.thumbnailKey || primaryStorageKey,
+            responsive_urls: uploadedImg.responsiveUrls || {},
+            is_main: true,
+            primary_image: true,
+            sort_order: 1,
+            mime_type: uploadedImg.mimeType || 'image/webp',
+            file_format: uploadedImg.mimeType?.split('/')[1] || 'webp',
+            width: uploadedImg.width || null,
+            height: uploadedImg.height || null,
+            file_size: uploadedImg.fileSize || null,
+            processing_status: 'completed',
+          })
+
+          if (insertImgErr) {
+            console.error('Error inserting uploaded image record:', insertImgErr)
+            throw new Error(`Failed to save image metadata: ${insertImgErr.message}`)
+          }
+        }
+      } catch (e: any) {
+        console.error('Error handling uploaded_image_json:', e)
+        throw e
       }
     } else {
       // ── SINGLE IMAGE FALLBACK (Legacy compatibility) ──
@@ -312,7 +585,7 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
           const fileName = `${paintingId}-${Date.now()}.${fileExt}`
 
           const { error: uploadErr } = await supabase.storage
-            .from('paintings')
+            .from('paintings_optimized')
             .upload(fileName, imageFile, { upsert: true, contentType: imageFile.type })
 
           if (uploadErr) {
@@ -323,11 +596,11 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
                 .from('painting_images')
                 .update({ is_main: false, primary_image: false })
                 .eq('painting_id', id)
-                .eq('is_main', true)
             }
             await supabase.from('painting_images').insert({
               painting_id: paintingId,
               storage_key: fileName,
+              thumbnail_key: fileName,
               alt_text: title,
               is_main: true,
               primary_image: true,
@@ -340,14 +613,29 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
       }
     }
 
+
     revalidatePath('/admin')
     revalidatePath('/admin/paintings')
     revalidatePath('/')
     revalidatePath('/gallery')
+    revalidatePath('/gallery/[slug]', 'page')
+    if (id) {
+      revalidatePath(`/admin/paintings/${id}`)
+    }
 
     return { success: true }
   } catch (err: any) {
     console.error('Save painting error:', err)
+    // If a brand new artwork creation failed mid-flight (e.g. image constraints),
+    // clean up the orphaned painting record so no broken artwork or consumed serial is left behind.
+    if (!id && paintingId) {
+      try {
+        const { supabase } = await requireAdmin()
+        await supabase.from('paintings').delete().eq('id', paintingId)
+      } catch (cleanupErr) {
+        console.error('Failed to clean up incomplete painting record:', cleanupErr)
+      }
+    }
     return { error: err.message || 'Failed to save artwork.' }
   }
 }
@@ -355,3 +643,326 @@ export async function saveArtworkAction(prevState: any, formData: FormData) {
 export async function saveArtworkModalAction(prevState: any, formData: FormData) {
   return await saveArtworkAction(prevState, formData)
 }
+
+// ─────────────────────────────────────────────
+// BULK ARTWORK ACTIONS (SECURITY & AUTHORITATIVE PROCESSING)
+// ─────────────────────────────────────────────
+
+export interface BulkActionResult {
+  success: boolean
+  updatedCount: number
+  skippedCount: number
+  failedCount: number
+  message: string
+  error?: string
+}
+
+export async function bulkUpdateVisibilityAction(
+  ids: string[],
+  isPublished: boolean
+): Promise<BulkActionResult> {
+  try {
+    const { supabase } = await requireAdmin()
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return {
+        success: false,
+        updatedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+        message: 'No artworks selected.',
+        error: 'No artworks selected.',
+      }
+    }
+
+    const targetIds = ids.slice(0, 1000)
+    let eligibleIds = targetIds
+    let skippedCount = 0
+
+    // If publishing, enforce production safeguard: artwork must have at least 1 image
+    if (isPublished) {
+      const { data: imagesWithPaintings } = await supabase
+        .from('painting_images')
+        .select('painting_id')
+        .in('painting_id', targetIds)
+        .is('archived_at', null)
+
+      const paintingsWithImages = new Set((imagesWithPaintings || []).map((img) => img.painting_id))
+      eligibleIds = targetIds.filter((id) => paintingsWithImages.has(id))
+      skippedCount = targetIds.length - eligibleIds.length
+    }
+
+    let updatedCount = 0
+    let failedCount = 0
+    const now = new Date().toISOString()
+
+    // Chunk updates into safe batches of 50
+    const chunkSize = 50
+    for (let i = 0; i < eligibleIds.length; i += chunkSize) {
+      const chunk = eligibleIds.slice(i, i + chunkSize)
+      const { data, error } = await supabase
+        .from('paintings')
+        .update({
+          is_published: isPublished,
+          updated_at: now,
+        })
+        .in('id', chunk)
+        .select('id')
+
+      if (error) {
+        console.error('Bulk visibility chunk error:', error)
+        failedCount += chunk.length
+      } else {
+        updatedCount += data?.length ?? chunk.length
+      }
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/admin/paintings')
+    revalidatePath('/')
+    revalidatePath('/gallery')
+    revalidatePath('/sitemap.xml')
+
+    const actionWord = isPublished ? 'published' : 'hidden'
+    let msg = `Successfully ${actionWord} ${updatedCount} artwork${updatedCount !== 1 ? 's' : ''}.`
+    if (skippedCount > 0) {
+      msg += ` (${skippedCount} artwork${skippedCount !== 1 ? 's were' : ' was'} skipped because of 0 uploaded images)`
+    }
+    if (failedCount > 0) {
+      msg += ` (${failedCount} failed to update)`
+    }
+
+    return {
+      success: updatedCount > 0 || (skippedCount > 0 && failedCount === 0),
+      updatedCount,
+      skippedCount,
+      failedCount,
+      message: msg,
+    }
+  } catch (err: any) {
+    console.error('bulkUpdateVisibilityAction error:', err)
+    return {
+      success: false,
+      updatedCount: 0,
+      skippedCount: 0,
+      failedCount: ids?.length || 0,
+      message: err.message || 'Unauthorized or server error.',
+      error: err.message || 'Unauthorized.',
+    }
+  }
+}
+
+export async function bulkApplyOfferAction(
+  ids: string[],
+  discountType: 'percentage' | 'fixed',
+  discountValue: number,
+  customBadge?: string | null
+): Promise<BulkActionResult> {
+  try {
+    const { supabase } = await requireAdmin()
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return {
+        success: false,
+        updatedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+        message: 'No artworks selected.',
+        error: 'No artworks selected.',
+      }
+    }
+
+    const val = Number(discountValue)
+    if (isNaN(val) || val <= 0 || !isFinite(val)) {
+      return {
+        success: false,
+        updatedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+        message: 'Please provide a valid positive discount value.',
+        error: 'Invalid discount value.',
+      }
+    }
+
+    if (discountType === 'percentage' && (val < 1 || val > 99)) {
+      return {
+        success: false,
+        updatedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+        message: 'Percentage discount must be between 1% and 99%.',
+        error: 'Invalid percentage discount.',
+      }
+    }
+
+    const targetIds = ids.slice(0, 1000)
+
+    // Fetch original base prices to calculate authoritative discounts
+    const { data: artworks, error: fetchErr } = await supabase
+      .from('paintings')
+      .select('id, title, base_price_bdt')
+      .in('id', targetIds)
+
+    if (fetchErr || !artworks) {
+      throw fetchErr || new Error('Failed to retrieve target artworks.')
+    }
+
+    let updatedCount = 0
+    let skippedCount = 0
+    let failedCount = 0
+
+    // Compute badges and discounted prices for each artwork
+    const updates: Array<{ id: string; discount_price_bdt: number; offer_badge: string }> = []
+
+    for (const art of artworks) {
+      const basePrice = Number(art.base_price_bdt) || 0
+      if (basePrice <= 0) {
+        skippedCount++
+        continue
+      }
+
+      let discountedPrice = 0
+      let defaultBadge = ''
+
+      if (discountType === 'percentage') {
+        discountedPrice = Math.round(basePrice * (1 - val / 100))
+        defaultBadge = `${Math.round(val)}% OFF`
+      } else {
+        // Fixed discount in BDT
+        discountedPrice = Math.round(basePrice - val)
+        defaultBadge = `৳${Math.round(val).toLocaleString('en-BD')} OFF`
+      }
+
+      // Security & business validation: discounted price must be positive and strictly lower than base price
+      if (discountedPrice <= 0 || discountedPrice >= basePrice) {
+        skippedCount++
+        continue
+      }
+
+      const finalBadge = customBadge && customBadge.trim() ? customBadge.trim().slice(0, 50) : defaultBadge
+
+      updates.push({
+        id: art.id,
+        discount_price_bdt: discountedPrice,
+        offer_badge: finalBadge,
+      })
+    }
+
+    const now = new Date().toISOString()
+    for (const item of updates) {
+      const { error } = await supabase
+        .from('paintings')
+        .update({
+          discount_price_bdt: item.discount_price_bdt,
+          offer_badge: item.offer_badge,
+          updated_at: now,
+        })
+        .eq('id', item.id)
+
+      if (error) {
+        console.error(`Failed to apply offer to artwork ${item.id}:`, error)
+        failedCount++
+      } else {
+        updatedCount++
+      }
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/admin/paintings')
+    revalidatePath('/')
+    revalidatePath('/gallery')
+
+    let msg = `Successfully applied offer to ${updatedCount} artwork${updatedCount !== 1 ? 's' : ''}.`
+    if (skippedCount > 0) {
+      msg += ` (${skippedCount} skipped due to base price constraints)`
+    }
+    if (failedCount > 0) {
+      msg += ` (${failedCount} failed to update)`
+    }
+
+    return {
+      success: updatedCount > 0,
+      updatedCount,
+      skippedCount,
+      failedCount,
+      message: msg,
+    }
+  } catch (err: any) {
+    console.error('bulkApplyOfferAction error:', err)
+    return {
+      success: false,
+      updatedCount: 0,
+      skippedCount: 0,
+      failedCount: ids?.length || 0,
+      message: err.message || 'Unauthorized or server error.',
+      error: err.message || 'Unauthorized.',
+    }
+  }
+}
+
+export async function bulkRemoveOfferAction(ids: string[]): Promise<BulkActionResult> {
+  try {
+    const { supabase } = await requireAdmin()
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return {
+        success: false,
+        updatedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+        message: 'No artworks selected.',
+        error: 'No artworks selected.',
+      }
+    }
+
+    const targetIds = ids.slice(0, 1000)
+    let updatedCount = 0
+    let failedCount = 0
+
+    const chunkSize = 50
+    const now = new Date().toISOString()
+    for (let i = 0; i < targetIds.length; i += chunkSize) {
+      const chunk = targetIds.slice(i, i + chunkSize)
+      const { data, error } = await supabase
+        .from('paintings')
+        .update({
+          discount_price_bdt: null,
+          offer_badge: null,
+          updated_at: now,
+        })
+        .in('id', chunk)
+        .select('id')
+
+      if (error) {
+        console.error('Bulk remove offer chunk error:', error)
+        failedCount += chunk.length
+      } else {
+        updatedCount += data?.length ?? chunk.length
+      }
+    }
+
+    revalidatePath('/admin')
+    revalidatePath('/admin/paintings')
+    revalidatePath('/')
+    revalidatePath('/gallery')
+
+    return {
+      success: updatedCount > 0,
+      updatedCount,
+      skippedCount: 0,
+      failedCount,
+      message: `Successfully removed offers from ${updatedCount} artwork${updatedCount !== 1 ? 's' : ''}.`,
+    }
+  } catch (err: any) {
+    console.error('bulkRemoveOfferAction error:', err)
+    return {
+      success: false,
+      updatedCount: 0,
+      skippedCount: 0,
+      failedCount: ids?.length || 0,
+      message: err.message || 'Unauthorized or server error.',
+      error: err.message || 'Unauthorized.',
+    }
+  }
+}
+

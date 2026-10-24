@@ -3,10 +3,11 @@ export type AvailabilityStatus = 'available' | 'reserved' | 'sold';
 
 export interface Painting {
   id: string;
+  serial_number?: string | null;
   title: string;
   slug: string;
   painting_type: PaintingType;
-  exact_medium: string;
+  exact_medium?: string | null;
   width: number;
   height: number;
   measurement_unit: string;
