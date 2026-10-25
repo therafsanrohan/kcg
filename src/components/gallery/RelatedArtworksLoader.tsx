@@ -36,7 +36,7 @@ export default async function RelatedArtworksLoader({
     .is('archived_at', null)
     .neq('id', currentArtwork.id)
     .order('created_at', { ascending: false })
-    .limit(24)
+    .limit(40)
 
   if (!candidates || candidates.length === 0) {
     return null

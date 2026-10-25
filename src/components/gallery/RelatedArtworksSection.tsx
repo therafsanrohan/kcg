@@ -68,9 +68,13 @@ export default function RelatedArtworksSection({
     return () => window.removeEventListener('preferredCurrencyChanged', updateCurr)
   }, [])
 
-  // Deterministic, weighted relevance ranking algorithm
-  const rankedArtworks = useMemo(() => {
-    if (!candidates || candidates.length === 0) return []
+  // Deterministic, weighted relevance ranking algorithm with smart offer affinity
+  const { rankedArtworks, isOfferContext } = useMemo(() => {
+    if (!candidates || candidates.length === 0) return { rankedArtworks: [], isOfferContext: false }
+
+    const isCurrentOnOffer = Boolean(
+      (currentArtwork.discount_price_bdt && Number(currentArtwork.discount_price_bdt) > 0)
+    )
 
     const currentPrice = Number(currentArtwork.discount_price_bdt || currentArtwork.base_price_bdt) || 1
     const currentOrientation = getOrientationCategory(
@@ -83,20 +87,29 @@ export default function RelatedArtworksSection({
       .filter((art) => art.id !== currentArtwork.id)
       .map((candidate) => {
         let score = 0
+        const isCandOnOffer = Boolean(
+          (candidate.discount_price_bdt && Number(candidate.discount_price_bdt) > 0) || candidate.offer_badge
+        )
 
-        // 1. Same Medium / Category (+50 pts)
+        // 1. Smart Offer Affinity:
+        // If current artwork is on offer, prioritize other offer artworks (+100 pts)
+        if (isCurrentOnOffer && isCandOnOffer) {
+          score += 100
+        }
+
+        // 2. Same Medium / Category (+50 pts)
         const candMedium = (candidate.painting_type || '').toLowerCase()
         if (candMedium && candMedium === currentMedium) {
           score += 50
         }
 
-        // 2. Price Proximity (+30 pts max)
+        // 3. Price Proximity (+30 pts max)
         const candPrice = Number(candidate.discount_price_bdt || candidate.base_price_bdt) || 1
         const priceDiffRatio = Math.abs(candPrice - currentPrice) / Math.max(currentPrice, 10000)
         const priceScore = Math.max(0, 30 * (1 - Math.min(priceDiffRatio, 1)))
         score += priceScore
 
-        // 3. Similar Dimensions / Orientation (+20 pts)
+        // 4. Similar Dimensions / Orientation (+20 pts)
         const candOrientation = getOrientationCategory(
           candidate.width_mm || candidate.width,
           candidate.height_mm || candidate.height
@@ -105,7 +118,7 @@ export default function RelatedArtworksSection({
           score += 20
         }
 
-        // 4. Availability preference (Available artworks get slight boost over sold)
+        // 5. Availability preference (Available artworks get slight boost over sold)
         if (candidate.availability_status === 'available') {
           score += 10
         }
@@ -113,6 +126,7 @@ export default function RelatedArtworksSection({
         return {
           artwork: candidate,
           score,
+          isOffer: isCandOnOffer,
         }
       })
 
@@ -123,7 +137,10 @@ export default function RelatedArtworksSection({
     })
 
     // Return top 4 most relevant artworks
-    return scored.slice(0, 4).map((s) => s.artwork)
+    return {
+      rankedArtworks: scored.slice(0, 4).map((s) => s.artwork),
+      isOfferContext: isCurrentOnOffer,
+    }
   }, [currentArtwork, candidates])
 
   if (rankedArtworks.length === 0) {
@@ -136,21 +153,21 @@ export default function RelatedArtworksSection({
       <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-4">
         <div>
           <span className="font-mono text-[11px] uppercase tracking-[0.25em] text-gray-400 block mb-2">
-            Curated Discovery
+            {isOfferContext ? 'Special Offers & Related' : 'Curated Discovery'}
           </span>
           <h2
             id="related-artworks-heading"
             className="font-editorial text-3xl sm:text-4xl font-normal text-gray-950 tracking-tight"
           >
-            More to Explore
+            {isOfferContext ? 'Related Pieces on Offer' : 'More to Explore'}
           </h2>
         </div>
 
         <Link
-          href="/gallery"
+          href={isOfferContext ? '/#available-works?category=offers' : '/gallery'}
           className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-900 hover:text-gray-600 transition-colors group cursor-pointer"
         >
-          <span>View Full Collection</span>
+          <span>{isOfferContext ? 'View All Offers' : 'View Full Collection'}</span>
           <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
         </Link>
       </div>
