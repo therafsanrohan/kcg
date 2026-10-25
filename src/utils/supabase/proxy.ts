@@ -12,6 +12,17 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
+  const host = request.headers.get('host') || ''
+  const isAppSubdomain = host.startsWith('app.')
+
+  // If user accesses via app.kazicanvasgallery.com subdomain:
+  // Root '/' goes directly to admin dashboard/login
+  if (isAppSubdomain && request.nextUrl.pathname === '/') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/admin'
+    return NextResponse.redirect(url)
+  }
+
   const isAdminPath = request.nextUrl.pathname.startsWith('/admin');
   const isLoginPath = request.nextUrl.pathname === '/admin/login';
 
