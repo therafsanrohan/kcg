@@ -5,9 +5,18 @@
 // This boots Next.js with Phusion Passenger or standalone reverse-proxy on cPanel.
 // ==============================================================================
 
+const path = require('path')
+
+// Automatically load .env and .env.local if present in the project directory
+try {
+  require('dotenv').config({ path: path.resolve(__dirname, '.env') })
+  require('dotenv').config({ path: path.resolve(__dirname, '.env.local') })
+} catch (e) {
+  // dotenv is optional in production if passed by cPanel
+}
+
 const { createServer } = require('http')
 const { parse } = require('url')
-const path = require('path')
 const next = require('next')
 
 const dev = process.env.NODE_ENV !== 'production'
