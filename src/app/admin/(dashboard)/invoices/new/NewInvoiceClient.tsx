@@ -51,6 +51,16 @@ interface InvoiceItemDraft {
   unit_price_bdt: number
 }
 
+interface FrameItemDraft {
+  id: string
+  painting_id?: string
+  frame_type: string
+  outer_size: string
+  quantity: number
+  unit_price_bdt: number
+  specs?: string
+}
+
 interface NewInvoiceClientProps {
   paintings: any[]
   clients: Client[]
@@ -76,14 +86,18 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0])
   const [dueDate, setDueDate] = useState('')
 
-  // Separate Financial Sections
-  // Framing Section
+  // Multiple Framing Section State
   const [framingEnabled, setFramingEnabled] = useState(false)
-  const [framingType, setFramingType] = useState('Classic Wooden Box Frame')
-  const [framingSpecs, setFramingSpecs] = useState('')
-  const [framingDimensions, setFramingDimensions] = useState('')
-  const [framingQuantity, setFramingQuantity] = useState<number>(1)
-  const [framingUnitPrice, setFramingUnitPrice] = useState<number>(0)
+  const [frames, setFrames] = useState<FrameItemDraft[]>([
+    {
+      id: 'frame-1',
+      frame_type: 'Double-Bit frame (White)',
+      outer_size: '',
+      quantity: 1,
+      unit_price_bdt: 0,
+      specs: '',
+    },
+  ])
 
   // Delivery Section
   const [deliveryMethod, setDeliveryMethod] = useState('Standard Courier Delivery')
@@ -245,23 +259,100 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
       return copy
     })
 
-    // Auto-reduction for framing: if artwork has preconfigured active frame_options, apply the first active frame
+    // Auto-reduction for framing: if artwork has preconfigured active frame_options or dimensions, configure frame for this artwork
     if (artwork.frame_options && Array.isArray(artwork.frame_options) && artwork.frame_options.length > 0) {
       const activeFrame = artwork.frame_options.find((f: any) => f.is_active) || artwork.frame_options[0]
       if (activeFrame) {
         setFramingEnabled(true)
-        setFramingType(activeFrame.frame_name || 'Double-Bit frame (White)')
-        if (activeFrame.outer_size) setFramingDimensions(activeFrame.outer_size)
-        if (Number(activeFrame.price_bdt) > 0) setFramingUnitPrice(Number(activeFrame.price_bdt))
+        setFrames((prev) => {
+          const exists = prev.find((f) => f.painting_id === artwork.id)
+          if (exists) {
+            return prev.map((f) =>
+              f.painting_id === artwork.id
+                ? {
+                    ...f,
+                    frame_type: activeFrame.frame_name || 'Double-Bit frame (White)',
+                    outer_size: activeFrame.outer_size || '',
+                    unit_price_bdt: Number(activeFrame.price_bdt) || 0,
+                  }
+                : f
+            )
+          }
+          // If the first frame row is untouched/empty, populate it
+          if (prev.length === 1 && !prev[0].painting_id && prev[0].unit_price_bdt === 0) {
+            return [
+              {
+                id: prev[0].id,
+                painting_id: artwork.id,
+                frame_type: activeFrame.frame_name || 'Double-Bit frame (White)',
+                outer_size: activeFrame.outer_size || '',
+                quantity: 1,
+                unit_price_bdt: Number(activeFrame.price_bdt) || 0,
+                specs: '',
+              },
+            ]
+          }
+          // Otherwise append a new frame row for this new artwork
+          return [
+            ...prev,
+            {
+              id: `frame-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+              painting_id: artwork.id,
+              frame_type: activeFrame.frame_name || 'Double-Bit frame (White)',
+              outer_size: activeFrame.outer_size || '',
+              quantity: 1,
+              unit_price_bdt: Number(activeFrame.price_bdt) || 0,
+              specs: '',
+            },
+          ]
+        })
       }
     } else if (dims) {
-      // Auto calculate frame dimensions & price based on artwork dimensions and current framing type
       const parsed = parseLegacyDisplaySize(dims)
       if (parsed) {
-        const outer = calculateSuggestedOuterSize(parsed.width, parsed.height, parsed.unit, framingType)
-        const framePrice = calculateFramePrice(framingType, parsed.width, parsed.height, parsed.unit)
-        if (outer) setFramingDimensions(outer)
-        if (framePrice > 0) setFramingUnitPrice(framePrice)
+        const defaultFrameType = 'Double-Bit frame (White)'
+        const outer = calculateSuggestedOuterSize(parsed.width, parsed.height, parsed.unit, defaultFrameType)
+        const framePrice = calculateFramePrice(defaultFrameType, parsed.width, parsed.height, parsed.unit)
+        setFrames((prev) => {
+          const exists = prev.find((f) => f.painting_id === artwork.id)
+          if (exists) {
+            return prev.map((f) =>
+              f.painting_id === artwork.id
+                ? {
+                    ...f,
+                    frame_type: defaultFrameType,
+                    outer_size: outer || '',
+                    unit_price_bdt: framePrice,
+                  }
+                : f
+            )
+          }
+          if (prev.length === 1 && !prev[0].painting_id && prev[0].unit_price_bdt === 0) {
+            return [
+              {
+                id: prev[0].id,
+                painting_id: artwork.id,
+                frame_type: defaultFrameType,
+                outer_size: outer || '',
+                quantity: 1,
+                unit_price_bdt: framePrice,
+                specs: '',
+              },
+            ]
+          }
+          return [
+            ...prev,
+            {
+              id: `frame-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+              painting_id: artwork.id,
+              frame_type: defaultFrameType,
+              outer_size: outer || '',
+              quantity: 1,
+              unit_price_bdt: framePrice,
+              specs: '',
+            },
+          ]
+        })
       }
     }
 
@@ -289,7 +380,10 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
     0
   )
   const framingSubtotal = framingEnabled
-    ? (Number(framingUnitPrice) || 0) * (Number(framingQuantity) || 1)
+    ? frames.reduce(
+        (sum, f) => sum + (Number(f.unit_price_bdt) || 0) * (Number(f.quantity) || 1),
+        0
+      )
     : 0
 
   const itemsSubtotal = artworkSubtotal + framingSubtotal
@@ -320,7 +414,7 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
     }
 
     startTransition(async () => {
-      // Assemble all valid line items, including separate framing line item if enabled
+      // Assemble all valid line items, including separate framing line items if enabled
       const finalItems: any[] = items
         .filter((i) => i.item_name.trim())
         .map((i) => ({
@@ -328,16 +422,21 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
           item_type: i.item_type || 'painting',
         }))
 
-      if (framingEnabled && framingUnitPrice > 0) {
-        finalItems.push({
-          item_type: 'frame',
-          item_name: `Custom Framing: ${framingType}`,
-          item_description: framingSpecs
-            ? `${framingSpecs}${framingDimensions ? ` (${framingDimensions})` : ''}`
-            : framingDimensions || 'Custom Gallery Frame Moulding',
-          size_snapshot: framingDimensions || null,
-          quantity: Math.max(1, Number(framingQuantity) || 1),
-          unit_price_bdt: Number(framingUnitPrice),
+      if (framingEnabled) {
+        frames.forEach((f) => {
+          if (Number(f.unit_price_bdt) > 0 || f.frame_type) {
+            finalItems.push({
+              item_type: 'frame',
+              painting_id: f.painting_id || null,
+              item_name: `Custom Framing: ${f.frame_type}`,
+              item_description: f.specs
+                ? `${f.specs}${f.outer_size ? ` (${f.outer_size})` : ''}`
+                : f.outer_size || 'Custom Gallery Frame Moulding',
+              size_snapshot: f.outer_size || null,
+              quantity: Math.max(1, Number(f.quantity) || 1),
+              unit_price_bdt: Number(f.unit_price_bdt) || 0,
+            })
+          }
         })
       }
 
@@ -861,133 +960,232 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
         </div>
 
         {framingEnabled ? (
-          <div className="p-4 sm:p-5 rounded-2xl bg-amber-50/40 border border-amber-200/80 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-800 mb-1">
-                  Frame Moulding Type
-                </label>
-                {(() => {
-                  // Find the selected painting from items to get its existing input frame options
-                  const selectedArtItem = items.find((i) => i.item_type === 'painting' && i.painting_id)
-                  const matchingPainting = selectedArtItem
-                    ? paintings.find((p) => p.id === selectedArtItem.painting_id)
-                    : null
-                  const existingFrames = matchingPainting?.frame_options || []
+          <div className="space-y-4">
+            {frames.map((frame, fIdx) => {
+              // Find associated artwork or any painting from line items
+              const associatedArtItem = frame.painting_id
+                ? items.find((i) => i.painting_id === frame.painting_id)
+                : items.find((i) => i.item_type === 'painting' && i.painting_id)
 
-                  // Create dynamic options list from existing inputs
-                  const dynamicOptions =
-                    existingFrames.length > 0
-                      ? existingFrames.map((f: any) => ({
-                          value: f.frame_name,
-                          label: `${f.frame_name} (${f.outer_size || 'Custom Size'} · ৳${Number(f.price_bdt || 0).toLocaleString('en-BD')})`,
-                        }))
-                      : [
-                          { value: 'Double-Bit frame (White)', label: 'Double-Bit frame (White)' },
-                          { value: 'Double-Bit frame (Black)', label: 'Double-Bit frame (Black)' },
-                          { value: 'Single-Bit frame (White)', label: 'Single-Bit frame (White)' },
-                          { value: 'Single-Bit frame (Black)', label: 'Single-Bit frame (Black)' },
-                          { value: 'Custom Frame (Specified Below)', label: 'Custom Frame (Specified Below)' },
-                        ]
+              const matchingPainting = associatedArtItem?.painting_id
+                ? paintings.find((p) => p.id === associatedArtItem.painting_id)
+                : null
 
-                  return (
-                    <CustomSelect
-                      value={framingType}
+              const existingFrames = matchingPainting?.frame_options || []
+
+              // Build dynamic options from existing inputs
+              const dynamicOptions =
+                existingFrames.length > 0
+                  ? existingFrames.map((f: any) => ({
+                      value: f.frame_name,
+                      label: `${f.frame_name} (${f.outer_size || 'Custom Size'} · ৳${Number(f.price_bdt || 0).toLocaleString('en-BD')})`,
+                    }))
+                  : [
+                      { value: 'Double-Bit frame (White)', label: 'Double-Bit frame (White)' },
+                      { value: 'Double-Bit frame (Black)', label: 'Double-Bit frame (Black)' },
+                      { value: 'Single-Bit frame (White)', label: 'Single-Bit frame (White)' },
+                      { value: 'Single-Bit frame (Black)', label: 'Single-Bit frame (Black)' },
+                      { value: 'Classic Wooden Box Frame', label: 'Classic Wooden Box Frame' },
+                      { value: 'Custom Frame (Specified Below)', label: 'Custom Frame (Specified Below)' },
+                    ]
+
+              return (
+                <div
+                  key={frame.id}
+                  className="p-4 sm:p-5 rounded-2xl bg-amber-50/40 border border-amber-200/80 space-y-4 relative"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                      Frame #{fIdx + 1}
+                      {associatedArtItem?.item_name ? ` (For: ${associatedArtItem.item_name})` : ''}
+                    </span>
+
+                    {frames.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setFrames((prev) => prev.filter((_, i) => i !== fIdx))}
+                        className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        title="Remove this frame"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-800 mb-1">
+                        Frame Moulding Type
+                      </label>
+                      <CustomSelect
+                        value={frame.frame_type}
+                        onChange={(e) => {
+                          const newType = e.target.value
+
+                          // 1. Check if matches existing frame for this artwork
+                          const matchedExisting = existingFrames.find(
+                            (f: any) => f.frame_name.toLowerCase().trim() === newType.toLowerCase().trim()
+                          )
+
+                          setFrames((prev) => {
+                            const copy = [...prev]
+                            if (matchedExisting) {
+                              copy[fIdx] = {
+                                ...copy[fIdx],
+                                frame_type: newType,
+                                outer_size: matchedExisting.outer_size || copy[fIdx].outer_size,
+                                unit_price_bdt: Number(matchedExisting.price_bdt) || copy[fIdx].unit_price_bdt,
+                              }
+                            } else {
+                              const targetDims = associatedArtItem?.size_snapshot || copy[fIdx].outer_size
+                              let nextOuter = copy[fIdx].outer_size
+                              let nextPrice = copy[fIdx].unit_price_bdt
+                              if (targetDims) {
+                                const parsed = parseLegacyDisplaySize(targetDims)
+                                if (parsed) {
+                                  const calcOuter = calculateSuggestedOuterSize(parsed.width, parsed.height, parsed.unit, newType)
+                                  const calcPrice = calculateFramePrice(newType, parsed.width, parsed.height, parsed.unit)
+                                  if (calcOuter) nextOuter = calcOuter
+                                  if (calcPrice > 0) nextPrice = calcPrice
+                                }
+                              }
+                              copy[fIdx] = {
+                                ...copy[fIdx],
+                                frame_type: newType,
+                                outer_size: nextOuter,
+                                unit_price_bdt: nextPrice,
+                              }
+                            }
+                            return copy
+                          })
+                        }}
+                        options={dynamicOptions}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-800 mb-1">
+                        Frame Dimensions / Outer Fitting Size
+                      </label>
+                      <input
+                        type="text"
+                        value={frame.outer_size}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          setFrames((prev) => {
+                            const copy = [...prev]
+                            copy[fIdx] = { ...copy[fIdx], outer_size: val }
+                            return copy
+                          })
+                        }}
+                        placeholder="e.g. 24 × 36 inches"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-xs text-gray-900 focus:border-black outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="sm:col-span-1">
+                      <label className="block text-xs font-semibold text-gray-800 mb-1">
+                        Quantity
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={frame.quantity}
+                        onChange={(e) => {
+                          const qty = parseInt(e.target.value, 10) || 1
+                          setFrames((prev) => {
+                            const copy = [...prev]
+                            copy[fIdx] = { ...copy[fIdx], quantity: qty }
+                            return copy
+                          })
+                        }}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-xs font-mono text-gray-900 focus:border-black outline-none"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-1">
+                      <label className="block text-xs font-semibold text-gray-800 mb-1">
+                        Frame Price (৳)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={frame.unit_price_bdt}
+                        onChange={(e) => {
+                          const p = parseFloat(e.target.value) || 0
+                          setFrames((prev) => {
+                            const copy = [...prev]
+                            copy[fIdx] = { ...copy[fIdx], unit_price_bdt: p }
+                            return copy
+                          })
+                        }}
+                        placeholder="0"
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-xs font-mono text-gray-900 focus:border-black outline-none"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-1 flex flex-col justify-end">
+                      <div className="px-3.5 py-2.5 rounded-xl bg-amber-100/70 border border-amber-300/80 flex items-center justify-between text-xs">
+                        <span className="font-semibold text-amber-900">Total:</span>
+                        <span className="font-bold font-mono text-amber-950">
+                          ৳{((Number(frame.unit_price_bdt) || 0) * (Number(frame.quantity) || 1)).toLocaleString('en-BD')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-gray-600 mb-1">
+                      Mounting & Specification Notes (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={frame.specs || ''}
                       onChange={(e) => {
-                        const newType = e.target.value
-                        setFramingType(newType)
-
-                        // 1. Check if the chosen frame matches an existing frame configured on this artwork
-                        const matchedExisting = existingFrames.find(
-                          (f: any) => f.frame_name.toLowerCase().trim() === newType.toLowerCase().trim()
-                        )
-                        if (matchedExisting) {
-                          if (matchedExisting.outer_size) setFramingDimensions(matchedExisting.outer_size)
-                          if (Number(matchedExisting.price_bdt) > 0) setFramingUnitPrice(Number(matchedExisting.price_bdt))
-                          return
-                        }
-
-                        // 2. Otherwise auto-calculate from artwork dimensions
-                        const targetDims = selectedArtItem?.size_snapshot || framingDimensions
-                        if (targetDims) {
-                          const parsed = parseLegacyDisplaySize(targetDims)
-                          if (parsed) {
-                            const outer = calculateSuggestedOuterSize(parsed.width, parsed.height, parsed.unit, newType)
-                            const price = calculateFramePrice(newType, parsed.width, parsed.height, parsed.unit)
-                            if (outer) setFramingDimensions(outer)
-                            if (price > 0) setFramingUnitPrice(price)
-                          }
-                        }
+                        const val = e.target.value
+                        setFrames((prev) => {
+                          const copy = [...prev]
+                          copy[fIdx] = { ...copy[fIdx], specs: val }
+                          return copy
+                        })
                       }}
-                      options={dynamicOptions}
+                      placeholder="e.g. Acid-free matting, acrylic glass, teak wood backing"
+                      className="w-full px-3.5 py-2 rounded-xl border border-gray-200 bg-white text-xs text-gray-800 focus:border-black outline-none"
                     />
-                  )
-                })()}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-800 mb-1">
-                  Frame Dimensions / Fitting Size
-                </label>
-                <input
-                  type="text"
-                  value={framingDimensions}
-                  onChange={(e) => setFramingDimensions(e.target.value)}
-                  placeholder="e.g. 24 × 36 inches / 2.5 inch border"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-xs text-gray-900 focus:border-black outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-gray-800 mb-1">
-                  Quantity
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={framingQuantity}
-                  onChange={(e) => setFramingQuantity(parseInt(e.target.value, 10) || 1)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-xs font-mono text-gray-900 focus:border-black outline-none"
-                />
-              </div>
-
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-gray-800 mb-1">
-                  Frame Price (৳)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={framingUnitPrice}
-                  onChange={(e) => setFramingUnitPrice(parseFloat(e.target.value) || 0)}
-                  placeholder="0"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white text-xs font-mono text-gray-900 focus:border-black outline-none"
-                />
-              </div>
-
-              <div className="sm:col-span-1 flex flex-col justify-end">
-                <div className="px-3.5 py-2.5 rounded-xl bg-amber-100/70 border border-amber-300/80 flex items-center justify-between text-xs">
-                  <span className="font-semibold text-amber-900">Framing Total:</span>
-                  <span className="font-bold font-mono text-amber-950">
-                    ৳{framingSubtotal.toLocaleString('en-BD')}
-                  </span>
+                  </div>
                 </div>
-              </div>
-            </div>
+              )
+            })}
 
-            <div>
-              <label className="block text-[11px] text-gray-600 mb-1">
-                Framing Specifications & Mount Notes (Optional)
-              </label>
-              <input
-                type="text"
-                value={framingSpecs}
-                onChange={(e) => setFramingSpecs(e.target.value)}
-                placeholder="e.g. Acid-free matting, acrylic glass, teak wood backing"
-                className="w-full px-3.5 py-2 rounded-xl border border-gray-200 bg-white text-xs text-gray-800 focus:border-black outline-none"
-              />
+            {/* Add Frame Button and Total */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setFrames((prev) => [
+                    ...prev,
+                    {
+                      id: `frame-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+                      frame_type: 'Double-Bit frame (White)',
+                      outer_size: '',
+                      quantity: 1,
+                      unit_price_bdt: 0,
+                      specs: '',
+                    },
+                  ])
+                }}
+                className="px-4 py-2.5 rounded-xl border border-dashed border-amber-400 hover:border-black bg-amber-50/60 hover:bg-amber-100/60 text-xs font-semibold text-amber-900 flex items-center gap-2 transition-colors cursor-pointer self-start"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Another Frame</span>
+              </button>
+
+              <div className="px-4 py-2 rounded-xl bg-amber-100/90 border border-amber-300 text-xs font-bold text-amber-950 flex items-center gap-2 self-end">
+                <span>All Frames Subtotal:</span>
+                <span className="font-mono text-sm">৳{framingSubtotal.toLocaleString('en-BD')}</span>
+              </div>
             </div>
           </div>
         ) : (
@@ -1265,7 +1463,9 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
 
           {framingEnabled && framingSubtotal > 0 && (
             <div className="flex justify-between text-xs text-amber-900 font-medium">
-              <span>Custom Framing ({framingType})</span>
+              <span>
+                Custom Framing ({frames.length} {frames.length === 1 ? 'frame' : 'frames'})
+              </span>
               <span className="font-mono">+৳{framingSubtotal.toLocaleString('en-BD')}</span>
             </div>
           )}
