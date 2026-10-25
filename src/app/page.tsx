@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { getPaintingImageUrl } from '@/utils/image'
 import { ArrowUpRight, ArrowRight, ChevronDown } from 'lucide-react'
 import CustomerGallerySection from '@/components/CustomerGallerySection'
+import SpecialOfferShowcase from '@/components/SpecialOfferShowcase'
 import { formatMedium } from '@/utils/measurements'
 import ContactSection from '@/components/ContactSection'
 import GoogleReviewsSection from '@/components/GoogleReviewsSection'
@@ -157,7 +158,10 @@ export default async function Home() {
         </section>
       )}
 
-      {/* ── 3. Interactive Gallery Section (Find your piece) ── */}
+      {/* ── 3. Special Offer Artworks Showcase (Visible only when offers exist) ── */}
+      <SpecialOfferShowcase paintings={paintings || []} />
+
+      {/* ── 4. Interactive Gallery Section (Find your piece) ── */}
       <Suspense fallback={null}>
         <CustomerGallerySection paintings={paintings || []} />
       </Suspense>

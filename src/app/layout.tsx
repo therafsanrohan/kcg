@@ -2,8 +2,10 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import AnnouncementBar from "@/components/AnnouncementBar";
 import { cookies } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
+import { parseAnnouncementSettings } from '@/types/contact';
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -27,10 +29,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const supabase = createClient(cookieStore)
   const { data: settings } = await supabase
     .from('site_settings')
-    .select('whatsapp_number')
+    .select('whatsapp_number, social_links')
     .single()
     
   const whatsappNumber = settings?.whatsapp_number || '8801824951514'
+  const announcementSettings = parseAnnouncementSettings(settings)
 
   return (
     <html
@@ -39,6 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     >
       <body className="min-h-screen flex flex-col font-sans bg-[#FAF9F5] text-[#1A1A1A] selection:bg-[#EAE8E3]">
         <div className="gallery-grain-overlay" aria-hidden="true" />
+        <AnnouncementBar settings={announcementSettings} />
         <Navbar whatsappNumber={whatsappNumber} />
         <main className="flex-1">
           {children}

@@ -45,6 +45,15 @@ export async function updateSettings(prevState: any, formData: FormData) {
     const businessHours = (formData.get('business_hours') as string)?.trim() || ''
     const businessHoursEnabled = formData.get('business_hours_enabled') === 'on'
 
+    // Announcement / Special Offer Bar Settings
+    const announcementEnabled = formData.get('announcement_enabled') === 'on'
+    const announcementText = (formData.get('announcement_text') as string)?.trim() || ''
+    const announcementBadge = (formData.get('announcement_badge') as string)?.trim() || 'Special Offer'
+    const announcementLinkUrl = (formData.get('announcement_link_url') as string)?.trim() || '/#available-works?category=offers'
+    const announcementLinkLabel = (formData.get('announcement_link_label') as string)?.trim() || 'Explore Pieces'
+    const announcementTimerEnabled = formData.get('announcement_timer_enabled') === 'on'
+    const announcementTimerEndDate = (formData.get('announcement_timer_end_date') as string)?.trim() || ''
+
     // Server-side validation
     if (email && !isValidEmail(email)) {
       return { message: 'Please provide a valid email address (e.g. name@domain.com).', type: 'error' }
@@ -73,6 +82,15 @@ export async function updateSettings(prevState: any, formData: FormData) {
       instagram_enabled: instagramEnabled,
       business_hours: businessHours,
       business_hours_enabled: businessHoursEnabled,
+      announcement_bar: {
+        enabled: announcementEnabled,
+        text: announcementText,
+        highlight_badge: announcementBadge,
+        link_url: announcementLinkUrl,
+        link_label: announcementLinkLabel,
+        timer_enabled: announcementTimerEnabled,
+        timer_end_date: announcementTimerEndDate,
+      },
     }
 
     const newSettings = {

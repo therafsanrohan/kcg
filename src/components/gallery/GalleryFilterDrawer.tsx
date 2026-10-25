@@ -1,11 +1,11 @@
 'use client'
 
 import React, { useEffect } from 'react'
-import { X, Check, RotateCcw, SlidersHorizontal } from 'lucide-react'
+import { X, RotateCcw, SlidersHorizontal, Tag } from 'lucide-react'
 import { Currency } from '@/utils/currency-shared'
 
 export interface FilterState {
-  category: string // 'all' | 'oil' | 'acrylic' | 'mixed'
+  category: string // 'all' | 'offers' | 'oil' | 'acrylic' | 'mixed'
   orientation: string // 'all' | 'portrait' | 'landscape' | 'square'
   minPrice: number | null
   maxPrice: number | null
@@ -21,6 +21,7 @@ interface GalleryFilterDrawerProps {
   onReset: () => void
   totalCount: number
   currency: Currency
+  hasOffers?: boolean
 }
 
 const CATEGORY_OPTIONS = [
@@ -52,6 +53,7 @@ export default function GalleryFilterDrawer({
   onReset,
   totalCount,
   currency,
+  hasOffers = false,
 }: GalleryFilterDrawerProps) {
   // Prevent background scroll when drawer is open on mobile
   useEffect(() => {
@@ -138,20 +140,31 @@ export default function GalleryFilterDrawer({
                 Medium / Artwork Type
               </span>
               <div className="grid grid-cols-2 gap-2">
-                {CATEGORY_OPTIONS.map((cat) => {
+                {[
+                  CATEGORY_OPTIONS[0],
+                  ...(hasOffers ? [{ value: 'offers', label: 'Special Offer', isOffer: true }] : []),
+                  ...CATEGORY_OPTIONS.slice(1),
+                ].map((cat) => {
                   const active = filters.category === cat.value
+                  const isOfferOption = (cat as any).isOffer
+
                   return (
                     <button
                       key={cat.value}
                       type="button"
                       onClick={() => onFilterChange({ ...filters, category: cat.value })}
-                      className={`text-left px-3.5 py-2.5 rounded-xl border text-xs font-medium transition-all ${
+                      className={`text-left px-3.5 py-2.5 rounded-xl border text-xs font-medium transition-all inline-flex items-center justify-between gap-1.5 ${
                         active
-                          ? 'border-black bg-black text-white shadow-xs'
+                          ? isOfferOption
+                            ? 'border-red-600 bg-red-600 text-white shadow-xs'
+                            : 'border-black bg-black text-white shadow-xs'
+                          : isOfferOption
+                          ? 'border-red-200 bg-red-50/60 text-red-700 hover:border-red-400 hover:bg-red-50'
                           : 'border-gray-200 bg-[#FAF9F6] text-gray-700 hover:border-gray-400 hover:bg-white'
                       }`}
                     >
-                      {cat.label}
+                      <span>{cat.label}</span>
+                      {isOfferOption && <Tag className="h-3 w-3 shrink-0" />}
                     </button>
                   )
                 })}

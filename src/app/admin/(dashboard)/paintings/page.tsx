@@ -8,7 +8,7 @@ export default async function AdminPaintingsPage() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
-  let { data: paintings } = await supabase
+  let { data: paintings, error } = await supabase
     .from('paintings')
     .select(`
       id, serial_number, title, slug, painting_type, exact_medium, display_size, width, height,

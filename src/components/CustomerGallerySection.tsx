@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback, useTransition } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Search, ArrowUpRight, ChevronDown, X, SlidersHorizontal, RotateCcw } from 'lucide-react'
+import { Search, ArrowUpRight, ChevronDown, X, SlidersHorizontal, RotateCcw, Tag, Sparkles } from 'lucide-react'
 import { Currency, convertCurrency, FALLBACK_RATES } from '@/utils/currency-shared'
 import { getDisplayDimensions, getArtworkAspectRatio, formatMedium } from '@/utils/measurements'
 import ArtworkImageSlider from '@/components/ArtworkImageSlider'
@@ -123,6 +123,16 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
     syncUrlParams(reset, '')
   }
 
+  // Count published paintings with active offers/discounts
+  const offerArtworksCount = useMemo(() => {
+    return paintings.filter(
+      (p) =>
+        p.is_published !== false &&
+        !p.archived_at &&
+        ((p.discount_price_bdt && Number(p.discount_price_bdt) > 0) || Boolean(p.offer_badge))
+    ).length
+  }, [paintings])
+
   // Count active non-default filters for the badge
   const activeFiltersCount = useMemo(() => {
     let count = 0
@@ -141,8 +151,12 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
     // 1. Mandatory Public Visibility
     result = result.filter((p) => p.is_published !== false && !p.archived_at)
 
-    // 2. Medium / Category
-    if (filters.category !== 'all') {
+    // 2. Medium / Category / Special Offer
+    if (filters.category === 'offers') {
+      result = result.filter(
+        (p) => (p.discount_price_bdt && Number(p.discount_price_bdt) > 0) || Boolean(p.offer_badge)
+      )
+    } else if (filters.category !== 'all') {
       result = result.filter((p) => (p.painting_type || '').toLowerCase() === filters.category.toLowerCase())
     }
 
@@ -204,8 +218,15 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
         return (a.id || '').localeCompare(b.id || '')
       })
     } else {
-      // Newest first (created_at DESC, id DESC)
+      // Prioritize active offer artworks first if in "all" view, then sort by newest first (created_at DESC, id DESC)
       result.sort((a, b) => {
+        const hasOfferA = Boolean((a.discount_price_bdt && Number(a.discount_price_bdt) > 0) || a.offer_badge)
+        const hasOfferB = Boolean((b.discount_price_bdt && Number(b.discount_price_bdt) > 0) || b.offer_badge)
+
+        if (hasOfferA !== hasOfferB) {
+          return hasOfferA ? -1 : 1
+        }
+
         const tA = new Date(a.created_at || 0).getTime()
         const tB = new Date(b.created_at || 0).getTime()
         if (tB !== tA) return tB - tA
@@ -317,23 +338,38 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
           <div className="flex items-center gap-x-5 sm:gap-x-7 overflow-x-auto scrollbar-none py-1">
             {[
               { id: 'all', label: 'All Pieces' },
+              ...(offerArtworksCount > 0
+                ? [{ id: 'offers', label: 'Special Offer', isOffer: true, count: offerArtworksCount }]
+                : []),
               { id: 'oil', label: 'Oil' },
               { id: 'acrylic', label: 'Acrylic' },
               { id: 'mixed', label: 'Mixed Media' },
             ].map((tab) => {
               const active = filters.category === tab.id
+              const isOfferTab = (tab as any).isOffer
+
               return (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => handleFilterChange({ ...filters, category: tab.id })}
-                  className={`text-xs uppercase tracking-[0.18em] transition-colors pb-1 cursor-pointer whitespace-nowrap ${
+                  className={`text-xs uppercase tracking-[0.18em] transition-all pb-1 cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 ${
                     active
-                      ? 'text-black font-semibold border-b-2 border-black'
+                      ? isOfferTab
+                        ? 'text-[#DC2626] font-semibold border-b-2 border-[#DC2626]'
+                        : 'text-black font-semibold border-b-2 border-black'
+                      : isOfferTab
+                      ? 'text-[#DC2626]/80 hover:text-[#DC2626] font-medium'
                       : 'text-gray-400 hover:text-black font-medium'
                   }`}
                 >
-                  {tab.label}
+                  {isOfferTab && <Tag className="h-3 w-3 fill-current" />}
+                  <span>{tab.label}</span>
+                  {isOfferTab && (
+                    <span className="ml-0.5 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-[#DC2626]/10 text-[#DC2626] font-bold">
+                      {(tab as any).count}
+                    </span>
+                  )}
                 </button>
               )
             })}
@@ -346,6 +382,23 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
 
         </div>
 
+        {/* Dynamic Special Offer Notification Bar (Visible only when 'offers' tab is active) */}
+        {offerArtworksCount > 0 && filters.category === 'offers' && (
+          <div className="mb-8 rounded-xl bg-red-50/70 border border-red-200/80 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-red-600 font-semibold block mb-0.5">
+                LIMITED AVAILABILITY
+              </span>
+              <p className="text-xs sm:text-sm text-gray-800 font-medium">
+                Viewing paintings currently available with promotional pricing.
+              </p>
+            </div>
+            <span className="text-xs font-mono text-red-700 bg-white border border-red-200 px-3 py-1 rounded-full self-start sm:self-auto font-medium shadow-2xs">
+              {offerArtworksCount} {offerArtworksCount === 1 ? 'artwork on offer' : 'artworks on offer'}
+            </span>
+          </div>
+        )}
+
         {/* Active Filter Chips Bar (Visible when any non-default filter is set) */}
         {activeFiltersCount > 0 && (
           <div className="flex flex-wrap items-center gap-2 mb-8 animate-in fade-in duration-200">
@@ -355,12 +408,16 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
 
             {/* Category Chip */}
             {filters.category !== 'all' && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-gray-200 text-xs text-gray-900 font-medium shadow-2xs">
-                <span>Medium: {formatMedium(filters.category)}</span>
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-medium shadow-2xs ${
+                filters.category === 'offers'
+                  ? 'bg-red-50 border-red-200 text-red-900'
+                  : 'bg-white border-gray-200 text-gray-900'
+              }`}>
+                <span>{filters.category === 'offers' ? 'Offers: Special Offer' : `Medium: ${formatMedium(filters.category)}`}</span>
                 <button
                   type="button"
                   onClick={() => handleFilterChange({ ...filters, category: 'all' })}
-                  className="hover:text-black text-gray-400"
+                  className={filters.category === 'offers' ? 'hover:text-red-950 text-red-400' : 'hover:text-black text-gray-400'}
                   aria-label="Remove category filter"
                 >
                   <X className="h-3 w-3" />
@@ -585,6 +642,7 @@ export default function CustomerGallerySection({ paintings }: CustomerGallerySec
         onReset={handleResetFilters}
         totalCount={filteredPaintings.length}
         currency={currency}
+        hasOffers={offerArtworksCount > 0}
       />
     </section>
   )
