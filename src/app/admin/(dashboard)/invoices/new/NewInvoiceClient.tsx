@@ -99,10 +99,19 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
     },
   ])
 
-  // Delivery Section
-  const [deliveryMethod, setDeliveryMethod] = useState('Standard Courier Delivery')
-  const [deliveryCharge, setDeliveryCharge] = useState<number>(0)
-  const [deliveryNotes, setDeliveryNotes] = useState('')
+  // Delivery Section (Initialized with first active zone from settings if available)
+  const defaultZone = deliveryZones.length > 0 ? deliveryZones[0] : null
+  const [deliveryMethod, setDeliveryMethod] = useState(() =>
+    defaultZone ? defaultZone.label : 'Inside Dhaka Gallery Van Delivery'
+  )
+  const [deliveryCharge, setDeliveryCharge] = useState<number>(() => {
+    if (!defaultZone) return 0
+    if (defaultZone.free_delivery || defaultZone.pricing_mode === 'free') return 0
+    return Number(defaultZone.charge_bdt) || 0
+  })
+  const [deliveryNotes, setDeliveryNotes] = useState(() =>
+    defaultZone?.estimated_delivery_time ? `Estimated delivery: ${defaultZone.estimated_delivery_time}` : ''
+  )
 
   // Additional Charges & Adjustments
   const [additionalChargeLabel, setAdditionalChargeLabel] = useState('Installation / Additional Service')
