@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ArrowRight, Clock } from 'lucide-react'
+import { Clock } from 'lucide-react'
 import { AnnouncementBarSettings } from '@/types/contact'
 
 interface AnnouncementBarProps {
@@ -86,17 +85,6 @@ export default function AnnouncementBar({ settings }: AnnouncementBarProps) {
               {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m : {String(timeLeft.seconds).padStart(2, '0')}s
             </span>
           </div>
-        )}
-
-        {/* CTA Link */}
-        {settings.link_label && (
-          <Link
-            href={settings.link_url || '/#available-works?category=offers'}
-            className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-gray-200 hover:text-white transition-colors underline underline-offset-4 ml-1"
-          >
-            <span>{settings.link_label}</span>
-            <ArrowRight className="h-3 w-3" />
-          </Link>
         )}
 
       </div>
