@@ -129,6 +129,25 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
     setOrientation(newOrient)
   }
 
+  const handleDimensionsChange = (newW: string, newH: string, newOrient?: ArtworkOrientation) => {
+    setWidth(newW)
+    setHeight(newH)
+    if (newOrient) {
+      setOrientation(newOrient)
+    } else {
+      const nw = parseFloat(newW) || 0
+      const nh = parseFloat(newH) || 0
+      if (nw > 0 && nh > 0) {
+        if (Math.abs(nw - nh) < 0.05) setOrientation('square')
+        else setOrientation(nw > nh ? 'landscape' : 'portrait')
+      }
+    }
+    if (newW && newH) {
+      setDisplaySize(`${newW} × ${newH} ${unit}`)
+    }
+    updatePresetFrames(newW, newH, unit)
+  }
+
   const [frames, setFrames] = useState<FrameRow[]>(() => {
     if (painting?.frame_options?.length) {
       return painting.frame_options.map((f: any, idx: number) => {
@@ -676,6 +695,7 @@ export default function PaintingForm({ painting }: { painting?: Painting & { fra
               orientation={orientation}
               onWidthChange={handleWidthChange}
               onHeightChange={handleHeightChange}
+              onDimensionsChange={handleDimensionsChange}
               onUnitChange={handleUnitChange}
               onOrientationChange={handleOrientationChange}
             />

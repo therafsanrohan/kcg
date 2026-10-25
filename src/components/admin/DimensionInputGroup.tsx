@@ -20,6 +20,7 @@ interface DimensionInputGroupProps {
   orientation?: ArtworkOrientation
   onWidthChange: (newWidth: string) => void
   onHeightChange: (newHeight: string) => void
+  onDimensionsChange?: (newWidth: string, newHeight: string, newOrientation?: ArtworkOrientation) => void
   onUnitChange: (newUnit: MeasurementUnit) => void
   onOrientationChange?: (newOrientation: ArtworkOrientation) => void
   className?: string
@@ -32,6 +33,7 @@ export default function DimensionInputGroup({
   orientation: explicitOrientation,
   onWidthChange,
   onHeightChange,
+  onDimensionsChange,
   onUnitChange,
   onOrientationChange,
   className = '',
@@ -61,16 +63,56 @@ export default function DimensionInputGroup({
   const handleOrientationSelect = (target: ArtworkOrientation) => {
     onOrientationChange?.(target)
 
-    if (target === 'square' && numW > 0 && numH !== numW) {
-      onHeightChange(width)
-    } else if (target === 'portrait' && numW > numH && numW > 0) {
-      // Swap width and height to naturally match portrait
-      onWidthChange(height)
-      onHeightChange(width)
-    } else if (target === 'landscape' && numH > numW && numH > 0) {
-      // Swap width and height to naturally match landscape
-      onWidthChange(height)
-      onHeightChange(width)
+    // Default dimensions by unit if inputs are empty
+    const defaultShort = unit === 'cm' ? '60' : unit === 'ft' ? '2' : unit === 'mm' ? '600' : '24'
+    const defaultLong = unit === 'cm' ? '90' : unit === 'ft' ? '3' : unit === 'mm' ? '900' : '36'
+
+    if (numW === 0 && numH === 0) {
+      if (target === 'portrait') {
+        if (onDimensionsChange) onDimensionsChange(defaultShort, defaultLong, target)
+        else { onWidthChange(defaultShort); onHeightChange(defaultLong); }
+      } else if (target === 'landscape') {
+        if (onDimensionsChange) onDimensionsChange(defaultLong, defaultShort, target)
+        else { onWidthChange(defaultLong); onHeightChange(defaultShort); }
+      } else if (target === 'square') {
+        if (onDimensionsChange) onDimensionsChange(defaultShort, defaultShort, target)
+        else { onWidthChange(defaultShort); onHeightChange(defaultShort); }
+      }
+      return
+    }
+
+    if (target === 'square') {
+      const squareSide = numW > 0 ? width : height || defaultShort
+      if (onDimensionsChange) {
+        onDimensionsChange(squareSide, squareSide, target)
+      } else {
+        onWidthChange(squareSide)
+        onHeightChange(squareSide)
+      }
+    } else if (target === 'portrait') {
+      const currentMin = numW > 0 && numH > 0 ? (numW < numH ? width : height) : width || defaultShort
+      const currentMax = numW > 0 && numH > 0 ? (numW > numH ? width : height) : height || defaultLong
+      const targetW = currentMin === currentMax ? defaultShort : currentMin
+      const targetH = currentMin === currentMax ? defaultLong : currentMax
+
+      if (onDimensionsChange) {
+        onDimensionsChange(targetW, targetH, target)
+      } else {
+        onWidthChange(targetW)
+        onHeightChange(targetH)
+      }
+    } else if (target === 'landscape') {
+      const currentMin = numW > 0 && numH > 0 ? (numW < numH ? width : height) : height || defaultShort
+      const currentMax = numW > 0 && numH > 0 ? (numW > numH ? width : height) : width || defaultLong
+      const targetW = currentMin === currentMax ? defaultLong : currentMax
+      const targetH = currentMin === currentMax ? defaultShort : currentMin
+
+      if (onDimensionsChange) {
+        onDimensionsChange(targetW, targetH, target)
+      } else {
+        onWidthChange(targetW)
+        onHeightChange(targetH)
+      }
     }
   }
 

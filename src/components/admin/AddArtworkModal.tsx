@@ -230,6 +230,25 @@ export default function AddArtworkModal({
     setOrientation(newOrient)
   }
 
+  const handleDimensionsChange = (newW: string, newH: string, newOrient?: ArtworkOrientation) => {
+    setWidth(newW)
+    setHeight(newH)
+    if (newOrient) {
+      setOrientation(newOrient)
+    } else {
+      const nw = parseFloat(newW) || 0
+      const nh = parseFloat(newH) || 0
+      if (nw > 0 && nh > 0) {
+        if (Math.abs(nw - nh) < 0.05) setOrientation('square')
+        else setOrientation(nw > nh ? 'landscape' : 'portrait')
+      }
+    }
+    if (newW && newH) {
+      setDisplaySize(`${newW} × ${newH} ${unit}`)
+    }
+    updatePresetFrames(newW, newH, unit)
+  }
+
   const handleAddFrame = useCallback(() => {
     const suggestedSize = calculateSuggestedOuterSize(width, height, unit, 'Double-Bit frame (White)')
     const autoPrice = calculateFramePrice('Double-Bit frame (White)', width, height, unit)
@@ -723,6 +742,7 @@ export default function AddArtworkModal({
               orientation={orientation}
               onWidthChange={handleWidthChange}
               onHeightChange={handleHeightChange}
+              onDimensionsChange={handleDimensionsChange}
               onUnitChange={handleUnitChange}
               onOrientationChange={handleOrientationChange}
             />
