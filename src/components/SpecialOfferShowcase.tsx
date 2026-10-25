@@ -68,8 +68,8 @@ export default function SpecialOfferShowcase({ paintings }: SpecialOfferShowcase
         </Link>
       </div>
 
-      {/* Responsive Gallery Grid: Exactly identical to main works */}
-      <div className="columns-2 lg:columns-3 xl:columns-4 gap-3.5 sm:gap-6 lg:gap-8 [column-fill:_balance]">
+      {/* Responsive Gallery Grid: 2 columns on mobile & tablet, 4 columns on desktop */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-6 lg:gap-8">
         {offerPaintings.slice(0, 4).map((painting, index) => {
           const hasDiscount = Boolean(painting.discount_price_bdt && Number(painting.discount_price_bdt) > 0)
           const effectivePrice = hasDiscount ? Number(painting.discount_price_bdt) : Number(painting.base_price_bdt)
@@ -90,9 +90,9 @@ export default function SpecialOfferShowcase({ paintings }: SpecialOfferShowcase
           return (
             <div
               key={painting.id}
-              className="break-inside-avoid inline-block w-full mb-5 sm:mb-8 lg:mb-10 group"
+              className="group flex flex-col w-full"
             >
-              <div className="relative flex flex-col">
+              <div className="relative flex flex-col h-full">
                 {/* Artwork Image Box */}
                 <div className="relative w-full overflow-hidden rounded-xl sm:rounded-2xl border border-gray-200/70 shadow-2xs transition-all duration-500 ease-out group-hover:shadow-md bg-[#F4F3EE]">
                   <ArtworkImageSlider
@@ -100,7 +100,7 @@ export default function SpecialOfferShowcase({ paintings }: SpecialOfferShowcase
                     title={painting.title}
                     href={`/gallery/${painting.slug}`}
                     aspectRatio={artAspect}
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, (max-width: 1440px) 33vw, 25vw"
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     showArrows={false}
                     priority={index < 2}
                     variant="card"
@@ -134,7 +134,7 @@ export default function SpecialOfferShowcase({ paintings }: SpecialOfferShowcase
                   prefetch={true}
                   className="mt-2.5 sm:mt-3.5 block focus:outline-none focus-visible:ring-1 focus-visible:ring-black rounded-sm"
                 >
-                  <h3 className="font-editorial text-base sm:text-xl lg:text-2xl font-normal text-gray-950 group-hover:text-gray-700 transition-colors leading-snug break-words">
+                  <h3 className="font-editorial text-base sm:text-xl font-normal text-gray-950 group-hover:text-gray-700 transition-colors leading-snug break-words">
                     {painting.title}
                   </h3>
 
