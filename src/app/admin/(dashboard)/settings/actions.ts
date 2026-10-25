@@ -127,3 +127,64 @@ export async function updateSettings(prevState: any, formData: FormData) {
     return { message: error.message || 'An error occurred while saving settings.', type: 'error' }
   }
 }
+
+/**
+ * Quick server action to update Top Announcement & Special Offer Bar directly
+ * without requiring the admin to manually visit the settings page.
+ */
+export async function updateAnnouncementBarAction(payload: {
+  enabled: boolean
+  text: string
+  highlight_badge?: string
+  timer_enabled: boolean
+  timer_end_date?: string
+}) {
+  try {
+    const { supabase } = await requireAdmin()
+
+    const { data: current } = await supabase
+      .from('site_settings')
+      .select('id, social_links')
+      .single()
+
+    const social = (current?.social_links as any) || {}
+    social.announcement_bar = {
+      enabled: payload.enabled,
+      text: payload.text || 'Special Seasonal Offer — Limited Edition Original Canvases at Curated Prices',
+      highlight_badge: payload.highlight_badge || 'Special Offer',
+      link_url: '/#available-works?category=offers',
+      link_label: '',
+      timer_enabled: payload.timer_enabled,
+      timer_end_date: payload.timer_end_date || '',
+    }
+
+    if (current) {
+      const { error } = await supabase
+        .from('site_settings')
+        .update({
+          social_links: social,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', current.id)
+      if (error) throw error
+    } else {
+      const { error } = await supabase.from('site_settings').insert([
+        {
+          social_links: social,
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      if (error) throw error
+    }
+
+    revalidatePath('/', 'layout')
+    revalidatePath('/')
+    revalidatePath('/gallery')
+    revalidatePath('/admin/settings')
+
+    return { success: true, message: 'Top Announcement & Special Offer Bar updated successfully!' }
+  } catch (error: any) {
+    console.error('Update announcement action error:', error)
+    return { success: false, error: error.message || 'Failed to update announcement bar.' }
+  }
+}

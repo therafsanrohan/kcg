@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import AddArtworkModal from '@/components/admin/AddArtworkModal'
 import BulkOfferModal from '@/components/admin/BulkOfferModal'
+import AnnouncementPromptModal from '@/components/admin/AnnouncementPromptModal'
 import {
   deletePainting,
   togglePublishPainting,
@@ -90,6 +91,11 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
   // ── Bulk Actions Modal & Loading States ──
   const [isBulkOfferOpen, setIsBulkOfferOpen] = useState(false)
   const [isBulkLoading, setIsBulkLoading] = useState(false)
+
+  // ── Announcement Prompt Modal State (Triggers after offer application) ──
+  const [isAnnouncementPromptOpen, setIsAnnouncementPromptOpen] = useState(false)
+  const [promptOfferCount, setPromptOfferCount] = useState(1)
+  const [promptDefaultBadge, setPromptDefaultBadge] = useState('Special Offer')
 
   // ── Reset selection when filters change to prevent accidental bulk actions ──
   useEffect(() => {
@@ -265,6 +271,10 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
       if (res.success) {
         toast(res.message, 'success')
         router.refresh()
+        // Prompt admin to immediately configure / activate the Top Announcement Bar
+        setPromptOfferCount(ids.length)
+        setPromptDefaultBadge(badge || 'Special Offer')
+        setIsAnnouncementPromptOpen(true)
       } else {
         toast(res.error || res.message, 'error')
       }
@@ -1155,6 +1165,18 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
         isOpen={isModalOpen}
         onClose={handleModalClose}
         initialData={editingPainting}
+      />
+
+      {/* ── Prompt to Activate Top Announcement Bar immediately upon applying offers ── */}
+      <AnnouncementPromptModal
+        isOpen={isAnnouncementPromptOpen}
+        onClose={() => setIsAnnouncementPromptOpen(false)}
+        offerCount={promptOfferCount}
+        defaultBadge={promptDefaultBadge}
+        onSuccess={() => {
+          toast('Top Announcement & Special Offer Bar is now live!', 'success')
+          router.refresh()
+        }}
       />
     </div>
   )
