@@ -7,14 +7,20 @@
 
 const { createServer } = require('http')
 const { parse } = require('url')
+const path = require('path')
 const next = require('next')
 
 const dev = process.env.NODE_ENV !== 'production'
-const hostname = process.env.HOSTNAME || 'localhost'
+const hostname = process.env.HOSTNAME || '0.0.0.0'
 const port = parseInt(process.env.PORT, 10) || 3000
 
-// Initialize Next.js app in production mode
-const app = next({ dev, hostname, port })
+// Initialize Next.js app in production mode with explicit project root directory
+const app = next({
+  dev,
+  dir: path.resolve(__dirname),
+  hostname,
+  port,
+})
 const handle = app.getRequestHandler()
 
 app
