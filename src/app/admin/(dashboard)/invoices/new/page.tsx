@@ -24,10 +24,23 @@ export default async function NewInvoicePage() {
     }))
   }
 
-  const { data: clients } = await supabase
-    .from('clients')
-    .select('id, name, phone, email, billing_address, organization_name, client_type')
-    .order('name', { ascending: true })
+  const [clientsRes, deliveryZonesRes] = await Promise.all([
+    supabase
+      .from('clients')
+      .select('id, name, phone, email, billing_address, organization_name, client_type')
+      .order('name', { ascending: true }),
+    supabase
+      .from('delivery_zones')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true }),
+  ])
 
-  return <NewInvoiceClient paintings={paintings || []} clients={clients || []} />
+  return (
+    <NewInvoiceClient
+      paintings={paintings || []}
+      clients={clientsRes.data || []}
+      deliveryZones={deliveryZonesRes.data || []}
+    />
+  )
 }

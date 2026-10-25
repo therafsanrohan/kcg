@@ -29,6 +29,7 @@ import { createInvoiceDraft, searchInventoryArtworksAction } from '../actions'
 import { useAdminFeedback } from '@/components/admin/AdminFeedbackProvider'
 import CustomSelect from '@/components/ui/CustomSelect'
 import { Client } from '@/types/invoice'
+import { DeliveryZone } from '@/types'
 import { getPaintingImageUrl } from '@/utils/image'
 import {
   formatMedium,
@@ -53,9 +54,10 @@ interface InvoiceItemDraft {
 interface NewInvoiceClientProps {
   paintings: any[]
   clients: Client[]
+  deliveryZones?: DeliveryZone[]
 }
 
-export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClientProps) {
+export default function NewInvoiceClient({ paintings, clients, deliveryZones = [] }: NewInvoiceClientProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -233,6 +235,18 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
       }
       return copy
     })
+
+    // If framing is active or dimensions exist, auto-derive suggested framing size & price
+    if (dims && (isDoubleBitFrame(framingType) || isSingleBitFrame(framingType))) {
+      const parsed = parseLegacyDisplaySize(dims)
+      if (parsed) {
+        const outer = calculateSuggestedOuterSize(parsed.width, parsed.height, parsed.unit, framingType)
+        const framePrice = calculateFramePrice(framingType, parsed.width, parsed.height, parsed.unit)
+        if (outer) setFramingDimensions(outer)
+        if (framePrice > 0) setFramingUnitPrice(framePrice)
+      }
+    }
+
     setActiveInventorySearchIdx(null)
     setInventoryQuery('')
     toast(`Populated line item from: ${artwork.title}`, 'info')
@@ -615,8 +629,13 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveInventorySearchIdx(activeInventorySearchIdx === idx ? null : idx)
-                    setInventoryQuery('')
+                    if (activeInventorySearchIdx === idx) {
+                      setActiveInventorySearchIdx(null)
+                    } else {
+                      setActiveInventorySearchIdx(idx)
+                      setInventoryQuery('')
+                      setSearchResults(paintings.slice(0, 20))
+                    }
                   }}
                   className="w-full h-10 px-3.5 rounded-xl border border-dashed border-gray-300 hover:border-black bg-white flex items-center justify-between text-xs text-gray-700 transition-colors"
                 >
@@ -951,18 +970,46 @@ export default function NewInvoiceClient({ paintings, clients }: NewInvoiceClien
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-gray-800 mb-1">
-              Delivery Method / Area
+              Delivery Method / Area (Settings Linked)
             </label>
             <CustomSelect
               value={deliveryMethod}
-              onChange={(e) => setDeliveryMethod(e.target.value)}
-              options={[
-                { value: 'Inside Dhaka Gallery Van Delivery', label: 'Inside Dhaka Gallery Van Delivery' },
-                { value: 'Outside Dhaka Dedicated Courier', label: 'Outside Dhaka Dedicated Courier' },
-                { value: 'Express Same-Day Studio Courier', label: 'Express Same-Day Studio Courier' },
-                { value: 'Customer Studio Pickup (Free)', label: 'Customer Studio Pickup (Free)' },
-                { value: 'Standard Courier Delivery', label: 'Standard Courier Delivery' },
-              ]}
+              onChange={(e) => {
+                const selectedMethod = e.target.value
+                setDeliveryMethod(selectedMethod)
+                // If selected method corresponds to a zone from settings, auto-fill charge
+                const matchedZone = deliveryZones.find((z) => z.label === selectedMethod)
+                if (matchedZone) {
+                  if (matchedZone.free_delivery || matchedZone.pricing_mode === 'free') {
+                    setDeliveryCharge(0)
+                  } else {
+                    setDeliveryCharge(Number(matchedZone.charge_bdt) || 0)
+                  }
+                  if (matchedZone.estimated_delivery_time) {
+                    setDeliveryNotes((prev) => prev ? prev : `Estimated delivery: ${matchedZone.estimated_delivery_time}`)
+                  }
+                } else if (selectedMethod.includes('Pickup') || selectedMethod.includes('Free')) {
+                  setDeliveryCharge(0)
+                }
+              }}
+              options={
+                deliveryZones.length > 0
+                  ? [
+                      ...deliveryZones.map((z) => ({
+                        value: z.label,
+                        label: `${z.label} (${z.free_delivery || z.pricing_mode === 'free' ? 'Free' : `৳${Number(z.charge_bdt || 0).toLocaleString('en-BD')}`})`,
+                      })),
+                      { value: 'Customer Studio Pickup (Free)', label: 'Customer Studio Pickup (Free)' },
+                      { value: 'Express Same-Day Studio Courier', label: 'Express Same-Day Studio Courier' },
+                    ]
+                  : [
+                      { value: 'Inside Dhaka Gallery Van Delivery', label: 'Inside Dhaka Gallery Van Delivery' },
+                      { value: 'Outside Dhaka Dedicated Courier', label: 'Outside Dhaka Dedicated Courier' },
+                      { value: 'Express Same-Day Studio Courier', label: 'Express Same-Day Studio Courier' },
+                      { value: 'Customer Studio Pickup (Free)', label: 'Customer Studio Pickup (Free)' },
+                      { value: 'Standard Courier Delivery', label: 'Standard Courier Delivery' },
+                    ]
+              }
             />
           </div>
 

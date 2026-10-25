@@ -22,6 +22,7 @@ import {
   MinusSquare,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   SlidersHorizontal,
   RotateCcw,
   CheckCircle2,
@@ -437,6 +438,11 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
   const availableCount = initialPaintings.filter(
     (p) => p.availability_status === 'available'
   ).length
+  const reservedCount = initialPaintings.filter(
+    (p) => p.availability_status === 'reserved'
+  ).length
+  const publishedCount = initialPaintings.filter((p) => p.is_published).length
+  const unpublishedCount = initialPaintings.filter((p) => !p.is_published).length
   const withOfferCount = initialPaintings.filter(
     (p) => (p.discount_price_bdt && Number(p.discount_price_bdt) > 0) || p.offer_badge
   ).length
@@ -456,15 +462,95 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
             Search, filter, edit individual works, or apply offers and visibility in bulk.
           </p>
           {/* Summary stats */}
-          <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 mt-4">
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-full px-3 py-1 shadow-xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block" />
+          <div className="flex flex-wrap items-center gap-2 mt-4">
+            {/* Total */}
+            <button
+              type="button"
+              onClick={handleResetFilters}
+              className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1 transition-all cursor-pointer ${
+                !isFilterActive
+                  ? 'bg-black text-white shadow-xs ring-1 ring-black'
+                  : 'text-gray-700 bg-white border border-gray-200 hover:border-gray-400'
+              }`}
+              title="Click to reset filters and view all"
+            >
+              <span className={`w-1.5 h-1.5 rounded-full inline-block ${!isFilterActive ? 'bg-white' : 'bg-gray-400'}`} />
               {totalCount} total
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#2D7A4D] bg-[#EBF5EE] border border-[#c3e6cb] rounded-full px-3 py-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#2D7A4D] inline-block" />
+            </button>
+
+            {/* Available */}
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter(statusFilter === 'available' ? 'all' : 'available')
+                setCurrentPage(1)
+              }}
+              className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1 transition-all cursor-pointer ${
+                statusFilter === 'available'
+                  ? 'bg-[#2D7A4D] text-white shadow-xs ring-1 ring-[#2D7A4D]'
+                  : 'text-[#2D7A4D] bg-[#EBF5EE] border border-[#c3e6cb] hover:bg-[#d4edd9]'
+              }`}
+              title="Click to filter Available artworks"
+            >
+              <span className={`w-1.5 h-1.5 rounded-full inline-block ${statusFilter === 'available' ? 'bg-white' : 'bg-[#2D7A4D]'}`} />
               {availableCount} available
-            </span>
+            </button>
+
+            {/* Active (Published) */}
+            <button
+              type="button"
+              onClick={() => {
+                setVisibilityFilter(visibilityFilter === 'published' ? 'all' : 'published')
+                setCurrentPage(1)
+              }}
+              className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1 transition-all cursor-pointer ${
+                visibilityFilter === 'published'
+                  ? 'bg-blue-600 text-white shadow-xs ring-1 ring-blue-600'
+                  : 'text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100/80'
+              }`}
+              title="Click to filter Active (Published) artworks"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>{publishedCount} active</span>
+            </button>
+
+            {/* Inactive (Unpublished) */}
+            <button
+              type="button"
+              onClick={() => {
+                setVisibilityFilter(visibilityFilter === 'unpublished' ? 'all' : 'unpublished')
+                setCurrentPage(1)
+              }}
+              className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1 transition-all cursor-pointer ${
+                visibilityFilter === 'unpublished'
+                  ? 'bg-gray-700 text-white shadow-xs ring-1 ring-gray-700'
+                  : 'text-gray-600 bg-gray-100 border border-gray-200 hover:bg-gray-200/80'
+              }`}
+              title="Click to filter Inactive (Hidden) artworks"
+            >
+              <EyeOff className="w-3.5 h-3.5" />
+              <span>{unpublishedCount} inactive</span>
+            </button>
+
+            {/* Reserved */}
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter(statusFilter === 'reserved' ? 'all' : 'reserved')
+                setCurrentPage(1)
+              }}
+              className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1 transition-all cursor-pointer ${
+                statusFilter === 'reserved'
+                  ? 'bg-amber-600 text-white shadow-xs ring-1 ring-amber-600'
+                  : 'text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100/80'
+              }`}
+              title="Click to filter Reserved artworks"
+            >
+              <span className={`w-1.5 h-1.5 rounded-full inline-block ${statusFilter === 'reserved' ? 'bg-white' : 'bg-amber-500'}`} />
+              {reservedCount} reserved
+            </button>
+
+            {/* On Offer */}
             <button
               type="button"
               onClick={() => {
@@ -569,55 +655,74 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
           {/* Filter Dropdowns */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Medium Filter */}
-            <select
-              value={mediumFilter}
-              onChange={(e) => setMediumFilter(e.target.value)}
-              className="h-9 px-3 text-xs font-medium bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-black outline-none transition-all cursor-pointer"
-            >
-              <option value="all">All Mediums</option>
-              <option value="acrylic">Acrylic on canvas</option>
-              <option value="oil">Oil on canvas</option>
-              <option value="mixed">Mixed Media</option>
-            </select>
+            <div className="relative">
+              <select
+                value={mediumFilter}
+                onChange={(e) => setMediumFilter(e.target.value)}
+                className="h-9 pl-3 pr-8 text-xs font-medium bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-black outline-none transition-all cursor-pointer appearance-none"
+              >
+                <option value="all">All Mediums</option>
+                <option value="acrylic">Acrylic on canvas</option>
+                <option value="oil">Oil on canvas</option>
+                <option value="mixed">Mixed Media</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
 
             {/* Status Filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 px-3 text-xs font-medium bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-black outline-none transition-all cursor-pointer"
-            >
-              <option value="all">All Statuses</option>
-              <option value="available">Available</option>
-              <option value="reserved">Reserved</option>
-              <option value="sold">Sold</option>
-            </select>
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="h-9 pl-3 pr-8 text-xs font-medium bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-black outline-none transition-all cursor-pointer appearance-none"
+              >
+                <option value="all">All Statuses</option>
+                <option value="available">Available</option>
+                <option value="reserved">Reserved</option>
+                <option value="sold">Sold</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
 
             {/* Visibility Filter */}
-            <select
-              value={visibilityFilter}
-              onChange={(e) => setVisibilityFilter(e.target.value)}
-              className="h-9 px-3 text-xs font-medium bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-black outline-none transition-all cursor-pointer"
-            >
-              <option value="all">All Visibility</option>
-              <option value="published">Published (Visible)</option>
-              <option value="unpublished">Unpublished (Hidden)</option>
-            </select>
+            <div className="relative">
+              <select
+                value={visibilityFilter}
+                onChange={(e) => setVisibilityFilter(e.target.value)}
+                className="h-9 pl-3 pr-8 text-xs font-medium bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-black outline-none transition-all cursor-pointer appearance-none"
+              >
+                <option value="all">All Visibility</option>
+                <option value="published">Published (Visible)</option>
+                <option value="unpublished">Unpublished (Hidden)</option>
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
 
             {/* Offer Filter */}
             <div className="relative">
+              <Tag
+                className={`w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${
+                  offerFilter === 'with_offer' ? 'text-red-600' : 'text-gray-400'
+                }`}
+              />
               <select
                 value={offerFilter}
                 onChange={(e) => setOfferFilter(e.target.value)}
-                className={`h-9 px-3 text-xs font-medium rounded-xl outline-none transition-all cursor-pointer ${
+                className={`h-9 pl-8 pr-8 text-xs font-medium rounded-xl outline-none transition-all cursor-pointer appearance-none ${
                   offerFilter === 'with_offer'
                     ? 'bg-red-50 border border-red-300 text-red-700 font-semibold focus:border-red-600 focus:ring-1 focus:ring-red-600'
                     : 'bg-gray-50 border border-gray-200 text-gray-800 focus:border-black'
                 }`}
               >
-                <option value="all">Pricing: All</option>
-                <option value="with_offer">🏷️ With Active Offer ({withOfferCount})</option>
+                <option value="all">All Pricing</option>
+                <option value="with_offer">With Active Offer ({withOfferCount})</option>
                 <option value="without_offer">Regular Price Only</option>
               </select>
+              <ChevronDown
+                className={`w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none transition-colors ${
+                  offerFilter === 'with_offer' ? 'text-red-500' : 'text-gray-400'
+                }`}
+              />
             </div>
 
             {/* Reset Filters */}
