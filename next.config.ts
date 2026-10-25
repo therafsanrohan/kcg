@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  experimental: {
+    cpus: 1,
+  },
   poweredByHeader: false, // Prevent X-Powered-By: Next.js server disclosure
   images: {
     formats: ['image/avif', 'image/webp'],
