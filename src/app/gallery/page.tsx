@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { Suspense } from 'react'
 import CustomerGallerySection from '@/components/CustomerGallerySection'
+import { parseAnnouncementSettings, isOfferCampaignActive } from '@/types/contact'
 
 import { Metadata } from 'next'
 
@@ -25,20 +26,25 @@ export default async function GalleryPage() {
   const cookieStore = await cookies()
   const supabase = createClient(cookieStore)
 
-  const { data: initialPaintings, error: paintingsErr } = await supabase
-    .from('paintings')
-    .select(`
-      id, title, slug, serial_number, base_price_bdt, discount_price_bdt, offer_badge, exact_medium, painting_type,
-      display_size, width, height, width_mm, height_mm, availability_status, is_featured, created_at,
-      painting_images(storage_key, thumbnail_key, responsive_urls, is_main)
-    `)
-    .eq('is_published', true)
-    .is('archived_at', null)
-    .order('created_at', { ascending: false })
+  const [paintingsResult, settingsResult] = await Promise.all([
+    supabase
+      .from('paintings')
+      .select(`
+        id, title, slug, serial_number, base_price_bdt, discount_price_bdt, offer_badge, exact_medium, painting_type,
+        display_size, width, height, width_mm, height_mm, availability_status, is_featured, created_at,
+        painting_images(storage_key, thumbnail_key, responsive_urls, is_main)
+      `)
+      .eq('is_published', true)
+      .is('archived_at', null)
+      .order('created_at', { ascending: false }),
+    supabase.from('site_settings').select('social_links').single(),
+  ])
 
-  let paintings = initialPaintings
+  let paintings = paintingsResult.data
+  const announcementSettings = parseAnnouncementSettings(settingsResult.data)
+  const isCampaignLive = isOfferCampaignActive(announcementSettings)
 
-  if (paintingsErr) {
+  if (paintingsResult.error) {
     const fallback = await supabase
       .from('paintings')
       .select(`
@@ -50,6 +56,15 @@ export default async function GalleryPage() {
       .is('archived_at', null)
       .order('created_at', { ascending: false })
     paintings = (fallback.data?.map((p) => ({ ...p, serial_number: null })) || []) as any
+  }
+
+  // If campaign timed out / expired, gracefully fallback to regular price
+  if (!isCampaignLive && paintings) {
+    paintings = paintings.map((p: any) => ({
+      ...p,
+      discount_price_bdt: null,
+      offer_badge: null,
+    }))
   }
 
   return (

@@ -55,6 +55,11 @@ export default function AnnouncementBar({ settings }: AnnouncementBarProps) {
     return null
   }
 
+  // If timer is enabled and target date is reached/expired, automatically disappear
+  if (settings.timer_enabled && timeLeft?.isExpired) {
+    return null
+  }
+
   const isTimerActive = settings.timer_enabled && timeLeft && !timeLeft.isExpired
 
   return (

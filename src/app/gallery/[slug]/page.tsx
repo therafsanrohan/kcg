@@ -10,6 +10,7 @@ import { getPaintingImageUrl } from '@/utils/image'
 import { formatMedium } from '@/utils/measurements'
 import RelatedArtworksLoader from '@/components/gallery/RelatedArtworksLoader'
 import RelatedArtworksSkeleton from '@/components/gallery/RelatedArtworksSkeleton'
+import { parseAnnouncementSettings, isOfferCampaignActive } from '@/types/contact'
 
 // 60-second Incremental Static Regeneration with immediate on-demand revalidation on admin edits
 export const revalidate = 60
@@ -118,13 +119,25 @@ export default async function PaintingDetailsPage({ params }: { params: Promise<
     getExchangeRates(),
     supabase
       .from('site_settings')
-      .select('whatsapp_number, business_name')
+      .select('whatsapp_number, business_name, social_links')
       .single(),
   ])
 
-  const { painting } = artworkData
+  let { painting } = artworkData
   if (!painting) {
     notFound()
+  }
+
+  const announcementSettings = parseAnnouncementSettings(settingsResult.data)
+  const isCampaignLive = isOfferCampaignActive(announcementSettings)
+
+  // If campaign timed out / expired, gracefully fallback to regular price
+  if (!isCampaignLive && painting) {
+    painting = {
+      ...painting,
+      discount_price_bdt: null,
+      offer_badge: null,
+    }
   }
 
   // Filter, deduplicate & sort active images

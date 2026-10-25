@@ -11,7 +11,7 @@ import { formatMedium } from '@/utils/measurements'
 import ContactSection from '@/components/ContactSection'
 import GoogleReviewsSection from '@/components/GoogleReviewsSection'
 import { getApprovedReviews } from '@/utils/reviews'
-import { parseContactSettings } from '@/types/contact'
+import { parseContactSettings, parseAnnouncementSettings, isOfferCampaignActive } from '@/types/contact'
 
 export const revalidate = 60 // 60s ISR cache with immediate on-demand revalidation on admin changes
 
@@ -53,6 +53,18 @@ export default async function Home() {
 
   const siteSettings = settingsResult.data
   const contactSettings = parseContactSettings(siteSettings)
+  const announcementSettings = parseAnnouncementSettings(siteSettings)
+  const isCampaignLive = isOfferCampaignActive(announcementSettings)
+
+  // Smart Time-Conscious Pricing:
+  // If the offer campaign has timed out / expired, gracefully revert all paintings to standard regular prices
+  if (!isCampaignLive && paintings) {
+    paintings = paintings.map((p: any) => ({
+      ...p,
+      discount_price_bdt: null,
+      offer_badge: null,
+    }))
+  }
 
   // Find featured painting for Hero Banner
   const featuredPainting =

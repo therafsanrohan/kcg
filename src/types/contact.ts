@@ -60,3 +60,23 @@ export function parseAnnouncementSettings(siteSettings?: any): AnnouncementBarSe
     timer_end_date: announcement.timer_end_date ?? '',
   }
 }
+
+/**
+ * Checks if the promotional campaign is currently active.
+ * If timer is enabled and target date has passed, campaign is expired.
+ */
+export function isOfferCampaignActive(settings?: AnnouncementBarSettings | null): boolean {
+  if (!settings) return true
+  // If banner itself is not enabled, campaign is considered inactive
+  if (!settings.enabled) return false
+
+  // If timer is enabled, check expiration date
+  if (settings.timer_enabled && settings.timer_end_date) {
+    const target = new Date(settings.timer_end_date).getTime()
+    if (!isNaN(target) && target <= Date.now()) {
+      return false // Expired!
+    }
+  }
+
+  return true
+}
