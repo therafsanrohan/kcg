@@ -217,10 +217,19 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
     )
   }, [clients, clientSearch])
 
+  // Helper to extract primary/main image key from a painting
+  const getPaintingMainImage = (art: any): string | null => {
+    if (art.painting_images && Array.isArray(art.painting_images) && art.painting_images.length > 0) {
+      const main = art.painting_images.find((img: any) => img.is_main) || art.painting_images[0]
+      return main?.storage_key || null
+    }
+    return art.primary_image_url || null
+  }
+
   // Inventory Artwork Selection Handler
   const handleSelectArtwork = (index: number, artwork: any) => {
     const price = Number(artwork.discount_price_bdt || artwork.base_price_bdt) || 0
-    const dims = artwork.display_size || (artwork.width && artwork.height ? `${artwork.width} × ${artwork.height} cm` : '')
+    const dims = artwork.display_size || (artwork.width && artwork.height ? `${artwork.width} × ${artwork.height} in` : '')
 
     setItems((prev) => {
       const copy = [...prev]
@@ -228,7 +237,7 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
         ...copy[index],
         painting_id: artwork.id,
         item_name: artwork.title,
-        item_description: artwork.painting_type ? formatMedium(artwork.painting_type) : '',
+        item_description: artwork.exact_medium || (artwork.painting_type ? formatMedium(artwork.painting_type) : ''),
         size_snapshot: dims,
         unit_price_bdt: price,
         item_type: 'painting',
@@ -236,8 +245,17 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
       return copy
     })
 
-    // If framing is active or dimensions exist, auto-derive suggested framing size & price
-    if (dims && (isDoubleBitFrame(framingType) || isSingleBitFrame(framingType))) {
+    // Auto-reduction for framing: if artwork has preconfigured active frame_options, apply the first active frame
+    if (artwork.frame_options && Array.isArray(artwork.frame_options) && artwork.frame_options.length > 0) {
+      const activeFrame = artwork.frame_options.find((f: any) => f.is_active) || artwork.frame_options[0]
+      if (activeFrame) {
+        setFramingEnabled(true)
+        setFramingType(activeFrame.frame_name || 'Double-Bit frame (White)')
+        if (activeFrame.outer_size) setFramingDimensions(activeFrame.outer_size)
+        if (Number(activeFrame.price_bdt) > 0) setFramingUnitPrice(Number(activeFrame.price_bdt))
+      }
+    } else if (dims) {
+      // Auto calculate frame dimensions & price based on artwork dimensions and current framing type
       const parsed = parseLegacyDisplaySize(dims)
       if (parsed) {
         const outer = calculateSuggestedOuterSize(parsed.width, parsed.height, parsed.unit, framingType)
@@ -705,10 +723,10 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
                             className="w-full text-left p-2.5 hover:bg-gray-50 rounded-xl transition-colors flex items-center justify-between gap-3 group/item cursor-pointer"
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              {art.primary_image_url ? (
+                              {getPaintingMainImage(art) ? (
                                 <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 relative border border-gray-200">
                                   <Image
-                                    src={getPaintingImageUrl(art.primary_image_url, 'paintings_optimized')}
+                                    src={getPaintingImageUrl(getPaintingMainImage(art)!, 'paintings_optimized')}
                                     alt={art.title}
                                     fill
                                     className="object-cover"
@@ -854,10 +872,11 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
                   onChange={(e) => {
                     const newType = e.target.value
                     setFramingType(newType)
-                    // If an artwork item exists in items, auto-calculate Double-Bit or Single-Bit framing
-                    const firstArt = items.find((i) => i.item_type === 'painting' && i.size_snapshot)
-                    if (firstArt && (isDoubleBitFrame(newType) || isSingleBitFrame(newType))) {
-                      const parsed = parseLegacyDisplaySize(firstArt.size_snapshot)
+                    // If an artwork item exists in items, auto-calculate frame dimensions and auto-reduce price
+                    const firstArt = items.find((i) => i.item_type === 'painting' && (i.size_snapshot || i.painting_id))
+                    const targetDims = firstArt?.size_snapshot || framingDimensions
+                    if (targetDims) {
+                      const parsed = parseLegacyDisplaySize(targetDims)
                       if (parsed) {
                         const outer = calculateSuggestedOuterSize(parsed.width, parsed.height, parsed.unit, newType)
                         const price = calculateFramePrice(newType, parsed.width, parsed.height, parsed.unit)

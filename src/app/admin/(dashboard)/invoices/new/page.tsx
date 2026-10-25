@@ -14,8 +14,13 @@ export default async function NewInvoicePage() {
 
   let { data: paintings } = await supabase
     .from('paintings')
-    .select('id, title, base_price_bdt, discount_price_bdt, painting_type, display_size, width, height, primary_image_url')
-    .order('title', { ascending: true })
+    .select(`
+      id, serial_number, title, slug, painting_type, exact_medium, display_size, width, height,
+      base_price_bdt, discount_price_bdt, availability_status, is_published,
+      painting_images(storage_key, is_main),
+      frame_options(id, frame_name, outer_size, price_bdt, is_active)
+    `)
+    .order('created_at', { ascending: false })
 
   if (!isCampaignLive && paintings) {
     paintings = paintings.map((p) => ({

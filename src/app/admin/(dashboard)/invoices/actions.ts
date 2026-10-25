@@ -17,12 +17,17 @@ export async function searchInventoryArtworksAction(query: string) {
 
     let dbQuery = supabase
       .from('paintings')
-      .select('id, title, base_price_bdt, discount_price_bdt, painting_type, display_size, width, height, primary_image_url, availability_status')
-      .order('title', { ascending: true })
-      .limit(20)
+      .select(`
+        id, serial_number, title, slug, painting_type, exact_medium, display_size, width, height,
+        base_price_bdt, discount_price_bdt, availability_status,
+        painting_images(storage_key, is_main),
+        frame_options(id, frame_name, outer_size, price_bdt, is_active)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(30)
 
     if (trimmed) {
-      dbQuery = dbQuery.or(`title.ilike.%${trimmed}%,painting_type.ilike.%${trimmed}%,display_size.ilike.%${trimmed}%`)
+      dbQuery = dbQuery.or(`title.ilike.%${trimmed}%,serial_number.ilike.%${trimmed}%,painting_type.ilike.%${trimmed}%,display_size.ilike.%${trimmed}%`)
     }
 
     const { data, error } = await dbQuery
