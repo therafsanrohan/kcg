@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { Suspense } from 'react'
 import CustomerGallerySection from '@/components/CustomerGallerySection'
 import { parseAnnouncementSettings, isOfferCampaignActive } from '@/types/contact'
+import { syncOfferExpirationStatus } from '@/utils/offer-sync'
 
 import { Metadata } from 'next'
 
@@ -42,7 +43,10 @@ export default async function GalleryPage() {
 
   let paintings = paintingsResult.data
   const announcementSettings = parseAnnouncementSettings(settingsResult.data)
-  const isCampaignLive = isOfferCampaignActive(announcementSettings)
+
+  // Universal Offer Lifecycle Evaluator & Auto-Cleanup Engine:
+  // If timer expired, automatically cleans DB and revalidates everywhere
+  const { isCampaignLive } = await syncOfferExpirationStatus(settingsResult.data)
 
   if (paintingsResult.error) {
     const fallback = await supabase
@@ -58,7 +62,7 @@ export default async function GalleryPage() {
     paintings = (fallback.data?.map((p) => ({ ...p, serial_number: null })) || []) as any
   }
 
-  // If campaign timed out / expired, gracefully fallback to regular price
+  // Gracefully fallback in-memory paintings to regular price if expired
   if (!isCampaignLive && paintings) {
     paintings = paintings.map((p: any) => ({
       ...p,

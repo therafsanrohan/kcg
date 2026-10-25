@@ -11,6 +11,7 @@ import { formatMedium } from '@/utils/measurements'
 import RelatedArtworksLoader from '@/components/gallery/RelatedArtworksLoader'
 import RelatedArtworksSkeleton from '@/components/gallery/RelatedArtworksSkeleton'
 import { parseAnnouncementSettings, isOfferCampaignActive } from '@/types/contact'
+import { syncOfferExpirationStatus } from '@/utils/offer-sync'
 
 // 60-second Incremental Static Regeneration with immediate on-demand revalidation on admin edits
 export const revalidate = 60
@@ -129,7 +130,10 @@ export default async function PaintingDetailsPage({ params }: { params: Promise<
   }
 
   const announcementSettings = parseAnnouncementSettings(settingsResult.data)
-  const isCampaignLive = isOfferCampaignActive(announcementSettings)
+
+  // Universal Offer Lifecycle Evaluator & Auto-Cleanup Engine:
+  // If timer expired, automatically cleans DB and revalidates everywhere
+  const { isCampaignLive } = await syncOfferExpirationStatus(settingsResult.data)
 
   // If campaign timed out / expired, gracefully fallback to regular price
   if (!isCampaignLive && painting) {

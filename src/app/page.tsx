@@ -12,6 +12,7 @@ import ContactSection from '@/components/ContactSection'
 import GoogleReviewsSection from '@/components/GoogleReviewsSection'
 import { getApprovedReviews } from '@/utils/reviews'
 import { parseContactSettings, parseAnnouncementSettings, isOfferCampaignActive } from '@/types/contact'
+import { syncOfferExpirationStatus } from '@/utils/offer-sync'
 
 export const revalidate = 60 // 60s ISR cache with immediate on-demand revalidation on admin changes
 
@@ -54,10 +55,12 @@ export default async function Home() {
   const siteSettings = settingsResult.data
   const contactSettings = parseContactSettings(siteSettings)
   const announcementSettings = parseAnnouncementSettings(siteSettings)
-  const isCampaignLive = isOfferCampaignActive(announcementSettings)
+  
+  // Universal Offer Lifecycle Evaluator & Auto-Cleanup Engine:
+  // If timer expired, automatically cleans DB and revalidates everywhere
+  const { isCampaignLive } = await syncOfferExpirationStatus(siteSettings)
 
-  // Smart Time-Conscious Pricing:
-  // If the offer campaign has timed out / expired, gracefully revert all paintings to standard regular prices
+  // Gracefully fallback in-memory paintings to regular price if expired
   if (!isCampaignLive && paintings) {
     paintings = paintings.map((p: any) => ({
       ...p,

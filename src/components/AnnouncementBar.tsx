@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Clock } from 'lucide-react'
 import { AnnouncementBarSettings } from '@/types/contact'
 
@@ -11,6 +11,7 @@ interface AnnouncementBarProps {
 
 export default function AnnouncementBar({ settings }: AnnouncementBarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const [timeLeft, setTimeLeft] = useState<{
     days: number
     hours: number
@@ -24,6 +25,8 @@ export default function AnnouncementBar({ settings }: AnnouncementBarProps) {
       return
     }
 
+    let hasTriggeredExpiry = false
+
     const calculateTimeLeft = () => {
       const targetTime = new Date(settings.timer_end_date).getTime()
       const now = new Date().getTime()
@@ -31,6 +34,11 @@ export default function AnnouncementBar({ settings }: AnnouncementBarProps) {
 
       if (difference <= 0) {
         setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true })
+        if (!hasTriggeredExpiry) {
+          hasTriggeredExpiry = true
+          // Seamlessly refresh page content so prices instantly revert to regular without manual reload
+          router.refresh()
+        }
         return
       }
 
@@ -45,7 +53,7 @@ export default function AnnouncementBar({ settings }: AnnouncementBarProps) {
     calculateTimeLeft()
     const interval = setInterval(calculateTimeLeft, 1000)
     return () => clearInterval(interval)
-  }, [settings.timer_enabled, settings.timer_end_date])
+  }, [settings.timer_enabled, settings.timer_end_date, router])
 
   if (pathname?.startsWith('/admin') || pathname?.startsWith('/invoice')) {
     return null

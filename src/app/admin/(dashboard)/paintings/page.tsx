@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import ManageArtworksClient from '@/components/admin/ManageArtworksClient'
+import { syncOfferExpirationStatus } from '@/utils/offer-sync'
 
 export const revalidate = 0 // Instant updates from database
 
@@ -33,6 +34,18 @@ export default async function AdminPaintingsPage() {
     if (fallbackRes.error) {
       console.error('Error fetching paintings for admin paintings page:', fallbackRes.error)
     }
+  }
+
+  // Universal Offer Lifecycle Evaluator & Auto-Cleanup Engine:
+  // If timer expired, automatically cleans DB and reverts artworks to regular price
+  const { isCampaignLive } = await syncOfferExpirationStatus()
+
+  if (!isCampaignLive && paintings) {
+    paintings = paintings.map((p: any) => ({
+      ...p,
+      discount_price_bdt: null,
+      offer_badge: null,
+    }))
   }
 
   return <ManageArtworksClient initialPaintings={paintings || []} />

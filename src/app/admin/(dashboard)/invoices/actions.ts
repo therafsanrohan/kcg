@@ -4,6 +4,7 @@ import { requireAdmin } from '@/utils/supabase/admin-auth'
 import { revalidatePath } from 'next/cache'
 import { Invoice, InvoiceItem } from '@/types/invoice'
 import { formatMedium } from '@/utils/measurements'
+import { syncOfferExpirationStatus } from '@/utils/offer-sync'
 
 /**
  * Authoritative Server-Side Inventory Search
@@ -42,6 +43,9 @@ export async function createInvoiceDraft(payload: any) {
   try {
     const { supabase, user } = await requireAdmin()
     
+    // Evaluate if offer campaign is live or timed out
+    const { isCampaignLive } = await syncOfferExpirationStatus()
+
     // Server-side calculation to prevent manipulation
     // Fetch authoritative prices for inventory items if painting_id is specified
     const validatedItems = await Promise.all(
@@ -59,7 +63,10 @@ export async function createInvoiceDraft(payload: any) {
             .single()
 
           if (painting) {
-            authoritativePrice = Number(painting.discount_price_bdt || painting.base_price_bdt) || authoritativePrice
+            const hasValidDiscount = isCampaignLive && painting.discount_price_bdt && Number(painting.discount_price_bdt) > 0
+            authoritativePrice = hasValidDiscount
+              ? Number(painting.discount_price_bdt)
+              : Number(painting.base_price_bdt) || authoritativePrice
             itemTitle = painting.title || itemTitle
             if (!sizeSnapshot && painting.display_size) {
               sizeSnapshot = painting.display_size
