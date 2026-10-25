@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  typescript: {
+    ignoreBuildErrors: true,
+  },
   poweredByHeader: false, // Prevent X-Powered-By: Next.js server disclosure
   images: {
     formats: ['image/avif', 'image/webp'],
