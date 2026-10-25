@@ -134,8 +134,8 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
       if (visibilityFilter === 'published' && !p.is_published) return false
       if (visibilityFilter === 'unpublished' && p.is_published) return false
 
-      // Offer filter
-      const hasOffer = p.discount_price_bdt && Number(p.discount_price_bdt) > 0
+      // Offer filter (matches both discounted price or offer badge)
+      const hasOffer = Boolean((p.discount_price_bdt && Number(p.discount_price_bdt) > 0) || p.offer_badge)
       if (offerFilter === 'with_offer' && !hasOffer) return false
       if (offerFilter === 'without_offer' && hasOffer) return false
 
@@ -437,6 +437,9 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
   const availableCount = initialPaintings.filter(
     (p) => p.availability_status === 'available'
   ).length
+  const withOfferCount = initialPaintings.filter(
+    (p) => (p.discount_price_bdt && Number(p.discount_price_bdt) > 0) || p.offer_badge
+  ).length
 
   return (
     <div className="pb-24">
@@ -453,7 +456,7 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
             Search, filter, edit individual works, or apply offers and visibility in bulk.
           </p>
           {/* Summary stats */}
-          <div className="flex items-center gap-4 mt-4">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 mt-4">
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-full px-3 py-1 shadow-xs">
               <span className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block" />
               {totalCount} total
@@ -462,6 +465,22 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
               <span className="w-1.5 h-1.5 rounded-full bg-[#2D7A4D] inline-block" />
               {availableCount} available
             </span>
+            <button
+              type="button"
+              onClick={() => {
+                setOfferFilter(offerFilter === 'with_offer' ? 'all' : 'with_offer')
+                setCurrentPage(1)
+              }}
+              className={`inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-3 py-1 transition-all cursor-pointer ${
+                offerFilter === 'with_offer'
+                  ? 'bg-red-600 text-white ring-2 ring-red-600/30 shadow-xs'
+                  : 'text-red-700 bg-red-50 border border-red-200 hover:bg-red-100/80'
+              }`}
+              title="Click to toggle offer filter"
+            >
+              <Tag className="w-3.5 h-3.5" />
+              <span>{withOfferCount} on offer</span>
+            </button>
             {selectedCount > 0 && (
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-black bg-amber-200/80 border border-amber-300 rounded-full px-3 py-1 animate-in fade-in">
                 <CheckCircle2 className="w-3.5 h-3.5 text-amber-800" />
@@ -585,15 +604,21 @@ export default function ManageArtworksClient({ initialPaintings }: ManageArtwork
             </select>
 
             {/* Offer Filter */}
-            <select
-              value={offerFilter}
-              onChange={(e) => setOfferFilter(e.target.value)}
-              className="h-9 px-3 text-xs font-medium bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-black outline-none transition-all cursor-pointer"
-            >
-              <option value="all">All Pricing</option>
-              <option value="with_offer">With Active Offer</option>
-              <option value="without_offer">Regular Base Price Only</option>
-            </select>
+            <div className="relative">
+              <select
+                value={offerFilter}
+                onChange={(e) => setOfferFilter(e.target.value)}
+                className={`h-9 px-3 text-xs font-medium rounded-xl outline-none transition-all cursor-pointer ${
+                  offerFilter === 'with_offer'
+                    ? 'bg-red-50 border border-red-300 text-red-700 font-semibold focus:border-red-600 focus:ring-1 focus:ring-red-600'
+                    : 'bg-gray-50 border border-gray-200 text-gray-800 focus:border-black'
+                }`}
+              >
+                <option value="all">Pricing: All</option>
+                <option value="with_offer">🏷️ With Active Offer ({withOfferCount})</option>
+                <option value="without_offer">Regular Price Only</option>
+              </select>
+            </div>
 
             {/* Reset Filters */}
             {isFilterActive && (
