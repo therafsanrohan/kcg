@@ -37,6 +37,17 @@ app
   .then(() => {
     createServer(async (req, res) => {
       try {
+        const host = (req.headers['x-forwarded-host'] || req.headers['host'] || '').toLowerCase()
+        const isAppSubdomain = host.startsWith('app.') || host.includes('app.kazicanvasgallery')
+
+        // If accessed via app.kazicanvasgallery.com:
+        // Redirect root '/' directly to admin login/dashboard
+        if (isAppSubdomain && (req.url === '/' || req.url.startsWith('/?'))) {
+          res.writeHead(307, { Location: '/admin/login' })
+          res.end()
+          return
+        }
+
         const parsedUrl = parse(req.url, true)
         await handle(req, res, parsedUrl)
       } catch (err) {
