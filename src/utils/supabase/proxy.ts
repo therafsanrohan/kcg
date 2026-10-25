@@ -12,15 +12,22 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const host = request.headers.get('host') || ''
-  const isAppSubdomain = host.startsWith('app.')
+  const host = (
+    request.headers.get('x-forwarded-host') ||
+    request.headers.get('host') ||
+    ''
+  ).toLowerCase()
 
-  // If user accesses via app.kazicanvasgallery.com subdomain:
-  // Root '/' goes directly to admin dashboard/login
-  if (isAppSubdomain && request.nextUrl.pathname === '/') {
-    const url = request.nextUrl.clone()
-    url.pathname = '/admin'
-    return NextResponse.redirect(url)
+  const isAppSubdomain = host.startsWith('app.') || host.includes('app.kazicanvasgallery')
+
+  // If visitor accesses via app.kazicanvasgallery.com:
+  // Strictly enforce admin portal: root '/' goes to '/admin', non-admin routes redirect to '/admin'
+  if (isAppSubdomain) {
+    if (request.nextUrl.pathname === '/' || !request.nextUrl.pathname.startsWith('/admin') && !request.nextUrl.pathname.startsWith('/api')) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin'
+      return NextResponse.redirect(url)
+    }
   }
 
   const isAdminPath = request.nextUrl.pathname.startsWith('/admin');
