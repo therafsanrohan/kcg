@@ -39,8 +39,18 @@ export default async function AdminLayout({
 
   const userEmail = adminRecord?.email || user.email || 'Administrator'
 
+  // 3. Permission profile check
+  let isFinanceOnly = false
+  try {
+    const { getAdminPermissionProfile } = await import('@/utils/finance-permissions')
+    const profile = await getAdminPermissionProfile()
+    isFinanceOnly = !!profile.isFinanceOnly && !profile.isSuperAdmin
+  } catch (err) {
+    console.warn('[AdminLayout] Could not load permissions profile:', err)
+  }
+
   return (
-    <AdminDashboardShell userEmail={userEmail}>
+    <AdminDashboardShell userEmail={userEmail} isFinanceOnly={isFinanceOnly}>
       {children}
     </AdminDashboardShell>
   )

@@ -16,15 +16,17 @@ import {
   Menu,
   X,
   ExternalLink,
+  WalletCards,
 } from 'lucide-react'
 import { logout } from '../login/actions'
 
 interface AdminNavigationProps {
   userEmail: string
+  isFinanceOnly?: boolean
   onHoverChange?: (hovered: boolean) => void
 }
 
-export default function AdminNavigation({ userEmail, onHoverChange }: AdminNavigationProps) {
+export default function AdminNavigation({ userEmail, isFinanceOnly = false, onHoverChange }: AdminNavigationProps) {
   const pathname = usePathname()
   const [isSidebarHovered, setIsSidebarHovered] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -39,18 +41,24 @@ export default function AdminNavigation({ userEmail, onHoverChange }: AdminNavig
     onHoverChange?.(false)
   }
 
-  const navItems = [
+  const allNavItems = [
     {
-      name: 'Artworks',
-      href: '/admin/paintings',
-      icon: Palette,
-      active: pathname.startsWith('/admin/paintings') || pathname === '/admin',
+      name: 'Finance & Cash Flow',
+      href: '/admin/finance',
+      icon: WalletCards,
+      active: pathname.startsWith('/admin/finance'),
     },
     {
       name: 'Invoices',
       href: '/admin/invoices',
       icon: FileText,
       active: pathname.startsWith('/admin/invoices'),
+    },
+    {
+      name: 'Artworks',
+      href: '/admin/paintings',
+      icon: Palette,
+      active: pathname.startsWith('/admin/paintings') || pathname === '/admin',
     },
     {
       name: 'Messages',
@@ -83,6 +91,11 @@ export default function AdminNavigation({ userEmail, onHoverChange }: AdminNavig
       active: pathname.startsWith('/admin/profile'),
     },
   ]
+
+  // If user is restricted to Finance Team only, only show Finance and Invoices
+  const navItems = isFinanceOnly
+    ? allNavItems.filter((i) => i.href === '/admin/finance' || i.href === '/admin/invoices')
+    : allNavItems
 
   const activeItem = navItems.find((i) => i.active) || navItems[0]
 

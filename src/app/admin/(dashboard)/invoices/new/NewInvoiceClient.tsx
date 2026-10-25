@@ -1355,11 +1355,12 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
                   value={advancePaymentMethod}
                   onChange={(e) => setAdvancePaymentMethod(e.target.value)}
                   options={[
-                    { value: 'bank_transfer', label: 'Bank Transfer / Wire' },
                     { value: 'bkash', label: 'bKash Merchant / Personal' },
                     { value: 'nagad', label: 'Nagad' },
-                    { value: 'cash', label: 'Cash at Gallery' },
+                    { value: 'rocket', label: 'Rocket' },
+                    { value: 'bank_transfer', label: 'Bank Transfer / Wire' },
                     { value: 'card', label: 'POS Card Payment' },
+                    { value: 'cash', label: 'Cash at Gallery' },
                     { value: 'other', label: 'Other Authorized Method' },
                   ]}
                 />

@@ -25,7 +25,11 @@ import {
   AtSign,
   Lock,
   UserCheck,
+  Sliders,
+  X,
 } from 'lucide-react'
+import { ALL_PERMISSIONS, PermissionCode } from '@/types/finance'
+import { updateAdminPermissionsAction, getFinancialAuditLogsAction } from '../finance/actions'
 
 export interface AdminUserItem {
   id: string
@@ -54,6 +58,7 @@ export default function AdminDirectoryManager({
   const [editingAdmin, setEditingAdmin] = useState<AdminUserItem | null>(null)
   const [passwordAdmin, setPasswordAdmin] = useState<AdminUserItem | null>(null)
   const [deletingAdmin, setDeletingAdmin] = useState<AdminUserItem | null>(null)
+  const [permissionAdmin, setPermissionAdmin] = useState<AdminUserItem | null>(null)
 
   // Direct password reset email state
   const [resetEmailStatus, setResetEmailStatus] = useState<{
@@ -290,6 +295,16 @@ export default function AdminDirectoryManager({
                             <Edit3 className="w-4 h-4" />
                           </button>
 
+                          {/* Permissions & Finance Access */}
+                          <button
+                            type="button"
+                            onClick={() => setPermissionAdmin(adm)}
+                            className="p-2 rounded-xl text-indigo-600 hover:text-indigo-900 hover:bg-indigo-50 transition-colors"
+                            title="Manage Permissions & Role Limits"
+                          >
+                            <Sliders className="w-4 h-4" />
+                          </button>
+
                           {/* Set / Reset Password */}
                           <button
                             type="button"
@@ -355,6 +370,213 @@ export default function AdminDirectoryManager({
           onClose={() => setDeletingAdmin(null)}
         />
       )}
+
+      {/* 4. Modal: Manage Administrator Permissions & Role Constraints */}
+      {permissionAdmin && (
+        <ManagePermissionsModal
+          admin={permissionAdmin}
+          onClose={() => setPermissionAdmin(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Super Admin Controlled Permissions Modal
+ */
+function ManagePermissionsModal({
+  admin,
+  onClose,
+}: {
+  admin: AdminUserItem
+  onClose: () => void
+}) {
+  const [selectedPermissions, setSelectedPermissions] = useState<PermissionCode[]>(
+    ALL_PERMISSIONS.map((p) => p.code)
+  )
+  const [isFinanceOnly, setIsFinanceOnly] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  const togglePermission = (code: PermissionCode) => {
+    setSelectedPermissions((prev) =>
+      prev.includes(code) ? prev.filter((p) => p !== code) : [...prev, code]
+    )
+  }
+
+  const handleSelectAll = () => {
+    setSelectedPermissions(ALL_PERMISSIONS.map((p) => p.code))
+  }
+
+  const handleClearAll = () => {
+    setSelectedPermissions([])
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    setErrorMessage(null)
+    setSaveSuccess(false)
+    try {
+      const res = await updateAdminPermissionsAction(
+        admin.id,
+        selectedPermissions,
+        isFinanceOnly
+      )
+      if (!res.success) {
+        setErrorMessage(res.error || 'Failed to update permissions.')
+      } else {
+        setSaveSuccess(true)
+        setTimeout(() => {
+          onClose()
+        }, 1200)
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'An unexpected error occurred.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+      <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-gray-200 animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-indigo-50 text-indigo-700 rounded-xl">
+              <Sliders className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-sans font-bold text-base text-gray-950">
+                Granular Permissions & Role Controls
+              </h3>
+              <p className="text-xs text-gray-500 font-light">
+                Configure access for <strong>{admin.full_name || admin.email}</strong>
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded-lg text-gray-400 hover:text-black"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto py-4 space-y-5">
+          {errorMessage && (
+            <div className="p-3 bg-rose-50 text-rose-700 text-xs rounded-xl border border-rose-200 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          {saveSuccess && (
+            <div className="p-3 bg-emerald-50 text-emerald-800 text-xs rounded-xl border border-emerald-200 flex items-center gap-2">
+              <Check className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span>Permissions successfully updated and saved to database!</span>
+            </div>
+          )}
+
+          {/* Special Finance Team Role Switch */}
+          <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-200/80 space-y-2">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold text-indigo-950 uppercase tracking-wider block">
+                  Finance Team Role Isolation
+                </span>
+                <p className="text-xs text-indigo-900/80 mt-0.5 font-light">
+                  When enabled, this administrator will <strong>ONLY</strong> be able to see and access <strong>Finance & Cash Flow</strong> and <strong>Invoices</strong>. All other modules (Artworks, Settings, Reviews, Conversations, Profile) will remain completely blocked.
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                id="isFinanceOnlyToggle"
+                checked={isFinanceOnly}
+                onChange={(e) => setIsFinanceOnly(e.target.checked)}
+                className="w-5 h-5 accent-indigo-600 rounded-md cursor-pointer mt-1"
+              />
+            </div>
+          </div>
+
+          {/* Granular Permissions Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                Granular Permissions ({selectedPermissions.length} / {ALL_PERMISSIONS.length})
+              </span>
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={handleSelectAll}
+                  className="text-indigo-600 font-semibold hover:underline"
+                >
+                  Select All
+                </button>
+                <span className="text-gray-300">|</span>
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  className="text-gray-500 font-semibold hover:underline"
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto p-1">
+              {ALL_PERMISSIONS.map((perm) => {
+                const checked = selectedPermissions.includes(perm.code)
+                return (
+                  <label
+                    key={perm.code}
+                    className={`p-2.5 rounded-xl border text-xs cursor-pointer flex items-start gap-2.5 transition-all ${
+                      checked
+                        ? 'bg-white border-indigo-300 shadow-2xs'
+                        : 'bg-gray-50/50 border-gray-200 opacity-60'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => togglePermission(perm.code)}
+                      className="w-4 h-4 accent-indigo-600 rounded-sm mt-0.5"
+                    />
+                    <div>
+                      <div className="font-semibold text-gray-900">{perm.label}</div>
+                      <div className="text-[10px] text-gray-400 font-mono">{perm.code}</div>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={handleSave}
+            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-black text-white text-xs font-bold hover:bg-gray-800 disabled:opacity-50"
+          >
+            <Shield className="w-3.5 h-3.5" />
+            <span>{isSaving ? 'Saving...' : 'Apply Permissions'}</span>
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

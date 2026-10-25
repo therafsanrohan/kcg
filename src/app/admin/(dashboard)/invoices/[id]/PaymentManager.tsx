@@ -41,9 +41,10 @@ export default function PaymentManager({
   const [payments, setPayments] = useState<InvoicePayment[]>(initialPayments)
   const [isOpenModal, setIsOpenModal] = useState(false)
   const [amount, setAmount] = useState<string>('')
-  const [paymentMethod, setPaymentMethod] = useState<string>('cash')
+  const [paymentMethod, setPaymentMethod] = useState<string>('bkash')
   const [paymentDate, setPaymentDate] = useState<string>(new Date().toISOString().split('T')[0])
   const [transactionRef, setTransactionRef] = useState<string>('')
+  const [processingFee, setProcessingFee] = useState<string>('')
   const [internalNotes, setInternalNotes] = useState<string>('')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -56,6 +57,7 @@ export default function PaymentManager({
 
   const handleOpenRecordPayment = () => {
     setAmount(remainingDue > 0 ? String(remainingDue) : '')
+    setProcessingFee('')
     setErrorMessage(null)
     setIsOpenModal(true)
   }
@@ -77,6 +79,12 @@ export default function PaymentManager({
       return
     }
 
+    const feeAmount = Math.max(0, Number(processingFee) || 0)
+    if (feeAmount >= numAmount) {
+      setErrorMessage('Processing fee cannot equal or exceed the total payment amount.')
+      return
+    }
+
     startTransition(async () => {
       const res = await recordInvoicePaymentAction({
         invoiceId,
@@ -85,12 +93,14 @@ export default function PaymentManager({
         paymentDate,
         transactionRef,
         internalNotes,
+        processingFeeBdt: feeAmount,
       })
 
       if (res.success && res.payment) {
         setPayments((prev) => [res.payment, ...prev])
         setIsOpenModal(false)
         setAmount('')
+        setProcessingFee('')
         setTransactionRef('')
         setInternalNotes('')
         toast(`Payment of ৳${numAmount.toLocaleString('en-BD')} recorded successfully!`, 'success')
@@ -318,19 +328,20 @@ export default function PaymentManager({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-gray-700 mb-1">
-                    Payment Method *
+                    Payment Channel / Method *
                   </label>
                   <select
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900 focus:bg-white focus:border-black outline-none"
+                    className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900 focus:bg-white focus:border-black outline-none font-semibold"
                   >
-                    <option value="cash">Cash</option>
-                    <option value="bkash">bKash</option>
+                    <option value="bkash">bKash (Merchant / Personal)</option>
                     <option value="nagad">Nagad</option>
-                    <option value="bank_transfer">Bank Transfer</option>
-                    <option value="card">Card / POS</option>
-                    <option value="other">Other</option>
+                    <option value="rocket">Rocket</option>
+                    <option value="bank_transfer">Bank Transfer / Wire</option>
+                    <option value="card">Card / POS Payment</option>
+                    <option value="cash">Cash in Hand</option>
+                    <option value="other">Other Authorized Channel</option>
                   </select>
                 </div>
 
@@ -348,15 +359,42 @@ export default function PaymentManager({
                 </div>
               </div>
 
+              {/* Gateway Charges / Channel Deduction */}
+              <div className="p-3 bg-amber-50/50 rounded-2xl border border-amber-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-amber-950 uppercase tracking-wider">
+                    Channel / Gateway Charge (৳ BDT)
+                  </label>
+                  <span className="text-[10px] text-amber-800">bKash/Nagad/Card fees</span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={processingFee}
+                  onChange={(e) => setProcessingFee(e.target.value)}
+                  placeholder="e.g. 15 (Charge deducted by payment provider)"
+                  className="w-full h-9 px-3 rounded-xl border border-amber-300 bg-white font-mono text-xs text-gray-900 focus:border-amber-600 outline-none"
+                />
+                {Number(amount) > 0 && (
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-gray-700 pt-1 border-t border-amber-200/60">
+                    <span>Customer Paid: ৳{Number(amount).toLocaleString('en-BD')}</span>
+                    <span className="text-emerald-700 font-bold">
+                      Net Liquid Cash Stored: ৳{Math.max(0, Number(amount) - (Number(processingFee) || 0)).toLocaleString('en-BD')}
+                    </span>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block font-bold text-gray-700 mb-1">
-                  Transaction / TrxID / Cheque #
+                  Transaction / TrxID / Reference #
                 </label>
                 <input
                   type="text"
                   value={transactionRef}
                   onChange={(e) => setTransactionRef(e.target.value)}
-                  placeholder="e.g. 9J47K2L8 or Bank Cheque #402"
+                  placeholder="e.g. bKash TrxID: 9J47K2L8 or Bank Ref #402"
                   className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-gray-50 font-mono text-xs text-gray-900 focus:bg-white focus:border-black outline-none"
                 />
               </div>

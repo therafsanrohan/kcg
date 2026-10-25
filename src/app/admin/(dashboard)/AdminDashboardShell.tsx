@@ -6,11 +6,13 @@ import { AdminFeedbackProvider } from '@/components/admin/AdminFeedbackProvider'
 
 interface AdminDashboardShellProps {
   userEmail: string
+  isFinanceOnly?: boolean
   children: React.ReactNode
 }
 
 export default function AdminDashboardShell({
   userEmail,
+  isFinanceOnly = false,
   children,
 }: AdminDashboardShellProps) {
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false)
@@ -20,6 +22,7 @@ export default function AdminDashboardShell({
       {/* Responsive Admin Navigation: Desktop hover sidebar + Mobile/Tablet dropdown */}
       <AdminNavigation
         userEmail={userEmail}
+        isFinanceOnly={isFinanceOnly}
         onHoverChange={setIsSidebarExpanded}
       />
 

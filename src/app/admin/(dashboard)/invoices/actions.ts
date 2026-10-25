@@ -211,9 +211,11 @@ export async function createInvoiceDraft(payload: any) {
         recorded_by: user.id,
       }
 
-      const { error: advanceErr } = await supabase
+      const { data: insertedPayment, error: advanceErr } = await supabase
         .from('invoice_payments')
         .insert(paymentRecord)
+        .select()
+        .single()
 
       if (advanceErr) {
         console.warn('Could not record advance payment (invoice created):', advanceErr)
@@ -225,6 +227,56 @@ export async function createInvoiceDraft(payload: any) {
             paid_at: isPaidFull ? new Date().toISOString() : null,
           })
           .eq('id', invoice.id)
+
+        // Sync with Finance & Cash Flow module
+        try {
+          const methodLower = (payload.advance_payment_method || 'bank_transfer').trim().toLowerCase()
+          let accQuery = supabase.from('financial_accounts').select('id, current_balance_bdt')
+          if (methodLower.includes('bkash')) {
+            accQuery = accQuery.ilike('account_name', '%bkash%')
+          } else if (methodLower.includes('nagad')) {
+            accQuery = accQuery.ilike('account_name', '%nagad%')
+          } else if (methodLower.includes('bank') || methodLower.includes('card')) {
+            accQuery = accQuery.eq('account_type', 'bank')
+          } else {
+            accQuery = accQuery.eq('account_type', 'cash')
+          }
+
+          let { data: acc } = await accQuery.limit(1).maybeSingle()
+          const targetAccountId = acc?.id || (await supabase.from('financial_accounts').select('id, current_balance_bdt').limit(1).maybeSingle()).data?.id
+
+          if (targetAccountId) {
+            const { data: cat } = await supabase
+              .from('financial_categories')
+              .select('id')
+              .eq('name', 'Artwork Sales')
+              .maybeSingle()
+
+            await supabase.from('financial_transactions').insert({
+              transaction_type: 'income',
+              amount_bdt: validAdvance,
+              destination_account_id: targetAccountId,
+              category_id: cat?.id || null,
+              category_name: 'Artwork Sales',
+              transaction_date: payload.advance_payment_date || payload.invoice_date || new Date().toISOString().split('T')[0],
+              reference_number: payload.advance_transaction_ref?.trim() || `ADV-${invoice.invoice_number}`,
+              description: `Advance payment for invoice ${invoice.invoice_number}`,
+              payment_method: payload.advance_payment_method || 'bank_transfer',
+              invoice_id: invoice.id,
+              invoice_payment_id: insertedPayment?.id || null,
+              status: 'posted',
+              created_by: user.id
+            })
+
+            const currentBal = Number(acc?.current_balance_bdt || 0)
+            await supabase
+              .from('financial_accounts')
+              .update({ current_balance_bdt: currentBal + validAdvance, updated_at: new Date().toISOString() })
+              .eq('id', targetAccountId)
+          }
+        } catch (syncErr) {
+          console.warn('[FinanceSync] Non-blocking notice: could not sync advance payment to financial_transactions:', syncErr)
+        }
       }
     }
 
@@ -492,12 +544,14 @@ export async function recordInvoicePaymentAction(formData: {
   paymentDate: string
   transactionRef?: string
   internalNotes?: string
+  processingFeeBdt?: number
 }) {
   try {
     const { supabase, user } = await requireAdmin()
-    const { invoiceId, amountBdt, paymentMethod, paymentDate, transactionRef, internalNotes } = formData
+    const { invoiceId, amountBdt, paymentMethod, paymentDate, transactionRef, internalNotes, processingFeeBdt = 0 } = formData
 
     const amount = Number(amountBdt)
+    const fee = Math.max(0, Number(processingFeeBdt) || 0)
     if (!amount || amount <= 0 || isNaN(amount)) {
       return { success: false, error: 'Payment amount must be greater than zero.' }
     }
@@ -505,7 +559,7 @@ export async function recordInvoicePaymentAction(formData: {
     // 1. Fetch current invoice grand total and existing confirmed payments
     const { data: invoice, error: invErr } = await supabase
       .from('invoices')
-      .select('id, grand_total_bdt, status, payment_status')
+      .select('id, invoice_number, customer_name, grand_total_bdt, status, payment_status')
       .eq('id', invoiceId)
       .single()
 
@@ -542,7 +596,11 @@ export async function recordInvoicePaymentAction(formData: {
     // Fetch admin user name or email for audit trail
     const adminName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Gallery Staff'
 
-    // 2. Insert payment record atomically
+    // Formulate internal note with fee breakdown if fee was deducted
+    const feeNote = fee > 0 ? ` (Gateway/Channel fee: ৳${fee}, Net credited: ৳${amount - fee})` : ''
+    const fullInternalNotes = internalNotes ? `${internalNotes.trim()}${feeNote}` : feeNote ? feeNote.trim() : null
+
+    // 2. Insert payment record atomically (gross amount reduces invoice due)
     const { data: insertedPayment, error: insertErr } = await supabase
       .from('invoice_payments')
       .insert({
@@ -551,7 +609,7 @@ export async function recordInvoicePaymentAction(formData: {
         payment_method: (paymentMethod || 'cash').trim().toLowerCase(),
         payment_date: paymentDate || new Date().toISOString().split('T')[0],
         transaction_ref: transactionRef?.trim() || null,
-        internal_notes: internalNotes?.trim() || null,
+        internal_notes: fullInternalNotes,
         recorded_by: user.id,
         recorded_by_name: adminName,
       })
@@ -575,8 +633,95 @@ export async function recordInvoicePaymentAction(formData: {
       })
       .eq('id', invoiceId)
 
+    // 4. Sync with Finance & Cash Flow module (net amount credited to liquid cash)
+    try {
+      const methodLower = (paymentMethod || 'cash').trim().toLowerCase()
+      let accQuery = supabase.from('financial_accounts').select('id, current_balance_bdt')
+      if (methodLower.includes('bkash')) {
+        accQuery = accQuery.ilike('account_name', '%bkash%')
+      } else if (methodLower.includes('nagad')) {
+        accQuery = accQuery.ilike('account_name', '%nagad%')
+      } else if (methodLower.includes('bank') || methodLower.includes('card')) {
+        accQuery = accQuery.eq('account_type', 'bank')
+      } else {
+        accQuery = accQuery.eq('account_type', 'cash')
+      }
+
+      let { data: acc } = await accQuery.limit(1).maybeSingle()
+
+      if (!acc) {
+        const { data: fallbackAcc } = await supabase.from('financial_accounts').select('id, current_balance_bdt').limit(1).maybeSingle()
+        acc = fallbackAcc
+      }
+
+      if (acc?.id) {
+        const netAmount = Math.max(0, amount - fee)
+
+        const { data: cat } = await supabase
+          .from('financial_categories')
+          .select('id')
+          .eq('name', 'Artwork Sales')
+          .maybeSingle()
+
+        // Post income transaction (gross payment received from customer)
+        await supabase.from('financial_transactions').insert({
+          transaction_type: 'income',
+          amount_bdt: amount,
+          destination_account_id: acc.id,
+          category_id: cat?.id || null,
+          category_name: 'Artwork Sales',
+          transaction_date: paymentDate || new Date().toISOString().split('T')[0],
+          reference_number: transactionRef?.trim() || `PAY-${invoice.invoice_number}`,
+          description: `Payment received for invoice ${invoice.invoice_number}${fee > 0 ? ` (Gross: ৳${amount}, Fee: ৳${fee})` : ''}`,
+          payment_method: paymentMethod || 'cash',
+          invoice_id: invoiceId,
+          invoice_payment_id: insertedPayment?.id || null,
+          status: 'posted',
+          created_by: user.id
+        })
+
+        // If gateway charge applies, automatically record fee expense
+        if (fee > 0) {
+          const { data: feeCat } = await supabase
+            .from('financial_categories')
+            .select('id')
+            .eq('name', 'Bank & Processing Fees')
+            .maybeSingle()
+
+          await supabase.from('financial_transactions').insert({
+            transaction_type: 'expense',
+            amount_bdt: fee,
+            source_account_id: acc.id,
+            category_id: feeCat?.id || null,
+            category_name: 'Bank & Processing Fees',
+            transaction_date: paymentDate || new Date().toISOString().split('T')[0],
+            reference_number: `FEE-${transactionRef?.trim() || invoice.invoice_number}`,
+            description: `${paymentMethod.toUpperCase()} transaction fee for invoice ${invoice.invoice_number}`,
+            payment_method: paymentMethod || 'cash',
+            invoice_id: invoiceId,
+            status: 'posted',
+            created_by: user.id
+          })
+        }
+
+        // Update liquid account balance with net received funds
+        const currentBal = Number(acc.current_balance_bdt || 0)
+        const { error: balErr } = await supabase
+          .from('financial_accounts')
+          .update({ current_balance_bdt: currentBal + netAmount, updated_at: new Date().toISOString() })
+          .eq('id', acc.id)
+
+        if (balErr) {
+          console.error('[FinanceSync] Error updating financial_account balance:', balErr)
+        }
+      }
+    } catch (syncErr: any) {
+      console.error('[FinanceSync] Critical notice: failed to sync payment to financial_transactions:', syncErr?.message || syncErr)
+    }
+
     revalidatePath('/admin/invoices')
     revalidatePath(`/admin/invoices/${invoiceId}`)
+    revalidatePath('/admin/finance')
     return { success: true, payment: insertedPayment }
   } catch (err: any) {
     console.error('recordInvoicePaymentAction error:', err)
@@ -610,7 +755,15 @@ export async function getInvoicePaymentsAction(invoiceId: string) {
  */
 export async function deleteInvoicePaymentAction(paymentId: string, invoiceId: string) {
   try {
-    const { supabase } = await requireAdmin()
+    const { supabase, user } = await requireAdmin()
+
+    // Find payment amount before deletion for financial sync
+    const { data: doomedPayment } = await supabase
+      .from('invoice_payments')
+      .select('amount_bdt, payment_method')
+      .eq('id', paymentId)
+      .maybeSingle()
+
     const { error } = await supabase
       .from('invoice_payments')
       .delete()
@@ -618,6 +771,44 @@ export async function deleteInvoicePaymentAction(paymentId: string, invoiceId: s
       .eq('invoice_id', invoiceId)
 
     if (error) throw error
+
+    // Reversal in Finance module
+    try {
+      const { data: linkedTx } = await supabase
+        .from('financial_transactions')
+        .select('id, destination_account_id, amount_bdt')
+        .eq('invoice_payment_id', paymentId)
+        .maybeSingle()
+
+      if (linkedTx) {
+        await supabase
+          .from('financial_transactions')
+          .update({
+            status: 'reversed',
+            reversal_reason: 'Invoice payment record deleted / cancelled by admin',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', linkedTx.id)
+
+        if (linkedTx.destination_account_id) {
+          const { data: acc } = await supabase
+            .from('financial_accounts')
+            .select('current_balance_bdt')
+            .eq('id', linkedTx.destination_account_id)
+            .single()
+
+          if (acc) {
+            const newBal = Math.max(0, Number(acc.current_balance_bdt) - Number(linkedTx.amount_bdt))
+            await supabase
+              .from('financial_accounts')
+              .update({ current_balance_bdt: newBal, updated_at: new Date().toISOString() })
+              .eq('id', linkedTx.destination_account_id)
+          }
+        }
+      }
+    } catch (syncErr) {
+      console.warn('[FinanceSync] Non-blocking notice: could not reverse financial transaction:', syncErr)
+    }
 
     // Recalculate remaining payments
     const { data: remainingPayments } = await supabase
