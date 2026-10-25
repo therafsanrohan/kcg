@@ -867,37 +867,62 @@ export default function NewInvoiceClient({ paintings, clients, deliveryZones = [
                 <label className="block text-xs font-semibold text-gray-800 mb-1">
                   Frame Moulding Type
                 </label>
-                <CustomSelect
-                  value={framingType}
-                  onChange={(e) => {
-                    const newType = e.target.value
-                    setFramingType(newType)
-                    // If an artwork item exists in items, auto-calculate frame dimensions and auto-reduce price
-                    const firstArt = items.find((i) => i.item_type === 'painting' && (i.size_snapshot || i.painting_id))
-                    const targetDims = firstArt?.size_snapshot || framingDimensions
-                    if (targetDims) {
-                      const parsed = parseLegacyDisplaySize(targetDims)
-                      if (parsed) {
-                        const outer = calculateSuggestedOuterSize(parsed.width, parsed.height, parsed.unit, newType)
-                        const price = calculateFramePrice(newType, parsed.width, parsed.height, parsed.unit)
-                        if (outer) setFramingDimensions(outer)
-                        if (price > 0) setFramingUnitPrice(price)
-                      }
-                    }
-                  }}
-                  options={[
-                    { value: 'Double-Bit frame (White)', label: 'Double-Bit frame (White)' },
-                    { value: 'Double-Bit frame (Black)', label: 'Double-Bit frame (Black)' },
-                    { value: 'Single-Bit frame (White)', label: 'Single-Bit frame (White)' },
-                    { value: 'Single-Bit frame (Black)', label: 'Single-Bit frame (Black)' },
-                    { value: 'Classic Wooden Box Frame', label: 'Classic Wooden Box Frame' },
-                    { value: 'Floating Canvas Frame (Black)', label: 'Floating Canvas Frame (Black)' },
-                    { value: 'Floating Canvas Frame (Natural Teak)', label: 'Floating Canvas Frame (Natural Teak)' },
-                    { value: 'Antique Gold Ornate Moulding', label: 'Antique Gold Ornate Moulding' },
-                    { value: 'Minimalist White Gallery Frame', label: 'Minimalist White Gallery Frame' },
-                    { value: 'Custom Frame (Specified Below)', label: 'Custom Frame (Specified Below)' },
-                  ]}
-                />
+                {(() => {
+                  // Find the selected painting from items to get its existing input frame options
+                  const selectedArtItem = items.find((i) => i.item_type === 'painting' && i.painting_id)
+                  const matchingPainting = selectedArtItem
+                    ? paintings.find((p) => p.id === selectedArtItem.painting_id)
+                    : null
+                  const existingFrames = matchingPainting?.frame_options || []
+
+                  // Create dynamic options list from existing inputs
+                  const dynamicOptions =
+                    existingFrames.length > 0
+                      ? existingFrames.map((f: any) => ({
+                          value: f.frame_name,
+                          label: `${f.frame_name} (${f.outer_size || 'Custom Size'} · ৳${Number(f.price_bdt || 0).toLocaleString('en-BD')})`,
+                        }))
+                      : [
+                          { value: 'Double-Bit frame (White)', label: 'Double-Bit frame (White)' },
+                          { value: 'Double-Bit frame (Black)', label: 'Double-Bit frame (Black)' },
+                          { value: 'Single-Bit frame (White)', label: 'Single-Bit frame (White)' },
+                          { value: 'Single-Bit frame (Black)', label: 'Single-Bit frame (Black)' },
+                          { value: 'Custom Frame (Specified Below)', label: 'Custom Frame (Specified Below)' },
+                        ]
+
+                  return (
+                    <CustomSelect
+                      value={framingType}
+                      onChange={(e) => {
+                        const newType = e.target.value
+                        setFramingType(newType)
+
+                        // 1. Check if the chosen frame matches an existing frame configured on this artwork
+                        const matchedExisting = existingFrames.find(
+                          (f: any) => f.frame_name.toLowerCase().trim() === newType.toLowerCase().trim()
+                        )
+                        if (matchedExisting) {
+                          if (matchedExisting.outer_size) setFramingDimensions(matchedExisting.outer_size)
+                          if (Number(matchedExisting.price_bdt) > 0) setFramingUnitPrice(Number(matchedExisting.price_bdt))
+                          return
+                        }
+
+                        // 2. Otherwise auto-calculate from artwork dimensions
+                        const targetDims = selectedArtItem?.size_snapshot || framingDimensions
+                        if (targetDims) {
+                          const parsed = parseLegacyDisplaySize(targetDims)
+                          if (parsed) {
+                            const outer = calculateSuggestedOuterSize(parsed.width, parsed.height, parsed.unit, newType)
+                            const price = calculateFramePrice(newType, parsed.width, parsed.height, parsed.unit)
+                            if (outer) setFramingDimensions(outer)
+                            if (price > 0) setFramingUnitPrice(price)
+                          }
+                        }
+                      }}
+                      options={dynamicOptions}
+                    />
+                  )
+                })()}
               </div>
 
               <div>
