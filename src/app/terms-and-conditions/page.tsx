@@ -23,21 +23,21 @@ export default function TermsAndConditionsPage() {
       number: '1',
       title: 'Product Inspection Upon Delivery',
       content:
-        'Customers are requested to carefully inspect their product in the presence of our delivery agent at the time of delivery. Please check the artwork, size, frame, and overall condition before confirming receipt.',
+        'Customers are requested to carefully inspect their product in the presence of our delivery agent at the time of delivery. Please check the artwork, dimensions, frame, and overall condition before confirming receipt.',
     },
     {
       id: 'returns-and-exchanges',
       number: '2',
       title: 'Returns and Exchanges',
       content:
-        'Once the product has been inspected and delivery is confirmed, returns or exchanges will not be accepted for change of mind, personal preference, or reasons unrelated to product defects or delivery damage, subject to applicable consumer protection laws.',
+        'Returns or exchanges for change of mind or personal preference may not be accepted once delivery is confirmed. This policy does not exclude applicable rights relating to defective, damaged, or incorrectly supplied products under applicable law.',
     },
     {
       id: 'damaged-defective-or-incorrect-products',
       number: '3',
       title: 'Damaged, Defective, or Incorrect Products',
       content:
-        'If you receive a damaged, defective, or incorrect product, notify our delivery agent immediately and contact Kazi Canvas Gallery as soon as possible. Retain the product and its packaging, and provide photographs or other evidence if requested. We will review the issue and determine an appropriate resolution in accordance with our applicable policies and consumer protection laws.',
+        'If a product arrives damaged, defective, or incorrect, please notify our delivery agent immediately and contact Kazi Canvas Gallery as soon as possible. Retain the product and its packaging, and provide photographs or other evidence if requested. We will review the issue and determine an appropriate resolution in accordance with applicable policies and consumer protection laws.',
     },
     {
       id: 'customised-orders',
@@ -51,28 +51,28 @@ export default function TermsAndConditionsPage() {
       number: '5',
       title: 'Delivery Confirmation',
       content:
-        'The customer or an authorised recipient should inspect the product and confirm receipt at the time of delivery. Any visible damage, incorrect item, or other concern should be reported promptly.',
+        'Customers or authorised recipients should inspect the product and confirm receipt at delivery. Any visible damage, incorrect item, or other concern should be reported promptly.',
     },
     {
       id: 'order-details',
       number: '6',
       title: 'Order Details',
       content:
-        'Customers are responsible for checking the selected artwork, dimensions, frame option, and other order details before confirming their purchase. Please contact our team if clarification is needed.',
+        'Customers are responsible for checking the selected artwork, dimensions, frame options, and other order details before confirming a purchase.',
     },
     {
       id: 'consumer-rights',
       number: '7',
       title: 'Consumer Rights',
       content:
-        'Nothing in these Terms & Conditions is intended to exclude or limit any rights customers may have under applicable consumer protection laws in Bangladesh.',
+        'Nothing in these Terms & Conditions is intended to exclude or limit rights available to customers under applicable consumer protection laws in Bangladesh.',
     },
     {
       id: 'acceptance-of-terms',
       number: '8',
       title: 'Acceptance of Terms',
       content:
-        'By placing an order with Kazi Canvas Gallery, customers acknowledge that they have had the opportunity to review these Terms & Conditions, subject to applicable laws and consumer rights.',
+        'By placing an order, customers acknowledge that they have had the opportunity to review these Terms & Conditions, subject to applicable laws and consumer rights.',
     },
     {
       id: 'policy-updates',
