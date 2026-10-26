@@ -58,6 +58,13 @@ h1, h2, h3, h4, h5, h6, p, span, a, button, input, select, textarea {
   font-stretch: normal !important;
 }
 
+/* Allow fixed-width tabular figures for timers and numbers */
+.timer-digits, .font-mono, [data-tabular-num] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+  font-variant-numeric: tabular-nums !important;
+  font-feature-settings: "tnum" 1 !important;
+}
+
 /* Prevent auto-zooming on mobile iOS Safari when focusing form inputs */
 @media screen and (max-width: 768px) {
   input, select, textarea {

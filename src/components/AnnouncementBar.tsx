@@ -75,31 +75,42 @@ export default function AnnouncementBar({ settings }: AnnouncementBarProps) {
       aria-label="Announcement"
       className="bg-[#18181B] text-white border-b border-gray-800 relative z-50 text-xs shadow-2xs"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 sm:py-2.5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-center">
-        
-        {/* Badge & Text */}
-        <div className="flex items-center gap-2 flex-wrap justify-center">
-          {settings.highlight_badge && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-sm bg-[#DC2626] text-white font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-wider shadow-2xs">
-              {settings.highlight_badge}
-            </span>
-          )}
-          <span className="text-gray-200 font-light tracking-wide text-xs">
-            {settings.text}
-          </span>
-        </div>
-
-        {/* Live Timer (if enabled and not expired) */}
-        {isTimerActive && timeLeft && (
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-white/10 border border-white/10 text-white font-mono text-[11px]">
-            <Clock className="h-3 w-3 text-red-400" />
-            <span className="font-semibold">
-              {timeLeft.days > 0 && `${timeLeft.days}d `}
-              {String(timeLeft.hours).padStart(2, '0')}h : {String(timeLeft.minutes).padStart(2, '0')}m : {String(timeLeft.seconds).padStart(2, '0')}s
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 sm:py-2.5">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-4">
+          
+          {/* Main Announcement Message Container (Center / Left on Desktop) */}
+          <div className="flex-1 flex items-center justify-center sm:justify-start lg:justify-center gap-2 flex-wrap text-center sm:text-left lg:text-center min-w-0">
+            {settings.highlight_badge && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-sm bg-[#DC2626] text-white font-mono text-[9px] sm:text-[10px] font-bold uppercase tracking-wider shadow-2xs flex-shrink-0">
+                {settings.highlight_badge}
+              </span>
+            )}
+            <span className="text-gray-200 font-light tracking-wide text-xs truncate-none">
+              {settings.text}
             </span>
           </div>
-        )}
 
+          {/* Dedicated Right Timer Container (Fixed width & tabular numbers to prevent text shifting/jitter) */}
+          {isTimerActive && timeLeft && (
+            <div className="flex-shrink-0 flex items-center justify-center sm:justify-end">
+              <div
+                className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-md bg-white/10 border border-white/10 text-white font-mono text-[11px] tabular-nums select-none whitespace-nowrap min-w-[155px] sm:min-w-[170px]"
+                aria-label="Countdown timer"
+              >
+                <Clock className="h-3 w-3 text-red-400 flex-shrink-0" />
+                <span className="font-semibold tracking-wider font-mono timer-digits">
+                  {timeLeft.days > 0 && <span>{timeLeft.days}d </span>}
+                  <span className="inline-block w-[2.2ch] text-center font-mono">{String(timeLeft.hours).padStart(2, '0')}h</span>
+                  <span className="mx-0.5 text-gray-400">:</span>
+                  <span className="inline-block w-[2.2ch] text-center font-mono">{String(timeLeft.minutes).padStart(2, '0')}m</span>
+                  <span className="mx-0.5 text-gray-400">:</span>
+                  <span className="inline-block w-[2.2ch] text-center font-mono">{String(timeLeft.seconds).padStart(2, '0')}s</span>
+                </span>
+              </div>
+            </div>
+          )}
+
+        </div>
       </div>
     </aside>
   )
