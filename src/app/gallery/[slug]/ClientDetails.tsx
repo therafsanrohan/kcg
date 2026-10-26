@@ -690,15 +690,8 @@ export default function ClientDetails({
             Original one-of-one physical artwork &bull; Direct consultation &bull; Secure shipment
           </div>
 
-          <p className="mt-4 text-center text-xs text-gray-500 font-light leading-relaxed max-w-md mx-auto">
-            Your privacy matters to us. We do not sell your personal information. Before placing your order, please review our{' '}
-            <Link
-              href="/privacy-policy"
-              className="font-medium text-gray-800 hover:text-black underline underline-offset-4 transition-colors"
-            >
-              Privacy Policy
-            </Link>{' '}
-            and{' '}
+          <p className="mt-4 text-center text-xs text-gray-500 font-light leading-relaxed">
+            Before placing your order, please review our{' '}
             <Link
               href="/terms-and-conditions"
               className="font-medium text-gray-800 hover:text-black underline underline-offset-4 transition-colors"

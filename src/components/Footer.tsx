@@ -34,10 +34,10 @@ export default function Footer({ whatsappNumber }: { whatsappNumber?: string }) 
               Contact
             </Link>
             <Link href="/terms-and-conditions" className="hover:text-black transition-colors">
-              Terms &amp; Conditions
+              Terms
             </Link>
             <Link href="/privacy-policy" className="hover:text-black transition-colors">
-              Privacy Policy
+              Privacy
             </Link>
           </div>
           {whatsappNumber && (

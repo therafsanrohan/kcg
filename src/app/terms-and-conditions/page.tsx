@@ -141,8 +141,25 @@ export default function TermsAndConditionsPage() {
           ))}
         </div>
 
+        {/* ── Privacy Policy Secondary CTA ── */}
+        <div className="mt-12 p-6 sm:p-7 rounded-2xl bg-white/60 border border-gray-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="text-sm sm:text-base font-medium text-gray-950 tracking-tight">Your privacy matters.</h3>
+            <p className="text-xs sm:text-sm text-gray-600 font-light leading-relaxed">
+              Learn how Kazi Canvas Gallery handles and protects your personal information.
+            </p>
+          </div>
+          <Link
+            href="/privacy-policy"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-gray-900 hover:text-black underline underline-offset-4 transition-colors flex-shrink-0"
+          >
+            <span>Read our Privacy Policy</span>
+            <ArrowRight className="h-3.5 w-3.5 stroke-[2]" />
+          </Link>
+        </div>
+
         {/* ── Inquiries & Contact CTA ── */}
-        <div className="mt-16 p-8 sm:p-10 rounded-2xl bg-[#1A1A1A] text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 shadow-sm">
+        <div className="mt-8 p-8 sm:p-10 rounded-2xl bg-[#1A1A1A] text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 shadow-sm">
           <div className="space-y-2">
             <h3 className="text-lg font-medium tracking-tight">Have any questions about an artwork?</h3>
             <p className="text-sm text-gray-300 font-light max-w-xl">
