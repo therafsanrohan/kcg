@@ -16,6 +16,7 @@ import {
   isSingleBitFrame,
 } from '@/utils/measurements'
 import Image from 'next/image'
+import Link from 'next/link'
 import { getPaintingImageUrl, getResponsiveSrcSet } from '@/utils/image'
 import { Truck, ShieldCheck, ShoppingBag, Ruler, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import ArtworkFramePreview from '@/components/admin/ArtworkFramePreview'
@@ -688,6 +689,17 @@ export default function ClientDetails({
             <ShieldCheck className="h-3.5 w-3.5 text-gray-400" />
             Original one-of-one physical artwork &bull; Direct consultation &bull; Secure shipment
           </div>
+
+          <p className="mt-4 text-center text-xs text-gray-500 font-light leading-relaxed">
+            Before placing your order, please review our{' '}
+            <Link
+              href="/terms-and-conditions"
+              className="font-medium text-gray-800 hover:text-black underline underline-offset-4 transition-colors"
+            >
+              Terms &amp; Conditions
+            </Link>{' '}
+            for information about delivery inspection, returns, and exchanges.
+          </p>
         </div>
       </div>
     </div>

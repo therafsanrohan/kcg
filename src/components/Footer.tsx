@@ -33,6 +33,9 @@ export default function Footer({ whatsappNumber }: { whatsappNumber?: string }) 
             <Link href="/#contact" className="hover:text-black transition-colors">
               Contact
             </Link>
+            <Link href="/terms-and-conditions" className="hover:text-black transition-colors">
+              Terms &amp; Conditions
+            </Link>
           </div>
           {whatsappNumber && (
             <a
