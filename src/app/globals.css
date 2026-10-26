@@ -34,6 +34,8 @@ html, body {
   letter-spacing: normal;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 /* Subtle organic gallery canvas / paper grain overlay */

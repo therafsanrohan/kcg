@@ -17,7 +17,7 @@ export default function Footer({ whatsappNumber }: { whatsappNumber?: string }) 
     <footer className="bg-[#FAF9F5] border-t border-gray-200/80 mt-20 sm:mt-24 py-10 sm:py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-gray-200/60 pb-6 text-xs">
-          <div className="flex items-center gap-6 text-gray-600 font-medium tracking-wide">
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-5 sm:gap-x-6 gap-y-2.5 text-gray-600 font-medium tracking-wide text-center sm:text-left">
             <Link href="/" className="hover:text-black transition-colors">
               Home
             </Link>
@@ -33,10 +33,10 @@ export default function Footer({ whatsappNumber }: { whatsappNumber?: string }) 
             <Link href="/#contact" className="hover:text-black transition-colors">
               Contact
             </Link>
-            <Link href="/terms-and-conditions" className="hover:text-black transition-colors">
+            <Link href="/terms-and-conditions" className="hover:text-black transition-colors whitespace-nowrap">
               Terms
             </Link>
-            <Link href="/privacy-policy" className="hover:text-black transition-colors">
+            <Link href="/privacy-policy" className="hover:text-black transition-colors whitespace-nowrap">
               Privacy
             </Link>
           </div>
