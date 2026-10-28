@@ -15,13 +15,31 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://kazicanvasgallery.com'),
   title: "Kazi Canvas Gallery | Original Handmade Canvas Art",
   description: "Discover original, breathtaking oil and acrylic paintings crafted by Kazi Canvas Gallery. Elevate your living and work space with authentic, timeless art directly from the artist.",
   keywords: ["art gallery", "canvas painting", "oil painting", "acrylic art", "dhaka art", "bangladesh art gallery", "fine art"],
   openGraph: {
     title: "Kazi Canvas Gallery | Original Handmade Canvas Art",
-    description: "Discover original, breathtaking oil and acrylic paintings crafted by Kazi Canvas Gallery.",
+    description: "Discover original, breathtaking oil and acrylic paintings crafted by Kazi Canvas Gallery. Elevate your living and work space with authentic, timeless art directly from the artist.",
+    url: "https://kazicanvasgallery.com",
+    siteName: "Kazi Canvas Gallery",
     type: "website",
+    locale: "en_US",
+    images: [
+      {
+        url: "https://jndcunflcastmtqmqyvx.supabase.co/storage/v1/object/public/paintings_optimized/new/1793190853702_asa58s_1600w.webp",
+        width: 1200,
+        height: 630,
+        alt: "Kazi Canvas Gallery - Original Handmade Canvas Art",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Kazi Canvas Gallery | Original Handmade Canvas Art",
+    description: "Discover original, breathtaking oil and acrylic paintings crafted by Kazi Canvas Gallery.",
+    images: ["https://jndcunflcastmtqmqyvx.supabase.co/storage/v1/object/public/paintings_optimized/new/1793190853702_asa58s_1600w.webp"],
   },
 };
 
